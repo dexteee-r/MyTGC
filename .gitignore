@@ -1,0 +1,35 @@
+# --- Data (never committed: large, regenerable, and card art is third-party copyright) ---
+backend/data/punk-records/
+backend/data/images/
+backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- Capacitor native builds ---
+android/app/build/
+android/.gradle/
+ios/App/Pods/
+
+# --- Env & editors ---
+.env
+.env.*
+!.env.example
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
