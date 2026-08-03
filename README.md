@@ -155,6 +155,39 @@ printing of a card. Language accuracy is 100% on a pristine render but falls to 
 the combined phone-photo profile. **The scan UI must let the user pick the language** — as
 the reference app does — rather than guessing it.
 
+### Detection and deskew
+
+`app/detection.py` finds the card's quadrilateral and rectifies it to the same 600x838
+framing as the cached catalogue images, so the art crop lands on the same region for a
+photo as it did for the reference. Candidates are *scored* rather than taken largest-first
+— shape, centrality, size, rectangularity — because on a play mat the distractors are other
+cards, which are card-shaped by definition. Both 180-degree orientations are hashed, since
+geometry cannot tell which way up a card was photographed.
+
+`composite_eval.py` runs the whole chain against synthetic scenes and, because it generates
+the card's placement, measures **framing error against ground truth** rather than inferring
+it. Over 80 cards per condition:
+
+| Scene | detected | correct | framing error |
+|---|---|---|---|
+| flat, plain bg | 96.2% | 77.5% | 0.3% |
+| flat, wood bg | 97.5% | 87.5% | 0.1% |
+| slight angle | 96.2% | 86.2% | 0.1% |
+| strong angle | 96.2% | 76.2% | 0.8% |
+| **cluttered bg** | 93.8% | **41.2%** | **6.2%** |
+| dim / high ISO | 100.0% | 100.0% | 0.1% |
+| glare on card | 97.5% | 83.8% | 0.1% |
+| upside down | 97.5% | 83.8% | 0.3% |
+
+The cluttered row is not a detection failure — the card is found 93.8% of the time. It is a
+*precision* failure: objects abutting the card bleed into its contour, the quadrilateral
+comes out 6.2% too large, and `synthetic_eval.py` already established that a 5% framing
+error costs everything. The two harnesses agree quantitatively, which is the main reason to
+trust either.
+
+Everything else stays under 1% framing error, and the low-light case is the best of all —
+noise does not move a hash.
+
 ### This is not the step-5 gate
 
 Synthetic degradation does not reproduce a phone sensor, glare on a sleeve, a warped card

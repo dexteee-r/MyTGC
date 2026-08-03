@@ -9,7 +9,7 @@ Pillow>=12.3
 ImageHash>=4.3.2          # pulls numpy, scipy, PyWavelets
 
 # Build step 4 — card detection / deskew
-# opencv-python-headless>=4.12   # uncomment at step 4, verify a cp314 wheel exists
+opencv-python-headless>=5.0        # ships a cp37-abi3 wheel, works on 3.14
 
 # Build step 6 — API (added when the step-5 recognition gate is cleared)
 # fastapi
