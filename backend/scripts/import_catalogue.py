@@ -25,6 +25,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app import db
 from app.config import DB_PATH, LANGUAGES, PUNK_RECORDS_DIR
 
+# The report prints Japanese pack names. A Windows console defaults to cp1252 and
+# raises UnicodeEncodeError on them, so force UTF-8 rather than relying on the
+# caller to set PYTHONIOENCODING.
+for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8", errors="replace")
+
 # Enum values PROJECT_CONTEXT.md section 4 declares. Anything outside these is
 # reported rather than silently accepted, so a new set introducing a new rarity
 # surfaces at import time instead of breaking a filter in the UI.
