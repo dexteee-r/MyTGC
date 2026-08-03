@@ -104,6 +104,63 @@ This is the weak point PROJECT_CONTEXT.md section 9 anticipated. The resolution 
 better hash — the images are genuinely identical — but surfacing the candidates for manual
 selection, or collapsing them into one collection entry. Decide at step 5.
 
+## Build step 4 — recognition (partial: no real photographs yet)
+
+```bash
+py backend/scripts/analyze_separability.py     # how far apart the catalogue already is
+py backend/scripts/synthetic_eval.py           # how far capture noise moves a hash
+py backend/scripts/identify.py photo.jpg       # the matcher itself
+```
+
+`identify.py` expects an image already framed on the card. Detection and deskew from a
+wider photo is the remaining piece, deliberately left until there are real photographs to
+test it against.
+
+### Results grouped by card number, not by row
+
+`analyze_separability.py` established that near neighbours are essentially never different
+cards. Up to 32 bits of separation there is **zero** cross-card confusion in either locale;
+every close pair is another printing of the same card number. The nearest genuinely
+different card sits at 36 (JP) / 38 (EN) bits minimum, median 60.
+
+So `recognition.Catalogue.identify()` returns candidates keyed by card number, each listing
+the printings that matched. When several printings tie, the answer is not wrong — the
+images are identical and so is the printed code, so OCR cannot break the tie either. Ask
+the user, or collapse them into one collection entry.
+
+### What actually degrades recognition
+
+From `synthetic_eval.py` over 150 cards and 18 degradations, card-number accuracy:
+
+| Degradation | drift median | card number correct |
+|---|---|---|
+| blur, JPEG, noise, contrast, white balance | 0-6 | 100% |
+| rotate 1-3 deg | 10-24 | 100% |
+| reframe 1-2% | 16-32 | 100% |
+| combined "phone photo" | 30 | 100% |
+| rotate 5 deg | 40 | 96.7% |
+| reframe 5% | 76 | **2%** |
+
+Two conclusions. **Geometry dominates**: photometric noise barely moves the hash, framing
+error destroys it, so detection/deskew accuracy is the engineering priority rather than
+hash tuning. And **drift alone does not predict failure**: a real degradation pushes the
+query away from every card at once, so the true match keeps its rank. Confidence therefore
+comes from the margin to the runner-up card number, not from an absolute distance —
+`DEFAULT_MAX_DISTANCE` is loose on purpose.
+
+### Language cannot be inferred from the artwork
+
+The art crop excludes all text, and text is the only difference between the EN and JP
+printing of a card. Language accuracy is 100% on a pristine render but falls to ~75% under
+the combined phone-photo profile. **The scan UI must let the user pick the language** — as
+the reference app does — rather than guessing it.
+
+### This is not the step-5 gate
+
+Synthetic degradation does not reproduce a phone sensor, glare on a sleeve, a warped card
+or uneven lighting. These numbers give a provisional threshold and say which capture
+conditions to target; they do not clear the gate.
+
 ## Build order
 
 Per `PROJECT_CONTEXT.md` section 7. Step 5 is a hard go/no-go gate: no backend or UI work
@@ -112,8 +169,9 @@ before the recognition rate is measured and accepted.
 1. Import catalogue — done
 2. Audit JP data quality — done (runs as part of the import)
 3. Precompute R/G/B pHashes — done (9,447 images cached, 9,447 hashed)
-4. Prototype recognition as a standalone CLI
-5. Calibrate and measure — **gate**
+4. Prototype recognition as a standalone CLI — matcher done; detection/deskew pending
+   real photographs
+5. Calibrate and measure — **gate**, blocked on a real photo set
 6. FastAPI backend
 7. Frontend
 8. Capacitor packaging

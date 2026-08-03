@@ -38,11 +38,18 @@ def load_card_image(path, region: str = "full") -> Image.Image:
     is arbitrary and could differ between Pillow versions. Compositing over an
     explicit white background instead keeps the hash reproducible.
     """
-    img = Image.open(path)
+    return crop_region(normalize(Image.open(path)), region)
+
+
+def normalize(img: Image.Image) -> Image.Image:
+    """Flatten an image to RGB over an explicit white background."""
     if img.mode in ("RGBA", "LA") or "transparency" in img.info:
         background = Image.new("RGBA", img.size, (255, 255, 255, 255))
         img = Image.alpha_composite(background, img.convert("RGBA"))
-    img = img.convert("RGB")
+    return img.convert("RGB")
+
+
+def crop_region(img: Image.Image, region: str = "full") -> Image.Image:
     if region == "art":
         w, h = img.size
         left, top, right, bottom = ART_BOX
