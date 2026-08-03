@@ -1,9 +1,7 @@
 # --- Data (never committed: large, regenerable, and card art is third-party copyright) ---
-backend/data/punk-records/
-backend/data/images/
-backend/data/*.db
-backend/data/*.db-wal
-backend/data/*.db-shm
+# The whole directory is excluded rather than known filenames, so a diagnostic dropped
+# there later cannot slip into a commit. Nothing in it is source.
+backend/data/
 
 # --- Python ---
 __pycache__/
