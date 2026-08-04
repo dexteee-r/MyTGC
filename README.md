@@ -199,6 +199,28 @@ Synthetic degradation does not reproduce a phone sensor, glare on a sleeve, a wa
 or uneven lighting. These numbers give a provisional threshold and say which capture
 conditions to target; they do not clear the gate.
 
+## Build step 6 — API (without /scan)
+
+```bash
+.venv/Scripts/python -m uvicorn --app-dir backend app.main:app --reload
+```
+
+Interactive docs at `/docs`. Endpoints: `/cards` (search with name, set, rarity, category,
+colour and owned filters), `/cards/{id}`, `/packs`, `/collection` (list, add, patch,
+delete), `/collection/stats`, `/images/{lang}/{file}`, `/health`.
+
+**`/scan` is deliberately absent.** The step-5 gate guards the recognition pipeline, and
+nothing else in the API depends on it — catalogue browsing, search and collection
+management work regardless. Stubbing `/scan` would let a frontend be built against a
+pipeline nobody has measured, which is what the gate exists to prevent. `/health` reports
+`scan_enabled: false` so the client can hide the feature rather than discover it missing.
+
+Two things worth knowing about the implementation: connections are opened per request,
+because SQLite refuses a connection created in another thread and FastAPI runs sync routes
+in a worker pool; and the collection endpoints look the card up in a second query instead
+of joining, because a `SELECT col.*, c.*` makes both tables contribute an `id` and
+`sqlite3.Row` silently resolves it to the wrong one.
+
 ## Build order
 
 Per `PROJECT_CONTEXT.md` section 7. Step 5 is a hard go/no-go gate: no backend or UI work
@@ -209,7 +231,8 @@ before the recognition rate is measured and accepted.
 3. Precompute R/G/B pHashes — done (9,447 images cached, 9,447 hashed)
 4. Prototype recognition as a standalone CLI — matcher done; detection/deskew pending
    real photographs
-5. Calibrate and measure — **gate**, blocked on a real photo set
-6. FastAPI backend
+5. Calibrate and measure — **gate**, blocked: the user owns no physical cards
+   (scan work is paused; everything below is scan-independent)
+6. FastAPI backend — done, minus /scan
 7. Frontend
 8. Capacitor packaging

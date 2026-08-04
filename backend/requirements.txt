@@ -11,7 +11,7 @@ ImageHash>=4.3.2          # pulls numpy, scipy, PyWavelets
 # Build step 4 — card detection / deskew
 opencv-python-headless>=5.0        # ships a cp37-abi3 wheel, works on 3.14
 
-# Build step 6 — API (added when the step-5 recognition gate is cleared)
-# fastapi
-# uvicorn[standard]
-# python-multipart
+# Build step 6 — API
+fastapi>=0.141
+uvicorn[standard]>=0.52
+# python-multipart                 # only needed once /scan exists
