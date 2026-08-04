@@ -185,6 +185,11 @@ comes out 6.2% too large, and `synthetic_eval.py` already established that a 5% 
 error costs everything. The two harnesses agree quantitatively, which is the main reason to
 trust either.
 
+**Scoped out (decided 2026-08-04):** scanning a card that sits among other cards is not
+supported. The scan screen must show a guide frame and expect one card isolated on a clear
+surface. Do not spend effort on contour refinement for cluttered scenes; the cluttered row
+above is kept as a documented limit, not a bug to fix.
+
 Everything else stays under 1% framing error, and the low-light case is the best of all —
 noise does not move a hash.
 
