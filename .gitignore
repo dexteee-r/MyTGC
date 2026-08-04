@@ -19,9 +19,14 @@ dist-ssr/
 *.local
 
 # --- Capacitor native builds ---
-android/app/build/
-android/.gradle/
-ios/App/Pods/
+# The native projects live under frontend/, where `npx cap add` puts them.
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/app/src/main/assets/public/
+frontend/android/app/src/main/assets/capacitor.config.json
+frontend/ios/App/Pods/
 
 # --- Env & editors ---
 .env
@@ -35,3 +40,4 @@ ios/App/Pods/
 # --- Frontend build output ---
 frontend/dist/
 frontend/node_modules/
+.env.production

@@ -45,8 +45,11 @@ app = FastAPI(title="MyTGC", version="0.1.0", lifespan=lifespan)
 # frontend from a different origin, so it needs to be allowed explicitly.
 app.add_middleware(
     CORSMiddleware,
+    # capacitor:// and http://localhost are what the Android and iOS shells send as
+    # Origin; the Vite dev server is same-origin via its proxy but is listed for the
+    # case where VITE_API_BASE is pointed straight at the API.
     allow_origins=["http://localhost:5173", "capacitor://localhost",
-                   "http://localhost"],
+                   "http://localhost", "https://localhost"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

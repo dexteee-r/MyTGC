@@ -249,6 +249,39 @@ toggles, and a designed empty state on every list. Page titles use an old-style 
 than the reference's blackletter, which would mean bundling a licensed font file — swap
 `--font-display` in `index.css` if one is chosen.
 
+## Build step 8 — Capacitor / Android
+
+```bash
+cp frontend/.env.example frontend/.env.production   # point VITE_API_BASE at a reachable API
+npm run build --prefix frontend && npx --prefix frontend cap sync android
+```
+
+Then open `frontend/android` in Android Studio, or build from the command line:
+
+```bash
+JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" ANDROID_HOME="$LOCALAPPDATA/Android/Sdk" frontend/android/gradlew.bat -p frontend/android assembleDebug
+```
+
+Produces `frontend/android/app/build/outputs/apk/debug/app-debug.apk` (~7.9 MB). The system
+JDK is 1.8, which Gradle 8 rejects; Android Studio's bundled JBR 21 is used instead.
+
+`appId` is `be.elmzn.mytgc`, per PROJECT_CONTEXT.md section 1.
+
+### Reaching the API from the device
+
+There is no Vite proxy in a native build, so `VITE_API_BASE` must be an absolute URL the
+phone can reach — `http://10.0.2.2:8000` from the emulator, the machine's LAN IP from a real
+device, or the Cloudflare Tunnel host. Whatever is used must also be in the CORS allow list
+in `backend/app/main.py`.
+
+Android 9+ blocks cleartext HTTP, so `app/src/debug/` carries a network security config that
+permits it for `10.0.2.2`, `localhost` and `127.0.0.1` only. Release builds do not include
+that source set and stay HTTPS-only, which is what the tunnel serves. Add your LAN IP to
+that file to test from a physical phone.
+
+iOS is not set up: it needs macOS, so per PROJECT_CONTEXT.md section 9 it goes through
+GitHub Actions on `macos-latest` rather than being built here.
+
 ## Build order
 
 Per `PROJECT_CONTEXT.md` section 7. Step 5 is a hard go/no-go gate: no backend or UI work
@@ -263,4 +296,4 @@ before the recognition rate is measured and accepted.
    (scan work is paused; everything below is scan-independent)
 6. FastAPI backend — done, minus /scan
 7. Frontend — done, minus the Scanner tab
-8. Capacitor packaging
+8. Capacitor packaging — Android done (debug APK builds); iOS deferred to CI on macOS
