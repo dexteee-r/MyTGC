@@ -1,0 +1,102 @@
+import type {
+  Card,
+  CardPage,
+  CollectionEntry,
+  CollectionStats,
+  Condition,
+  Health,
+  Language,
+  Pack,
+} from './types'
+
+/* In dev, Vite proxies /api to the local uvicorn. In a Capacitor build there is no
+   proxy, so VITE_API_BASE must point at the tunnelled backend. */
+export const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
+
+export function imageUrl(card: Pick<Card, 'image_url'>): string | null {
+  return card.image_url ? `${API_BASE}${card.image_url}` : null
+}
+
+// Written out rather than using constructor parameter properties: tsconfig sets
+// erasableSyntaxOnly, so TypeScript-only syntax that emits runtime code is rejected.
+class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    ...init,
+  })
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new ApiError(response.status, detail || response.statusText)
+  }
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
+}
+
+export interface CardQuery {
+  q?: string
+  language?: Language
+  pack_code?: string
+  rarity?: string
+  category?: string
+  color?: string
+  owned?: boolean
+  offset?: number
+  limit?: number
+}
+
+export const api = {
+  health: () => request<Health>('/health'),
+
+  cards(query: CardQuery = {}) {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params.set(key, String(value))
+    }
+    return request<CardPage>(`/cards?${params}`)
+  },
+
+  card: (id: string, language: Language) =>
+    request<Card>(`/cards/${encodeURIComponent(id)}?language=${language}`),
+
+  packs: (language?: Language) =>
+    request<Pack[]>(`/packs${language ? `?language=${language}` : ''}`),
+
+  collection: (language?: Language) =>
+    request<CollectionEntry[]>(
+      `/collection${language ? `?language=${language}` : ''}`,
+    ),
+
+  collectionStats: () => request<CollectionStats>('/collection/stats'),
+
+  addToCollection: (body: {
+    card_id: string
+    language: Language
+    quantity?: number
+    condition?: Condition | null
+    acquisition_price?: number | null
+  }) =>
+    request<CollectionEntry>('/collection', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateCollection: (
+    id: number,
+    body: { quantity?: number; condition?: Condition | null; acquisition_price?: number | null },
+  ) =>
+    request<CollectionEntry>(`/collection/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  removeFromCollection: (id: number) =>
+    request<void>(`/collection/${id}`, { method: 'DELETE' }),
+}

@@ -221,6 +221,34 @@ in a worker pool; and the collection endpoints look the card up in a second quer
 of joining, because a `SELECT col.*, c.*` makes both tables contribute an `id` and
 `sqlite3.Row` silently resolves it to the wrong one.
 
+## Build step 7 — frontend
+
+```bash
+.venv/Scripts/python -m uvicorn --app-dir backend app.main:app   # port 8000
+npm run dev --prefix frontend                                    # port 5173
+```
+
+Vite proxies `/api` to the backend in dev, so there is one origin and no CORS. A Capacitor
+build has no proxy and must set `VITE_API_BASE`.
+
+React + TypeScript + Vite + Tailwind 4, extracted from the scaffold that was sitting at the
+workspace root; its `appId` was `be.elmzn.onepiecetracker` and is corrected to
+`be.elmzn.mytgc`. `android/` was dropped and will be regenerated at step 8.
+
+Four tabs: Accueil, Extensions, Recherche, Collection. **No Scanner tab** — recognition is
+paused and `/health` reports `scan_enabled: false`, which the home screen surfaces as a
+notice rather than a broken button. No Decks tab either: out of scope per
+PROJECT_CONTEXT.md section 8, despite the reference app having one.
+
+The catalogue grid is windowed with `@tanstack/react-virtual` (row-level). PROJECT_CONTEXT.md
+named `react-virtualize`, which does not exist on npm.
+
+Visual language is taken from the reference screenshots: warm off-white ground, white
+surfaces, crimson for actions, gold for progress and value, floating pill tab bar, segmented
+toggles, and a designed empty state on every list. Page titles use an old-style serif rather
+than the reference's blackletter, which would mean bundling a licensed font file — swap
+`--font-display` in `index.css` if one is chosen.
+
 ## Build order
 
 Per `PROJECT_CONTEXT.md` section 7. Step 5 is a hard go/no-go gate: no backend or UI work
@@ -234,5 +262,5 @@ before the recognition rate is measured and accepted.
 5. Calibrate and measure — **gate**, blocked: the user owns no physical cards
    (scan work is paused; everything below is scan-independent)
 6. FastAPI backend — done, minus /scan
-7. Frontend
+7. Frontend — done, minus the Scanner tab
 8. Capacitor packaging

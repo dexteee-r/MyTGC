@@ -53,6 +53,9 @@ SHARED_FIELDS = ("cost", "power", "counter", "category", "colors")
 # through with title_parts.label == null; matching both widths repairs it.
 PACK_CODE_RE = re.compile(r"[\[【]\s*([A-Z0-9]{2,4}-[A-Z0-9]{2,4})\s*[\]】]")
 
+# Line breaks in effect and trigger text arrive as literal HTML tags.
+BREAK_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+
 
 # --------------------------------------------------------------------------- load
 
@@ -91,12 +94,16 @@ def load_packs(lang_dir: Path) -> dict[str, dict[str, str | None]]:
 
 
 def normalise(card: dict) -> dict:
-    """Decode HTML entities. punk-records scrapes the official site, which serves
-    `&amp;` inside card names ('Shachi &amp; Penguin')."""
+    """Strip the HTML that leaks out of the scrape.
+
+    punk-records reads the official card list, which serves `&amp;` inside card names
+    ('Shachi &amp; Penguin') and `<br>` inside effect text. Both are markup, not
+    content, so they are resolved once at import rather than in every consumer.
+    """
     out = dict(card)
     for field in TEXT_FIELDS:
         if isinstance(out.get(field), str):
-            out[field] = html.unescape(out[field])
+            out[field] = html.unescape(BREAK_RE.sub("\n", out[field])).strip()
     for field in LIST_FIELDS:
         if isinstance(out.get(field), list):
             out[field] = [html.unescape(v) if isinstance(v, str) else v for v in out[field]]

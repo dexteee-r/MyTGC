@@ -31,3 +31,7 @@ ios/App/Pods/
 !.vscode/extensions.json
 .idea/
 .DS_Store
+
+# --- Frontend build output ---
+frontend/dist/
+frontend/node_modules/
