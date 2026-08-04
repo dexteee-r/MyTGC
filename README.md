@@ -292,7 +292,7 @@ before the recognition rate is measured and accepted.
 3. Precompute R/G/B pHashes — done (9,447 images cached, 9,447 hashed)
 4. Prototype recognition as a standalone CLI — matcher done; detection/deskew pending
    real photographs
-5. Calibrate and measure — **gate**, blocked: the user owns no physical cards
+5. Calibrate and measure — **gate**, awaiting photographs in `backend/data/photos/`
    (scan work is paused; everything below is scan-independent)
 6. FastAPI backend — done, minus /scan
 7. Frontend — done, minus the Scanner tab
