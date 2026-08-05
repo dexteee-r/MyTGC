@@ -193,7 +193,63 @@ above is kept as a documented limit, not a bug to fix.
 Everything else stays under 1% framing error, and the low-light case is the best of all —
 noise does not move a hash.
 
-### This is not the step-5 gate
+## Build step 5 — the gate: PASSED
+
+Measured on 24 photographs of real Japanese cards, shot in a binder and on fabric, with
+glare, at angles, several sideways.
+
+```bash
+py backend/scripts/gate_eval.py            # the rate
+py backend/scripts/calibrate_threshold.py  # the threshold
+```
+
+| | |
+|---|---|
+| card detected | **24/24 (100%)** |
+| card number correct | **18/24 (75%)** |
+| distinct cards identified by at least one shot | **15/19 (79%)** |
+| wrong answers shown to the user | **0** |
+
+75% would be a poor result on its own. What makes it a pass is that the two populations
+separate completely:
+
+| | distance |
+|---|---|
+| correct identifications | 14 – 50 |
+| wrong identifications | 58 – 62 |
+
+Nothing lands in between. `DEFAULT_MAX_DISTANCE = 52` therefore keeps **every** correct
+answer and rejects **every** wrong one. The 6 misses fall through to manual search, which
+PROJECT_CONTEXT.md section 3 already designs as the third stage. That asymmetry is the
+whole point: a miss routed to search costs seconds, while a miss presented confidently
+puts the wrong card in the collection silently.
+
+### What the 6 failures were, and were not
+
+Two hypotheses were tested and both rejected by measurement rather than argument:
+
+- **Aspect tolerance too loose** — sweeping it from 0.22 down to 0.06 never improved
+  accuracy beyond 18/24 and cost detections. Left at 0.22.
+- **Wrong orientation** — trying all four 90-degree rotations left the failures at
+  distance 60-88 from their true card. Orientation was not the problem.
+
+They are simply poor captures: a card cut off by the frame edge, a crop landing inside the
+artwork, heavy glare. The evidence is that where the same card was shot more than once, a
+second shot succeeded — OP15-038 failed on one of three, OP10-004 on one of two. A live
+camera feed retries continuously, like a barcode scanner, so this matters less in the app
+than in a fixed set of stills.
+
+Print-versus-render colour drift, the unknown this measurement existed to expose, did not
+show up as a systematic offset. Good captures land at distance 14-50, in the same range the
+synthetic harness predicted.
+
+### Language still cannot be inferred
+
+10/18 correct, in line with the synthetic prediction. The art crop excludes all text, which
+is the only difference between the EN and JP printing. Confirmed: the user picks the
+edition, the scanner does not guess it.
+
+### The synthetic harnesses, in hindsight
 
 Synthetic degradation does not reproduce a phone sensor, glare on a sleeve, a warped card
 or uneven lighting. These numbers give a provisional threshold and say which capture
@@ -290,9 +346,9 @@ before the recognition rate is measured and accepted.
 1. Import catalogue — done
 2. Audit JP data quality — done (runs as part of the import)
 3. Precompute R/G/B pHashes — done (9,447 images cached, 9,447 hashed)
-4. Prototype recognition as a standalone CLI — matcher done; detection/deskew pending
-   real photographs
-5. Calibrate and measure — **gate**, awaiting photographs in `backend/data/photos/`
+4. Prototype recognition as a standalone CLI — done
+
+5. Calibrate and measure — **gate PASSED**: 75% correct, 0 wrong answers at threshold 52
    (scan work is paused; everything below is scan-independent)
 6. FastAPI backend — done, minus /scan
 7. Frontend — done, minus the Scanner tab

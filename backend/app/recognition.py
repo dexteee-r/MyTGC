@@ -16,16 +16,19 @@ import numpy as np
 
 from app import hashing
 
-# Distance beyond which a result is not offered at all, out of 192.
+# Distance beyond which no result is offered and the user is sent to manual search.
 #
-# Deliberately loose. An earlier value of 24 came from the separability bound, which
-# assumes the query drifts towards a rival card; synthetic_eval.py shows a realistic
-# capture drifts 30-45 bits away from EVERY card at once while still ranking its own
-# first, so a tight cutoff would reject correct matches. Confidence comes from the
-# margin to the runner-up, not from an absolute distance.
+# Calibrated at the step-5 gate on 24 photographs of real cards
+# (scripts/calibrate_threshold.py). The two populations separate cleanly:
 #
-# Provisional until real photographs are measured at the step-5 gate.
-DEFAULT_MAX_DISTANCE = 64
+#     correct identifications   distance 14-50
+#     wrong identifications     distance 58-62
+#
+# Nothing lands in between, so 52 keeps every correct answer and rejects every wrong
+# one. That is the point of the threshold: a miss that falls through to manual search
+# costs seconds, while a miss presented confidently puts the wrong card in the
+# collection silently. Re-run the calibration when the photo set grows.
+DEFAULT_MAX_DISTANCE = 52
 
 # A group is only reported as confident when the runner-up card number is clearly
 # further away. Below this margin the answer is genuinely ambiguous and the UI should
