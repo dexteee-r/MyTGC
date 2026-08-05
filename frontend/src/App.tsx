@@ -1,19 +1,22 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
-import { BoxIcon, HomeIcon, LayersIcon, SearchIcon } from './components/icons'
+import { BoxIcon, CameraIcon, HomeIcon, LayersIcon, SearchIcon } from './components/icons'
 import { LanguageProvider } from './lib/language'
 import { CardDetail } from './pages/CardDetail'
 import { Collection } from './pages/Collection'
 import { Home } from './pages/Home'
 import { PackDetail } from './pages/PackDetail'
 import { Packs } from './pages/Packs'
+import { Scanner } from './pages/Scanner'
 import { Search } from './pages/Search'
 
-/* No Scanner tab. Recognition is paused until the step-5 gate can be measured and
-   the API reports scan_enabled: false — see the repo README. The reference app also
-   has a Decks tab; deck building is out of scope per PROJECT_CONTEXT.md section 8. */
+/* The Scanner tab arrived with the step-5 gate: 0 wrong answers at threshold 52, so
+   a result can be shown without risking a silently wrong card in the collection.
+   No Decks tab — deck building is out of scope per PROJECT_CONTEXT.md section 8,
+   despite the reference app having one. */
 const TABS = [
   { to: '/', label: 'Accueil', Icon: HomeIcon },
   { to: '/packs', label: 'Extensions', Icon: LayersIcon },
+  { to: '/scan', label: 'Scanner', Icon: CameraIcon },
   { to: '/search', label: 'Recherche', Icon: SearchIcon },
   { to: '/collection', label: 'Collection', Icon: BoxIcon },
 ]
@@ -28,6 +31,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/packs" element={<Packs />} />
               <Route path="/packs/:packCode" element={<PackDetail />} />
+              <Route path="/scan" element={<Scanner />} />
               <Route path="/search" element={<Search />} />
               <Route path="/collection" element={<Collection />} />
               <Route path="/card/:cardId" element={<CardDetail />} />

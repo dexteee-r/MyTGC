@@ -18,14 +18,18 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+import cv2
+import numpy as np
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from PIL import Image
 
-from app import db
+from app import db, detection, hashing, recognition
 from app.config import IMAGE_CACHE_DIR
 from app.models import (Card, CardPage, CollectionCreate, CollectionEntry,
-                        CollectionStats, CollectionUpdate, Language, Pack)
+                        CollectionStats, CollectionUpdate, Language, Pack,
+                        ScanCandidate, ScanPrinting, ScanResult)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
                 " colors, cost, power, counter, attributes, types, image_path")
@@ -35,6 +39,13 @@ CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, cate
 async def lifespan(app: FastAPI):
     connection = db.connect()
     db.init_schema(connection)
+    # The hashed catalogue is ~9,400 x 192 bits, well under a megabyte, so it is built
+    # once and reused. Rebuilding it per scan would re-read every row and dominate the
+    # request. It holds materialised rows and numpy arrays, no live connection.
+    try:
+        app.state.catalogue = recognition.Catalogue(connection)
+    except RuntimeError:
+        app.state.catalogue = None      # catalogue not hashed yet; /scan stays off
     connection.close()
     yield
 
@@ -168,6 +179,85 @@ def get_image(language: Language, filename: str):
     return FileResponse(path, media_type="image/png")
 
 
+# --- scan -----------------------------------------------------------------------
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+
+@app.post("/scan", response_model=ScanResult)
+async def scan(
+    conn: Conn,
+    file: Annotated[UploadFile, File()],
+    language: Language | None = Query(
+        None,
+        description="edition being scanned. The step-5 gate confirmed language cannot "
+                    "be read from the artwork, so the client must say which it is; "
+                    "omitting it searches both and may return the wrong edition.",
+    ),
+):
+    catalogue = app.state.catalogue
+    if catalogue is None:
+        raise HTTPException(503, "catalogue not hashed; run compute_phashes.py")
+
+    payload = await file.read()
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "image too large")
+
+    image = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(400, "could not decode the image")
+
+    rectified = detection.detect_and_deskew(image)
+    if rectified is None:
+        return ScanResult(detected=False, confident=False,
+                          message="Aucune carte détectée. Cadre la carte entière sur "
+                                  "un fond uni.")
+
+    # Geometry cannot tell which way up the card was held, so both are hashed and the
+    # closer one wins.
+    best = None
+    for variant in detection.orientations(rectified):
+        query = hashing.phash_rgb(
+            hashing.crop_region(
+                Image.fromarray(cv2.cvtColor(variant, cv2.COLOR_BGR2RGB)), "art"))
+        result = catalogue.identify(query, top=5)
+        if result.best and (best is None
+                            or result.best.distance < best.best.distance):
+            best = result
+
+    if best is None or not best.candidates:
+        return ScanResult(detected=True, confident=False,
+                          message="Carte détectée mais non reconnue. Réessaie en "
+                                  "cadrant mieux, ou passe par la recherche.")
+
+    # Filter to the requested edition first, then judge confidence on what is left.
+    # Judging it on the unfiltered list would mark a correct English answer as unsure
+    # merely because the Japanese printing of the same artwork ranked above it.
+    kept = [c for c in best.candidates if language is None or c.language == language]
+    if not kept:
+        return ScanResult(detected=True, confident=False,
+                          message="Aucune correspondance dans cette édition. Vérifie "
+                                  "la langue sélectionnée.")
+
+    runner_up = next((c for c in kept if c.card_number != kept[0].card_number), None)
+    margin = None if runner_up is None else runner_up.distance - kept[0].distance
+    confident = margin is None or margin >= recognition.CONFIDENT_MARGIN
+
+    candidates = [
+        ScanCandidate(
+            card_number=c.card_number, language=c.language, name=c.name,
+            distance=c.distance, ambiguous_printing=c.ambiguous_printing,
+            printings=[ScanPrinting(card_id=p.card_id, distance=p.distance,
+                                    pack_code=p.pack_code, rarity=p.rarity)
+                       for p in c.printings],
+            card=_card_for(conn, c.printings[0].card_id, c.language),
+        )
+        for c in kept
+    ]
+    return ScanResult(detected=True, confident=confident, margin=margin,
+                      candidates=candidates)
+
+
 # --- collection -----------------------------------------------------------------
 
 def _card_for(conn: sqlite3.Connection, card_id: str, language: str) -> Card | None:
@@ -284,4 +374,5 @@ def health(conn: Conn):
     hashed = conn.execute(
         "SELECT COUNT(*) FROM cards WHERE r_phash IS NOT NULL").fetchone()[0]
     return {"status": "ok", "catalogue": meta, "hashed_cards": hashed,
-            "scan_enabled": False}
+            "scan_enabled": app.state.catalogue is not None,
+            "scan_threshold": recognition.DEFAULT_MAX_DISTANCE}

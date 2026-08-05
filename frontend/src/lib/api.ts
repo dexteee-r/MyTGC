@@ -7,6 +7,7 @@ import type {
   Health,
   Language,
   Pack,
+  ScanResult,
 } from './types'
 
 /* In dev, Vite proxies /api to the local uvicorn. In a Capacitor build there is no
@@ -99,4 +100,21 @@ export const api = {
 
   removeFromCollection: (id: number) =>
     request<void>(`/collection/${id}`, { method: 'DELETE' }),
+
+  /* Language is always sent: the step-5 gate confirmed the edition cannot be read
+     from the artwork, so leaving it out would let the wrong printing come back. */
+  scan(file: File, language: Language) {
+    const body = new FormData()
+    body.append('file', file)
+    // No Content-Type header: the browser must set the multipart boundary itself.
+    return fetch(`${API_BASE}/scan?language=${language}`, {
+      method: 'POST',
+      body,
+    }).then(async (response) => {
+      if (!response.ok) {
+        throw new ApiError(response.status, await response.text().catch(() => ''))
+      }
+      return (await response.json()) as ScanResult
+    })
+  },
 }

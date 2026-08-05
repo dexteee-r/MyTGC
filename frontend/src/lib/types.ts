@@ -68,6 +68,32 @@ export interface Health {
   catalogue: Record<string, number>
   hashed_cards: number
   scan_enabled: boolean
+  scan_threshold?: number
+}
+
+export interface ScanPrinting {
+  card_id: string
+  distance: number
+  pack_code: string | null
+  rarity: string | null
+}
+
+export interface ScanCandidate {
+  card_number: string
+  language: Language
+  name: string
+  distance: number
+  printings: ScanPrinting[]
+  ambiguous_printing: boolean
+  card: Card | null
+}
+
+export interface ScanResult {
+  detected: boolean
+  confident: boolean
+  margin: number | null
+  candidates: ScanCandidate[]
+  message: string | null
 }
 
 export const CONDITION_LABELS: Record<Condition, string> = {

@@ -79,3 +79,12 @@ export function PlusIcon(props: { className?: string }) {
     </svg>
   )
 }
+
+export function CameraIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.3-2h7l1.3 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <circle cx="12" cy="13" r="3.6" />
+    </svg>
+  )
+}

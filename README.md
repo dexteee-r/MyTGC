@@ -338,6 +338,34 @@ that file to test from a physical phone.
 iOS is not set up: it needs macOS, so per PROJECT_CONTEXT.md section 9 it goes through
 GitHub Actions on `macos-latest` rather than being built here.
 
+## Scan (enabled by the step-5 gate)
+
+```
+POST /scan?language=jp     multipart file=<image>
+```
+
+Runs detect → deskew → hash both orientations → match, and returns candidates grouped by
+card number with the full card record attached, so the client can render a result without
+a second round trip.
+
+Three things it does deliberately:
+
+- **`language` is a parameter, not a guess.** The gate confirmed the edition cannot be read
+  from the artwork. Omitting it searches both and may return the wrong printing, so the
+  Scanner screen makes the user pick before shooting.
+- **Confidence is judged after filtering by edition.** Judging it on the unfiltered list
+  marked a correct English answer as unsure merely because the Japanese printing of the same
+  artwork ranked above it.
+- **A miss is reported as a miss.** Beyond distance 52 nothing is offered and the UI routes
+  to manual search, which is what keeps the wrong card out of the collection.
+
+The catalogue is built once at startup and held in `app.state`; rebuilding it per scan would
+re-read all 9,447 rows and dominate the request.
+
+Verified end to end in the browser on real photographs: a good capture returns
+`OP13-085 · JP` at distance 16, and a known-bad capture returns the "non reconnue" panel with
+a link to manual search.
+
 ## Build order
 
 Per `PROJECT_CONTEXT.md` section 7. Step 5 is a hard go/no-go gate: no backend or UI work
@@ -350,6 +378,6 @@ before the recognition rate is measured and accepted.
 
 5. Calibrate and measure — **gate PASSED**: 75% correct, 0 wrong answers at threshold 52
    (scan work is paused; everything below is scan-independent)
-6. FastAPI backend — done, minus /scan
-7. Frontend — done, minus the Scanner tab
+6. FastAPI backend — done, /scan included
+7. Frontend — done, Scanner tab included
 8. Capacitor packaging — Android done (debug APK builds); iOS deferred to CI on macOS

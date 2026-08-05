@@ -95,6 +95,36 @@ class CollectionUpdate(BaseModel):
     acquisition_price: float | None = Field(default=None, ge=0)
 
 
+class ScanPrinting(BaseModel):
+    card_id: str
+    distance: int
+    pack_code: str | None = None
+    rarity: str | None = None
+
+
+class ScanCandidate(BaseModel):
+    card_number: str
+    language: Language
+    name: str
+    distance: int
+    printings: list[ScanPrinting] = []
+    # True when several printings tie: identical artwork and identical printed code,
+    # so neither pHash nor OCR can separate them and the user must choose.
+    ambiguous_printing: bool = False
+    card: Card | None = None
+
+
+class ScanResult(BaseModel):
+    detected: bool
+    # Confident means: inside the calibrated distance threshold and clearly ahead of
+    # the runner-up. The step-5 gate showed correct answers land at distance 14-50 and
+    # wrong ones at 58-62, so anything rejected here is a genuine "ask the user".
+    confident: bool
+    margin: int | None = None
+    candidates: list[ScanCandidate] = []
+    message: str | None = None
+
+
 class CollectionStats(BaseModel):
     distinct_cards: int
     total_quantity: int
