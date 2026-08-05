@@ -335,8 +335,22 @@ permits it for `10.0.2.2`, `localhost` and `127.0.0.1` only. Release builds do n
 that source set and stay HTTPS-only, which is what the tunnel serves. Add your LAN IP to
 that file to test from a physical phone.
 
-iOS is not set up: it needs macOS, so per PROJECT_CONTEXT.md section 9 it goes through
-GitHub Actions on `macos-latest` rather than being built here.
+### Testing on a phone without a native build
+
+`npm run dev --prefix frontend` binds all interfaces (`vite --host`), so a phone on the same
+network can open `http://<machine-lan-ip>:5173` directly. The phone only talks to Vite, which
+proxies `/api` onwards, so there is no CORS to configure and `VITE_API_BASE` stays unset.
+
+This covers scanning too: the capture control is `<input type="file" capture="environment">`,
+which opens the native camera on both iOS and Android and, unlike `getUserMedia`, does not
+require HTTPS. For iPhone this is the only way to test without a Mac.
+
+### iOS
+
+Not set up, and not buildable here: it needs macOS. Per PROJECT_CONTEXT.md section 9 the
+build goes through GitHub Actions on `macos-latest`. Note that CI produces an `.ipa` but
+does not install it — putting a native build on an iPhone still requires either a Mac with
+Xcode or a paid Apple Developer account for TestFlight. The browser route above avoids both.
 
 ## Scan (enabled by the step-5 gate)
 
