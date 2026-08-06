@@ -113,3 +113,21 @@ export const COLOR_SWATCHES: Record<string, string> = {
   Black: '#2b2b2b',
   Yellow: '#e8c33a',
 }
+
+export interface UserProfile {
+  id: number
+  email: string
+  display_name: string | null
+  created_at: string | null
+}
+
+export interface AuthSession {
+  access_token: string
+  token_type: string
+  expires_in: number
+  /* Returned for a native client to place in Keychain/Keystore. The browser build
+     ignores it and relies on the httpOnly cookie — putting it in localStorage would
+     undo the XSS protection the cookie exists to provide. */
+  refresh_token: string
+  user: UserProfile
+}

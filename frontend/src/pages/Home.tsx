@@ -13,6 +13,7 @@ import {
   Spinner,
 } from '../components/ui'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { useCollection } from '../lib/collection'
 import type { Card, Pack } from '../lib/types'
 
@@ -21,6 +22,7 @@ import type { Card, Pack } from '../lib/types'
    how near they are, with the colour balance of the collection underneath. */
 export function Home() {
   const { stats, entries, ready } = useCollection()
+  const { user } = useAuth()
   const [packs, setPacks] = useState<Pack[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [colors, setColors] = useState<Record<string, number>>({})
@@ -79,6 +81,15 @@ export function Home() {
       <PageHeader
         title="MyTGC"
         meta={`${total} carte${total > 1 ? 's' : ''} · ${stats?.distinct_cards ?? 0} référence${(stats?.distinct_cards ?? 0) > 1 ? 's' : ''}`}
+        action={
+          <Link
+            to="/account"
+            aria-label="Compte"
+            className="flex size-11 items-center justify-center rounded-full bg-sea-raised font-semibold"
+          >
+            {(user?.display_name || user?.email || '?').slice(0, 1).toUpperCase()}
+          </Link>
+        }
       />
 
       <SectionTitle

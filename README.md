@@ -277,6 +277,58 @@ in a worker pool; and the collection endpoints look the card up in a second quer
 of joining, because a `SELECT col.*, c.*` makes both tables contribute an `id` and
 `sqlite3.Row` silently resolves it to the wrong one.
 
+## Accounts
+
+Multi-user, replacing the original single-user premise. Run the migration once on an
+existing database — it rebuilds `collection` and `wishlist` with a `user_id` and hands the
+existing rows to the account it creates:
+
+```bash
+py backend/scripts/migrate_multiuser.py --email you@example.com
+```
+
+Then set a signing key, or every session dies on each restart:
+
+```bash
+export MYTGC_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
+```
+
+### The scheme
+
+Passwords are hashed with **Argon2id**, its parameters carried inside the hash so they can be
+raised later without a migration. A login returns a **15-minute access token** (JWT, sent as a
+Bearer header) and a **30-day refresh token** that is **rotated on every use**.
+
+Rotation is what makes theft detectable: presenting a token that has already been exchanged
+means two parties hold it, so the entire family descended from that login is revoked and both
+are forced to sign in again. Refresh tokens are stored hashed — the database is a backup
+target and a leaked table must not hand out sessions.
+
+**Transport differs by client, deliberately.** Browsers get the refresh token in an httpOnly
+cookie, unreachable from JavaScript and therefore out of reach of an XSS. A Capacitor build
+cannot rely on that cookie — its origin is `capacitor://localhost` and iOS restricts
+cross-site cookies — so the token is also returned in the body, for Keychain/Keystore. It
+must never go in `localStorage`. The access token is held in a module variable in the client,
+never persisted.
+
+The cookie is scoped to `/`, not `/auth`: the client reaches the API behind a proxy prefix
+(`/api/auth/refresh` in dev), and a cookie pinned to `/auth` is never sent, which killed the
+session on every reload.
+
+Renewal is shared across callers. Several requests can hit a 401 at once, and each firing its
+own refresh would rotate repeatedly — which the server correctly reads as reuse and answers by
+revoking everything.
+
+### What is protected
+
+Everything user-scoped, plus the catalogue queries and `/scan`: the instance is exposed
+through a tunnel, so an unauthenticated visitor should not be able to browse it or spend its
+CPU. `/health`, `/auth/*` and `/images/*` stay public — images are referenced from `<img>`
+tags that cannot carry an Authorization header, and card art is Bandai's, not personal data.
+
+Ownership checks are scoped by `user_id`, not only by row id, so no signed-in account can
+reach another's holdings by guessing a number.
+
 ## Design
 
 **The cards are the colour; the app is the wall.** 9,447 pieces of vivid artwork are the

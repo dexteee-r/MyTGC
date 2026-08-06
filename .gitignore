@@ -41,3 +41,4 @@ frontend/ios/App/Pods/
 frontend/dist/
 frontend/node_modules/
 .env.production
+backend/data/*.bak

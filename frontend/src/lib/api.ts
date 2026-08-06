@@ -6,8 +6,10 @@ import type {
   Condition,
   Health,
   Language,
+  AuthSession,
   Pack,
   ScanResult,
+  UserProfile,
 } from './types'
 
 /* In dev, Vite proxies /api to the local uvicorn. In a Capacitor build there is no
@@ -20,7 +22,24 @@ export function imageUrl(card: Pick<Card, 'image_url'>): string | null {
 
 // Written out rather than using constructor parameter properties: tsconfig sets
 // erasableSyntaxOnly, so TypeScript-only syntax that emits runtime code is rejected.
-class ApiError extends Error {
+/* The access token lives in a module variable, never in localStorage: anything
+   reachable from JavaScript is reachable from an XSS. It is short-lived, and the
+   refresh token that renews it sits in an httpOnly cookie the page cannot read.
+
+   The auth provider installs both hooks below; api.ts stays unaware of React so the
+   two modules do not import each other. */
+let accessToken: string | null = null
+let renew: (() => Promise<boolean>) | null = null
+
+export function setAccessToken(token: string | null) {
+  accessToken = token
+}
+
+export function setTokenRenewer(fn: (() => Promise<boolean>) | null) {
+  renew = fn
+}
+
+export class ApiError extends Error {
   status: number
 
   constructor(status: number, message: string) {
@@ -29,11 +48,27 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function headers(init?: RequestInit): HeadersInit {
+  const base: Record<string, string> = {}
+  if (init?.body) base['Content-Type'] = 'application/json'
+  if (accessToken) base.Authorization = `Bearer ${accessToken}`
+  return base
+}
+
+async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    credentials: 'include',
+    headers: headers(init),
     ...init,
+    ...(init?.body ? { headers: headers(init) } : {}),
   })
+
+  // A 15-minute access token will expire mid-session by design. Renew once and
+  // replay the call, so the expiry is invisible rather than a spurious error.
+  if (response.status === 401 && retry && renew && !path.startsWith('/auth/')) {
+    if (await renew()) return request<T>(path, init, false)
+  }
+
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
     throw new ApiError(response.status, detail || response.statusText)
@@ -101,6 +136,23 @@ export const api = {
   removeFromCollection: (id: number) =>
     request<void>(`/collection/${id}`, { method: 'DELETE' }),
 
+  register: (body: { email: string; password: string; display_name?: string }) =>
+    request<AuthSession>('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+
+  login: (body: { email: string; password: string }) =>
+    request<AuthSession>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+
+  refresh: () => request<AuthSession>('/auth/refresh', { method: 'POST' }),
+
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+
+  me: () => request<UserProfile>('/auth/me'),
+
+  changePassword: (body: { current_password: string; new_password: string }) =>
+    request<void>('/auth/change-password', { method: 'POST', body: JSON.stringify(body) }),
+
+  deleteAccount: () => request<void>('/auth/me', { method: 'DELETE' }),
+
   /* Language is always sent: the step-5 gate confirmed the edition cannot be read
      from the artwork, so leaving it out would let the wrong printing come back. */
   scan(file: File, language: Language) {
@@ -109,6 +161,8 @@ export const api = {
     // No Content-Type header: the browser must set the multipart boundary itself.
     return fetch(`${API_BASE}/scan?language=${language}`, {
       method: 'POST',
+      credentials: 'include',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       body,
     }).then(async (response) => {
       if (!response.ok) {

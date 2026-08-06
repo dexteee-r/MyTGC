@@ -15,3 +15,8 @@ opencv-python-headless>=5.0        # ships a cp37-abi3 wheel, works on 3.14
 fastapi>=0.141
 uvicorn[standard]>=0.52
 python-multipart>=0.0.20        # multipart upload for /scan
+
+# Accounts (multi-user)
+argon2-cffi>=25.1              # Argon2id password hashing
+PyJWT>=2.13                    # access tokens
+pydantic[email]>=2.13          # email validation

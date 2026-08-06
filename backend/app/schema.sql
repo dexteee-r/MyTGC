@@ -38,8 +38,41 @@ CREATE INDEX IF NOT EXISTS idx_cards_name     ON cards (name);
 CREATE INDEX IF NOT EXISTS idx_cards_pack     ON cards (language, pack_code);
 CREATE INDEX IF NOT EXISTS idx_cards_rarity   ON cards (language, rarity);
 
+-- Accounts. The catalogue (cards, price_history) is shared by everyone; anything a
+-- person accumulates is scoped to them.
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         TEXT NOT NULL,
+    email_lower   TEXT NOT NULL UNIQUE,  -- lookups are case-insensitive
+    display_name  TEXT,
+    password_hash TEXT NOT NULL,         -- Argon2id
+    created_at    TEXT NOT NULL,
+    last_login_at TEXT
+);
+
+-- Refresh tokens are stored hashed, never in the clear: the database is a backup
+-- target and a leaked table must not hand out sessions.
+--
+-- `family` ties every token descended from one login together. Rotation issues a new
+-- token and revokes the old one, so a token presented twice means a copy is in
+-- circulation — the whole family is then revoked rather than just that token.
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  TEXT NOT NULL UNIQUE,
+    family      TEXT NOT NULL,
+    issued_at   TEXT NOT NULL,
+    expires_at  TEXT NOT NULL,
+    revoked_at  TEXT,
+    user_agent  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens (user_id, revoked_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_family ON refresh_tokens (family);
+
 CREATE TABLE IF NOT EXISTS collection (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     card_id            TEXT NOT NULL,
     language           TEXT NOT NULL,
     quantity           INTEGER NOT NULL DEFAULT 1,
@@ -48,7 +81,7 @@ CREATE TABLE IF NOT EXISTS collection (
     acquisition_price  REAL
 );
 
-CREATE INDEX IF NOT EXISTS idx_collection_card ON collection (card_id, language);
+CREATE INDEX IF NOT EXISTS idx_collection_card ON collection (user_id, card_id, language);
 
 CREATE TABLE IF NOT EXISTS price_history (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,12 +97,15 @@ CREATE INDEX IF NOT EXISTS idx_price_card ON price_history (card_id, language, c
 
 CREATE TABLE IF NOT EXISTS wishlist (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     card_id         TEXT NOT NULL,
     language        TEXT NOT NULL,
     priority        INTEGER,
     alert_threshold REAL,
     notes           TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_wishlist_user ON wishlist (user_id);
 
 -- Provenance of the imported catalogue, so a stale snapshot is detectable without
 -- re-reading punk-records. One row per language.

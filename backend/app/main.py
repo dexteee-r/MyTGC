@@ -20,16 +20,18 @@ from typing import Annotated
 
 import cv2
 import numpy as np
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import (Cookie, Depends, FastAPI, File, HTTPException, Query, Request,
+                     Response, UploadFile)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from app import db, detection, hashing, recognition
+from app import auth, db, detection, hashing, recognition
 from app.config import IMAGE_CACHE_DIR
-from app.models import (Card, CardPage, CollectionCreate, CollectionEntry,
-                        CollectionStats, CollectionUpdate, Language, Pack,
-                        ScanCandidate, ScanPrinting, ScanResult)
+from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
+                        CollectionEntry, CollectionStats, CollectionUpdate, Language,
+                        LoginRequest, Pack, RefreshRequest, RegisterRequest,
+                        ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
                 " colors, cost, power, counter, attributes, types, image_path")
@@ -84,11 +86,138 @@ def get_db():
 Conn = Annotated[sqlite3.Connection, Depends(get_db)]
 
 
+def current_user(
+    conn: Conn,
+    token: Annotated[str, Depends(auth.bearer_token)],
+) -> auth.CurrentUser:
+    payload = auth.decode_access_token(token)
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (payload["sub"],)).fetchone()
+    if row is None:
+        raise HTTPException(401, "account no longer exists")
+    return auth.CurrentUser(row)
+
+
+User = Annotated[auth.CurrentUser, Depends(current_user)]
+
+
+# --- accounts -------------------------------------------------------------------
+
+def _profile(row) -> UserProfile:
+    return UserProfile(id=row["id"], email=row["email"],
+                       display_name=row["display_name"], created_at=row["created_at"])
+
+
+def _session(conn, response: Response, request: Request, row) -> Session:
+    token = auth.issue_refresh_token(conn, row["id"], None,
+                                     request.headers.get("user-agent"))
+    auth.set_refresh_cookie(response, token, secure=request.url.scheme == "https")
+    return Session(
+        access_token=auth.create_access_token(row["id"], row["email"]),
+        expires_in=int(auth.ACCESS_TTL.total_seconds()),
+        refresh_token=token,
+        user=_profile(row),
+    )
+
+
+@app.post("/auth/register", response_model=Session, status_code=201)
+def register(conn: Conn, response: Response, request: Request, body: RegisterRequest):
+    email = body.email.strip()
+    if conn.execute("SELECT 1 FROM users WHERE email_lower = ?",
+                    (email.lower(),)).fetchone():
+        raise HTTPException(409, "this email already has an account")
+
+    cursor = conn.execute(
+        "INSERT INTO users (email, email_lower, display_name, password_hash, created_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (email, email.lower(), body.display_name or email.split("@")[0],
+         auth.hash_password(body.password), auth.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return _session(conn, response, request, row)
+
+
+@app.post("/auth/login", response_model=Session)
+def login(conn: Conn, response: Response, request: Request, body: LoginRequest):
+    row = conn.execute("SELECT * FROM users WHERE email_lower = ?",
+                       (body.email.strip().lower(),)).fetchone()
+
+    # One message for both a wrong address and a wrong password: saying which was
+    # wrong tells an attacker which addresses have accounts.
+    if row is None or not auth.verify_password(row["password_hash"], body.password):
+        raise HTTPException(401, "email ou mot de passe incorrect")
+
+    if auth.needs_rehash(row["password_hash"]):
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                     (auth.hash_password(body.password), row["id"]))
+    conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?",
+                 (auth.now().isoformat(timespec="seconds"), row["id"]))
+    conn.commit()
+    return _session(conn, response, request, row)
+
+
+@app.post("/auth/refresh", response_model=Session)
+def refresh(conn: Conn, response: Response, request: Request,
+            body: RefreshRequest | None = None,
+            mytgc_refresh: Annotated[str | None, Cookie()] = None):
+    token = auth.read_refresh_token(body.refresh_token if body else None, mytgc_refresh)
+    user_id, rotated = auth.rotate_refresh_token(conn, token,
+                                                 request.headers.get("user-agent"))
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        raise HTTPException(401, "account no longer exists")
+
+    auth.set_refresh_cookie(response, rotated, secure=request.url.scheme == "https")
+    return Session(
+        access_token=auth.create_access_token(row["id"], row["email"]),
+        expires_in=int(auth.ACCESS_TTL.total_seconds()),
+        refresh_token=rotated,
+        user=_profile(row),
+    )
+
+
+@app.post("/auth/logout", status_code=204)
+def logout(conn: Conn, response: Response, body: RefreshRequest | None = None,
+           mytgc_refresh: Annotated[str | None, Cookie()] = None):
+    token = (body.refresh_token if body else None) or mytgc_refresh
+    if token:
+        auth.revoke_token(conn, token)
+    auth.clear_refresh_cookie(response)
+
+
+@app.get("/auth/me", response_model=UserProfile)
+def me(conn: Conn, user: User):
+    return _profile(conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone())
+
+
+@app.post("/auth/change-password", status_code=204)
+def change_password(conn: Conn, user: User, body: ChangePasswordRequest):
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone()
+    if not auth.verify_password(row["password_hash"], body.current_password):
+        raise HTTPException(401, "mot de passe actuel incorrect")
+
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                 (auth.hash_password(body.new_password), user.id))
+    conn.commit()
+    # Changing a password is how someone reacts to a suspected compromise, so every
+    # other session goes with it.
+    auth.revoke_all(conn, user.id)
+
+
+@app.delete("/auth/me", status_code=204)
+def delete_account(conn: Conn, user: User, response: Response):
+    # Collection, wishlist and sessions cascade from the account row.
+    conn.execute("DELETE FROM users WHERE id = ?", (user.id,))
+    conn.commit()
+    auth.clear_refresh_cookie(response)
+
+
 # --- catalogue ------------------------------------------------------------------
 
 @app.get("/cards", response_model=CardPage)
 def search_cards(
     conn: Conn,
+    user: User,
     q: str | None = Query(None, description="substring of the name or the card id"),
     language: Language | None = None,
     pack_code: str | None = None,
@@ -116,7 +245,9 @@ def search_cards(
     if owned is not None:
         clause = "EXISTS" if owned else "NOT EXISTS"
         where.append(f"{clause} (SELECT 1 FROM collection c"
-                     " WHERE c.card_id = cards.id AND c.language = cards.language)")
+                     " WHERE c.card_id = cards.id AND c.language = cards.language"
+                     " AND c.user_id = ?)")
+        params.append(user.id)
 
     clause = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM cards WHERE {clause}", params).fetchone()[0]
@@ -130,7 +261,7 @@ def search_cards(
 
 
 @app.get("/cards/{card_id}", response_model=Card)
-def get_card(conn: Conn, card_id: str, language: Language = "en"):
+def get_card(conn: Conn, user: User, card_id: str, language: Language = "en"):
     row = conn.execute(
         f"SELECT {CARD_COLUMNS}, effect, trigger FROM cards"
         " WHERE id = ? AND language = ?", (card_id, language),
@@ -154,14 +285,16 @@ def get_card(conn: Conn, card_id: str, language: Language = "en"):
 
 
 @app.get("/packs", response_model=list[Pack])
-def list_packs(conn: Conn, language: Language | None = None):
+def list_packs(conn: Conn, user: User, language: Language | None = None):
     where, params = ("WHERE language = ?", [language]) if language else ("", [])
+    params = [user.id, *params]
     rows = conn.execute(
         f"""SELECT pack_id, language, pack_code, pack_name,
                    COUNT(*) AS card_count,
                    SUM(EXISTS (SELECT 1 FROM collection c
                                WHERE c.card_id = cards.id
-                                 AND c.language = cards.language)) AS owned_count
+                                 AND c.language = cards.language
+                                 AND c.user_id = ?)) AS owned_count
             FROM cards {where}
             GROUP BY pack_id, language
             ORDER BY language, pack_code IS NULL, pack_code""", params,
@@ -187,6 +320,7 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 @app.post("/scan", response_model=ScanResult)
 async def scan(
     conn: Conn,
+    user: User,
     file: Annotated[UploadFile, File()],
     language: Language | None = Query(
         None,
@@ -275,8 +409,11 @@ def _card_for(conn: sqlite3.Connection, card_id: str, language: str) -> Card | N
 
 
 @app.get("/collection", response_model=list[CollectionEntry])
-def list_collection(conn: Conn, language: Language | None = None):
-    where, params = ("WHERE language = ?", [language]) if language else ("", [])
+def list_collection(conn: Conn, user: User, language: Language | None = None):
+    where, params = "WHERE user_id = ?", [user.id]
+    if language:
+        where += " AND language = ?"
+        params.append(language)
     rows = conn.execute(
         f"SELECT * FROM collection {where} ORDER BY date_added DESC, id DESC", params,
     ).fetchall()
@@ -288,7 +425,7 @@ def list_collection(conn: Conn, language: Language | None = None):
 
 
 @app.post("/collection", response_model=CollectionEntry, status_code=201)
-def add_to_collection(conn: Conn, entry: CollectionCreate):
+def add_to_collection(conn: Conn, user: User, entry: CollectionCreate):
     exists = conn.execute(
         "SELECT 1 FROM cards WHERE id = ? AND language = ?",
         (entry.card_id, entry.language),
@@ -304,8 +441,8 @@ def add_to_collection(conn: Conn, entry: CollectionCreate):
     # same card are genuinely different holdings and a collector prices them apart.
     existing = conn.execute(
         "SELECT id, quantity FROM collection"
-        " WHERE card_id = ? AND language = ? AND condition IS ?",
-        (entry.card_id, entry.language, entry.condition),
+        " WHERE user_id = ? AND card_id = ? AND language = ? AND condition IS ?",
+        (user.id, entry.card_id, entry.language, entry.condition),
     ).fetchone()
 
     if existing:
@@ -315,9 +452,9 @@ def add_to_collection(conn: Conn, entry: CollectionCreate):
         return _entry(conn, existing["id"])
 
     cursor = conn.execute(
-        "INSERT INTO collection (card_id, language, quantity, condition,"
-        " date_added, acquisition_price) VALUES (?, ?, ?, ?, ?, ?)",
-        (entry.card_id, entry.language, entry.quantity, entry.condition,
+        "INSERT INTO collection (user_id, card_id, language, quantity, condition,"
+        " date_added, acquisition_price) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (user.id, entry.card_id, entry.language, entry.quantity, entry.condition,
          date.today().isoformat(), entry.acquisition_price),
     )
     conn.commit()
@@ -325,9 +462,11 @@ def add_to_collection(conn: Conn, entry: CollectionCreate):
 
 
 @app.patch("/collection/{entry_id}", response_model=CollectionEntry)
-def update_collection(conn: Conn, entry_id: int, patch: CollectionUpdate):
+def update_collection(conn: Conn, user: User, entry_id: int, patch: CollectionUpdate):
+    # Scoped by user_id, not just id: without it any signed-in account could edit
+    # another's holdings by guessing a row number.
     current = conn.execute(
-        "SELECT * FROM collection WHERE id = ?", (entry_id,)
+        "SELECT * FROM collection WHERE id = ? AND user_id = ?", (entry_id, user.id)
     ).fetchone()
     if current is None:
         raise HTTPException(404, "entry not found")
@@ -349,28 +488,31 @@ def update_collection(conn: Conn, entry_id: int, patch: CollectionUpdate):
 
 
 @app.delete("/collection/{entry_id}", status_code=204)
-def delete_from_collection(conn: Conn, entry_id: int):
-    cursor = conn.execute("DELETE FROM collection WHERE id = ?", (entry_id,))
+def delete_from_collection(conn: Conn, user: User, entry_id: int):
+    cursor = conn.execute("DELETE FROM collection WHERE id = ? AND user_id = ?",
+                          (entry_id, user.id))
     conn.commit()
     if cursor.rowcount == 0:
         raise HTTPException(404, "entry not found")
 
 
 @app.get("/collection/stats", response_model=CollectionStats)
-def collection_stats(conn: Conn):
+def collection_stats(conn: Conn, user: User):
     row = conn.execute(
         "SELECT COUNT(*) AS distinct_cards, COALESCE(SUM(quantity), 0) AS total,"
         " COALESCE(SUM(acquisition_price * quantity), 0) AS spent FROM collection"
+        " WHERE user_id = ?", (user.id,)
     ).fetchone()
     by_language = {
         r["language"]: r["n"] for r in conn.execute(
-            "SELECT language, SUM(quantity) AS n FROM collection GROUP BY language")
+            "SELECT language, SUM(quantity) AS n FROM collection WHERE user_id = ?"
+            " GROUP BY language", (user.id,))
     }
     by_rarity = {
         r["rarity"] or "unknown": r["n"] for r in conn.execute(
             "SELECT c.rarity AS rarity, SUM(col.quantity) AS n FROM collection col"
             " JOIN cards c ON c.id = col.card_id AND c.language = col.language"
-            " GROUP BY c.rarity")
+            " WHERE col.user_id = ? GROUP BY c.rarity", (user.id,))
     }
     return CollectionStats(
         distinct_cards=row["distinct_cards"], total_quantity=row["total"],
@@ -381,6 +523,7 @@ def collection_stats(conn: Conn):
 
 def _entry(conn: sqlite3.Connection, entry_id: int) -> CollectionEntry:
     row = conn.execute("SELECT * FROM collection WHERE id = ?", (entry_id,)).fetchone()
+    # Callers have already checked ownership; this only shapes the response.
     return CollectionEntry(**dict(row),
                            card=_card_for(conn, row["card_id"], row["language"]))
 

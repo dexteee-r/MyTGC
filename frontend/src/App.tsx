@@ -1,8 +1,11 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
 import { BoxIcon, CameraIcon, HomeIcon, LayersIcon, SearchIcon } from './components/icons'
+import { Spinner } from './components/ui'
+import { AuthProvider, useAuth } from './lib/auth'
 import { CollectionProvider } from './lib/collection'
 import { LanguageProvider } from './lib/language'
 import { ToastProvider } from './lib/toast'
+import { Account } from './pages/Account'
 import { CardDetail } from './pages/CardDetail'
 import { Collection } from './pages/Collection'
 import { Home } from './pages/Home'
@@ -10,6 +13,7 @@ import { PackDetail } from './pages/PackDetail'
 import { Packs } from './pages/Packs'
 import { Scanner } from './pages/Scanner'
 import { Search } from './pages/Search'
+import { SignIn } from './pages/SignIn'
 
 /* Scanner sits in the middle because it is the reason the app exists — the thumb
    reaches it without moving. No Decks tab: out of scope per PROJECT_CONTEXT.md
@@ -23,6 +27,22 @@ const TABS = [
 ]
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
+  )
+}
+
+/* The collection provider only mounts once someone is signed in: it loads that
+   person's holdings on mount, and mounting it earlier would fire an unauthenticated
+   request on every cold start. */
+function Gate() {
+  const { ready, user } = useAuth()
+
+  if (!ready) return <Spinner />
+  if (!user) return <SignIn />
+
   return (
     <LanguageProvider>
       <CollectionProvider>
@@ -38,6 +58,7 @@ export default function App() {
                   <Route path="/search" element={<Search />} />
                   <Route path="/collection" element={<Collection />} />
                   <Route path="/card/:cardId" element={<CardDetail />} />
+                  <Route path="/account" element={<Account />} />
                 </Routes>
               </main>
               <TabBar />

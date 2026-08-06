@@ -3,11 +3,54 @@
 import json
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 Language = Literal["en", "jp"]
 Condition = Literal["near_mint", "lightly_played", "moderately_played",
                     "heavily_played", "damaged"]
+
+
+MIN_PASSWORD = 10
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    # Length is the only rule enforced. Composition rules (a digit, a symbol) push
+    # people towards predictable substitutions without adding real entropy.
+    password: str = Field(min_length=MIN_PASSWORD, max_length=200)
+    display_name: str | None = Field(default=None, max_length=60)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    # Only a native client sends this; browsers carry the token in an httpOnly cookie.
+    refresh_token: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=MIN_PASSWORD, max_length=200)
+
+
+class UserProfile(BaseModel):
+    id: int
+    email: str
+    display_name: str | None = None
+    created_at: str | None = None
+
+
+class Session(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    # Present for native clients to put in Keychain/Keystore. Browsers should ignore
+    # it and rely on the cookie; storing it in localStorage undoes the XSS protection.
+    refresh_token: str
+    user: UserProfile
 
 
 class Card(BaseModel):
