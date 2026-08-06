@@ -277,6 +277,42 @@ in a worker pool; and the collection endpoints look the card up in a second quer
 of joining, because a `SELECT col.*, c.*` makes both tables contribute an `id` and
 `sqlite3.Row` silently resolves it to the wrong one.
 
+## Design
+
+**The cards are the colour; the app is the wall.** 9,447 pieces of vivid artwork are the
+content, so the chrome is a deep navy that lets them hang like a gallery instead of a shop
+listing. Red is reserved for the primary action and gold for ownership — nothing else may
+use either.
+
+The six printed card colours are data, not decoration: One Piece is built on that axis, so
+every card carries a **colour spine**, and the home screen shows the collection's balance
+across the six.
+
+The signature is the **completion ring** with cardinal ticks. A collector's live question is
+never "how many cards do I have" but "how close is this set", and a ring reads at a glance in
+a list where a bar does not. It turns gold only when the set is finished.
+
+Type is one family in three voices — display, body, and a tracked uppercase label — because a
+downloaded display face would cost an offline app a network dependency it must not have. The
+personality comes from weight contrast and tracking instead.
+
+### UX decisions that drove the structure
+
+- **Adding a scanned card takes one tap, in place.** It used to take five and a navigation.
+  The result screen adds to the collection and re-arms the camera, so emptying a binder is
+  scan, tap, scan, tap. A session counter and an undo on every add make the loop legible.
+- **Ownership is visible on every tile.** Unowned cards are dimmed, owned ones carry a gold
+  count. Browsing a set is otherwise indistinguishable from browsing a catalogue.
+- **Owned/missing filtering is server-side.** Doing it on the loaded page made the set header
+  disagree with the Extensions list and made "Possédées" look empty whenever the owned cards
+  sat past the first 60 by id.
+- **Home is not filtered by the browsing edition.** A collector holding only Japanese cards
+  was being told "nothing started" directly under a count of 19 cards.
+- **The collection is held in memory** with optimistic writes, so a quantity moves under the
+  thumb instead of after a round trip, and ownership can be known by every tile in a
+  9,447-card grid without asking the server per card.
+- **Touch targets are 44px** on the controls that get hammered while emptying a binder.
+
 ## Build step 7 — frontend
 
 ```bash

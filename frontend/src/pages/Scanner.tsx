@@ -1,131 +1,191 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { CameraIcon, SearchIcon } from '../components/icons'
-import { Button, ColorDots, PageTitle, Segmented, Spinner } from '../components/ui'
+import { Link, useNavigate } from 'react-router-dom'
+import { CameraIcon } from '../components/icons'
+import {
+  Button,
+  ColorSpine,
+  EmptyState,
+  PageHeader,
+  Screen,
+  Segmented,
+  Spinner,
+  Stepper,
+} from '../components/ui'
 import { api, imageUrl } from '../lib/api'
+import { useCollection } from '../lib/collection'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
+import { useToast } from '../lib/toast'
 import type { ScanCandidate, ScanResult } from '../lib/types'
 
+/* The core loop of the whole product: a binder in one hand, the phone in the other.
+   Every extra tap here is paid once per card, so the result screen adds to the
+   collection in place and re-arms the camera. Nothing about identifying a card
+   should require navigating away from the scanner. */
 export function Scanner() {
   const { language, setLanguage } = useLanguage()
+  const { add, ownedOf, setQuantity } = useCollection()
+  const { show } = useToast()
+  const navigate = useNavigate()
+
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [session, setSession] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const capture = () => inputRef.current?.click()
 
   const submit = async (file: File) => {
     setBusy(true)
     setError(null)
     setResult(null)
-    setPreview(URL.createObjectURL(file))
     try {
       setResult(await api.scan(file, language))
     } catch {
-      setError("Le scan a échoué. Vérifie que l'API est accessible.")
+      setError("Le serveur n'a pas répondu. Vérifie qu'il tourne, puis reprends.")
     } finally {
       setBusy(false)
     }
   }
 
+  const addCard = async (candidate: ScanCandidate) => {
+    const cardId = candidate.printings[0]?.card_id ?? candidate.card_number
+    await add({ id: cardId, language: candidate.language })
+    setSession((n) => n + 1)
+    show(`${candidate.name} ajoutée`, () => {
+      const owned = ownedOf(cardId, candidate.language)
+      if (owned) setQuantity(cardId, candidate.language, owned.quantity - 1)
+      setSession((n) => Math.max(0, n - 1))
+    })
+    setResult(null)
+    capture()
+  }
+
   return (
-    <div className="no-scrollbar h-full overflow-y-auto pb-32">
-      <PageTitle subtitle="Photographie une carte pour l'identifier">Scanner</PageTitle>
+    <Screen>
+      <PageHeader
+        title="Scanner"
+        meta={session > 0 ? `${session} ajoutée${session > 1 ? 's' : ''} dans cette session` : 'Une carte à la fois'}
+        action={
+          <Segmented
+            value={language}
+            options={LANGUAGE_OPTIONS}
+            onChange={setLanguage}
+            label="Édition scannée"
+          />
+        }
+      />
 
-      <div className="px-5 pb-4">
-        <p className="pb-2 text-sm font-semibold">Édition scannée</p>
-        <Segmented value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
-        <p className="pt-2 text-xs text-ink-faint">
-          L'illustration est identique dans les deux éditions : l'app ne peut pas la
-          deviner, c'est à toi de la choisir.
-        </p>
-      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) submit(file)
+          event.target.value = ''
+        }}
+      />
 
-      <div className="px-5">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) submit(file)
-            event.target.value = ''
-          }}
-        />
-        <Button onClick={() => inputRef.current?.click()} disabled={busy}>
-          <span className="inline-flex items-center gap-2">
+      {!result && !busy && (
+        <div className="px-5">
+          <Button variant="primary" size="lg" full onClick={capture}>
             <CameraIcon className="size-5" />
-            {busy ? 'Analyse…' : 'Photographier une carte'}
-          </span>
-        </Button>
-      </div>
-
-      <div className="mx-5 mt-4 rounded-(--radius-card) bg-gold-soft p-4 text-sm text-ink-soft">
-        Cadre la carte <span className="font-semibold text-ink">entière</span>, seule sur
-        un fond uni. Un bord coupé ou un reflet fort suffit à faire échouer la
-        reconnaissance.
-      </div>
-
-      {preview && (
-        <img
-          src={preview}
-          alt=""
-          className="mx-auto mt-5 w-[min(60%,240px)] rounded-xl shadow-lg"
-        />
+            Photographier une carte
+          </Button>
+          <p className="pt-3 text-sm text-foam-dim">
+            Carte entière dans le cadre, seule, à plat. L'édition{' '}
+            <span className="font-semibold text-foam">
+              {language === 'en' ? 'International' : 'Japon'}
+            </span>{' '}
+            est celle qui sera enregistrée — l'illustration est identique dans les deux,
+            elle ne peut pas être devinée.
+          </p>
+        </div>
       )}
 
-      {busy && <Spinner />}
-      {error && <p className="px-5 pt-4 text-sm text-crimson">{error}</p>}
+      {busy && (
+        <>
+          <Spinner />
+          <p className="text-center text-sm text-foam-dim">Identification…</p>
+        </>
+      )}
 
-      {result && !busy && <Outcome result={result} />}
-    </div>
+      {error && (
+        <div className="px-5 pt-4">
+          <EmptyState title="Scan interrompu" action={<Button variant="quiet" onClick={capture}>Reprendre</Button>}>
+            {error}
+          </EmptyState>
+        </div>
+      )}
+
+      {result && !busy && (
+        <Outcome
+          result={result}
+          onAdd={addCard}
+          onRetry={capture}
+          onSearch={() => navigate('/search')}
+        />
+      )}
+    </Screen>
   )
 }
 
-function Outcome({ result }: { result: ScanResult }) {
+function Outcome({
+  result,
+  onAdd,
+  onRetry,
+  onSearch,
+}: {
+  result: ScanResult
+  onAdd: (candidate: ScanCandidate) => void
+  onRetry: () => void
+  onSearch: () => void
+}) {
   if (!result.detected || result.candidates.length === 0) {
     return (
-      <div className="mx-5 mt-5 rounded-(--radius-card) bg-surface p-5 text-center shadow-sm">
-        <p className="font-semibold">Non reconnue</p>
-        <p className="mt-1 text-sm text-ink-soft">
-          {result.message ?? 'Aucune correspondance.'}
-        </p>
-        <div className="mt-4 flex justify-center">
-          <Link to="/search">
-            <Button variant="ghost">
-              <span className="inline-flex items-center gap-2">
-                <SearchIcon className="size-5" /> Chercher manuellement
-              </span>
-            </Button>
-          </Link>
-        </div>
+      <div className="px-5">
+        <EmptyState
+          title={result.detected ? 'Carte non reconnue' : 'Aucune carte dans le cadre'}
+          action={
+            <div className="flex gap-2">
+              <Button onClick={onRetry}>Reprendre la photo</Button>
+              <Button variant="ghost" onClick={onSearch}>
+                Chercher
+              </Button>
+            </div>
+          }
+        >
+          {result.detected
+            ? "Cadre la carte entière, sans reflet. Si elle résiste, ajoute-la par la recherche."
+            : 'Pose la carte à plat sur un fond uni et recadre.'}
+        </EmptyState>
       </div>
     )
   }
 
   const [top, ...rest] = result.candidates
   return (
-    <div className="mt-5">
-      <div className="px-5 pb-2">
-        <p className="text-sm font-semibold">
-          {result.confident ? 'Carte identifiée' : 'Plusieurs possibilités'}
-        </p>
-        {!result.confident && (
-          <p className="text-xs text-ink-faint">
-            L'écart avec la suivante est faible — vérifie avant d'ajouter.
-          </p>
-        )}
-      </div>
+    <div className="animate-rise">
+      <Match candidate={top} onAdd={onAdd} primary confident={result.confident} />
 
-      <Match candidate={top} highlight={result.confident} />
+      <div className="flex gap-2 px-5 pt-3">
+        <Button variant="quiet" onClick={onRetry}>
+          Reprendre
+        </Button>
+      </div>
 
       {rest.length > 0 && (
         <>
-          <p className="px-5 pt-4 pb-2 text-sm font-semibold">Autres candidats</p>
+          <p className="voice-label px-5 pt-7 pb-2">Ou l'une de celles-ci</p>
           {rest.map((candidate) => (
-            <Match key={`${candidate.language}-${candidate.card_number}`} candidate={candidate} />
+            <Match
+              key={`${candidate.language}-${candidate.card_number}`}
+              candidate={candidate}
+              onAdd={onAdd}
+            />
           ))}
         </>
       )}
@@ -135,37 +195,85 @@ function Outcome({ result }: { result: ScanResult }) {
 
 function Match({
   candidate,
-  highlight,
+  onAdd,
+  primary,
+  confident,
 }: {
   candidate: ScanCandidate
-  highlight?: boolean
+  onAdd: (candidate: ScanCandidate) => void
+  primary?: boolean
+  confident?: boolean
 }) {
+  const { ownedOf, setQuantity } = useCollection()
   const card = candidate.card
+  const cardId = candidate.printings[0]?.card_id ?? candidate.card_number
+  const owned = ownedOf(cardId, candidate.language)
   const src = card ? imageUrl(card) : null
+
   return (
-    <Link
-      to={`/card/${encodeURIComponent(candidate.printings[0]?.card_id ?? candidate.card_number)}?language=${candidate.language}`}
-      className={`mx-5 mt-2 flex items-center gap-3 rounded-(--radius-card) bg-surface p-3 shadow-sm ${
-        highlight ? 'ring-2 ring-crimson' : ''
+    <section
+      className={`mx-5 mt-2 rounded-(--radius-card) bg-sea-raised p-3 ${
+        primary ? 'ring-1 ring-line' : ''
       }`}
     >
-      {src && <img src={src} alt="" className="h-24 w-[69px] rounded-md object-cover" />}
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">{candidate.name}</p>
-        <p className="truncate text-sm text-ink-faint">
-          {candidate.card_number} · {candidate.language.toUpperCase()} ·{' '}
-          {card?.rarity ?? ''}
+      {primary && !confident && (
+        <p className="pb-2 text-xs text-gold">
+          Deux cartes se ressemblent ici — vérifie avant d'ajouter.
         </p>
-        {card && <ColorDots colors={card.colors} />}
-        {candidate.ambiguous_printing && (
-          <p className="mt-1 text-xs text-gold">
-            {candidate.printings.length} tirages identiques — à choisir sur la fiche
-          </p>
+      )}
+      <div className="flex gap-3">
+        {src && (
+          <img
+            src={src}
+            alt=""
+            className={`shrink-0 rounded-md object-cover ${primary ? 'h-32 w-[92px]' : 'h-20 w-[57px]'}`}
+          />
         )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-start gap-2">
+            <ColorSpine colors={card?.colors ?? []} className="mt-1 h-8" />
+            <div className="min-w-0">
+              <p className={`truncate font-semibold ${primary ? 'text-lg' : ''}`}>
+                {candidate.name}
+              </p>
+              <p className="voice-data truncate text-sm text-foam-faint">
+                {candidate.card_number} · {card?.rarity ?? ''} ·{' '}
+                {candidate.language.toUpperCase()}
+              </p>
+            </div>
+          </div>
+
+          {candidate.ambiguous_printing && (
+            <Link
+              to={`/card/${encodeURIComponent(cardId)}?language=${candidate.language}`}
+              className="pt-1 text-xs text-gold underline"
+            >
+              {candidate.printings.length} tirages identiques — choisir lequel
+            </Link>
+          )}
+
+          <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+            {owned ? (
+              <>
+                <span className="text-sm text-foam-dim">En collection</span>
+                <Stepper
+                  value={owned.quantity}
+                  onChange={(next) => setQuantity(cardId, candidate.language, next)}
+                />
+              </>
+            ) : (
+              <Button
+                variant={primary ? 'primary' : 'quiet'}
+                size={primary ? 'lg' : 'md'}
+                full={primary}
+                onClick={() => onAdd(candidate)}
+              >
+                Ajouter à la collection
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
-      <span className="shrink-0 text-xs text-ink-faint tabular-nums">
-        {candidate.distance}
-      </span>
-    </Link>
+    </section>
   )
 }

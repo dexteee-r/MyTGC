@@ -1,27 +1,39 @@
 @import "tailwindcss";
 
-/* Design tokens taken from the reference screenshots in ../../inspiration UI:
-   warm off-white ground, pure white surfaces on top of it, One Piece crimson for
-   anything actionable, gold reserved for progress and value. */
+/* ── MyTGC design tokens ────────────────────────────────────────────────────
+   The cards are the colour; the app is the wall. 9,447 pieces of vivid artwork
+   are the content, so the chrome recedes to a deep navy and lets them hang like
+   a gallery. Red is reserved for the primary action, gold for ownership —
+   nothing else is allowed to use them.                                        */
 @theme {
-  --color-ground: #f7f6f1;
-  --color-surface: #ffffff;
-  --color-sunken: #ede8de;
+  /* Ground and surfaces */
+  --color-sea: #0e1726;
+  --color-sea-raised: #17222f;
+  --color-sea-high: #1f2c3d;
+  --color-line: #27364c;
 
-  --color-ink: #16202e;
-  --color-ink-soft: #5d6b7a;
-  --color-ink-faint: #9aa4b0;
+  /* Text */
+  --color-foam: #f1f5fa;
+  --color-foam-dim: #93a3b8;
+  --color-foam-faint: #62738a;
 
-  --color-crimson: #d0021b;
-  --color-crimson-soft: #fdeaec;
-  --color-gold: #dfa32c;
-  --color-gold-soft: #fbf1de;
+  /* The only two accents, each with exactly one job */
+  --color-signal: #e23a2e; /* primary action */
+  --color-gold: #e2a93c; /* owned / complete */
 
-  --radius-card: 1.35rem;
+  /* The six printed card colours. Data, not decoration — these are fixed by
+     the game and drive the colour spine on every card. */
+  --color-op-red: #e0303a;
+  --color-op-green: #2aa161;
+  --color-op-blue: #2f7fd6;
+  --color-op-purple: #8f56c4;
+  --color-op-black: #4b5566;
+  --color-op-yellow: #e6c02f;
 
-  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-sans: ui-rounded, "SF Pro Rounded", "Segoe UI Variable", "Segoe UI",
-    system-ui, sans-serif;
+  --radius-card: 1.1rem;
+
+  --font-sans: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI",
+    system-ui, -apple-system, sans-serif;
 }
 
 html,
@@ -31,20 +43,51 @@ body,
 }
 
 body {
-  background: var(--color-ground);
-  color: var(--color-ink);
+  background: var(--color-sea);
+  color: var(--color-foam);
   font-family: var(--font-sans);
   overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Page titles in the reference are a blackletter display face. Shipping one means
-   bundling a licensed font file, so this uses an old-style serif at heavy weight
-   and tight tracking: similar silhouette, no download. Swap --font-display when a
-   licensed face is chosen. */
-.display-title {
-  font-family: var(--font-display);
+/* One family, three voices. The personality comes from the treatment — weight
+   contrast and tracking — rather than from a downloaded display face, which
+   would cost an offline app a network dependency it must not have. */
+.voice-display {
+  font-weight: 800;
+  letter-spacing: -0.033em;
+  line-height: 1.02;
+}
+
+.voice-label {
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-foam-faint);
+}
+
+.voice-data {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Quality floor: a visible focus ring everywhere, and no motion for anyone who
+   asked not to have it. */
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -52,4 +95,19 @@ body {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.22s ease-out both;
 }

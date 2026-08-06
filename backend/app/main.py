@@ -296,6 +296,24 @@ def add_to_collection(conn: Conn, entry: CollectionCreate):
     if not exists:
         raise HTTPException(404, f"{entry.card_id} not found in {entry.language}")
 
+    # Adding a card you already own increments that holding instead of creating a
+    # second row: the collection screen listed the same card twice with separate
+    # counts, which is not what "add this card" means.
+    #
+    # Condition is part of the key, though — a Near Mint and a Played copy of the
+    # same card are genuinely different holdings and a collector prices them apart.
+    existing = conn.execute(
+        "SELECT id, quantity FROM collection"
+        " WHERE card_id = ? AND language = ? AND condition IS ?",
+        (entry.card_id, entry.language, entry.condition),
+    ).fetchone()
+
+    if existing:
+        conn.execute("UPDATE collection SET quantity = ? WHERE id = ?",
+                     (existing["quantity"] + entry.quantity, existing["id"]))
+        conn.commit()
+        return _entry(conn, existing["id"])
+
     cursor = conn.execute(
         "INSERT INTO collection (card_id, language, quantity, condition,"
         " date_added, acquisition_price) VALUES (?, ?, ?, ?, ?, ?)",

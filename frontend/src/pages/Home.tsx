@@ -1,117 +1,177 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BoxIcon, CameraOffIcon, LayersIcon, SearchIcon, TrendIcon } from '../components/icons'
-import { EmptyState, PageTitle, SectionTitle, Spinner } from '../components/ui'
+import { CameraIcon } from '../components/icons'
+import {
+  Button,
+  CARD_COLORS,
+  CompletionRing,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Screen,
+  SectionTitle,
+  Spinner,
+} from '../components/ui'
 import { api } from '../lib/api'
-import { useLanguage } from '../lib/language'
-import type { CollectionEntry, CollectionStats, Health } from '../lib/types'
+import { useCollection } from '../lib/collection'
+import type { Card, Pack } from '../lib/types'
 
+/* The hero is not a total. A collector's live question is which set is closest to
+   done, so that is what opens the screen — the sets already under way, ranked by
+   how near they are, with the colour balance of the collection underneath. */
 export function Home() {
-  const { language } = useLanguage()
-  const [stats, setStats] = useState<CollectionStats | null>(null)
-  const [recent, setRecent] = useState<CollectionEntry[]>([])
-  const [health, setHealth] = useState<Health | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { stats, entries, ready } = useCollection()
+  const [packs, setPacks] = useState<Pack[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [colors, setColors] = useState<Record<string, number>>({})
 
+  /* Deliberately not filtered by the browsing edition. Home summarises the whole
+     collection, and a collector holding only Japanese cards was being told
+     "nothing started" directly under a count of 19 cards. The edition selector
+     belongs to browsing, not to the overview. */
+  const load = () => {
+    setFailed(false)
+    api.packs().then(setPacks).catch(() => setFailed(true))
+  }
+  useEffect(load, [])
+
+  // Colour balance is derived from the cards actually owned, so it needs their
+  // records — cheap for a personal collection, and it is the identity of the
+  // collection rather than a decorative chart.
   useEffect(() => {
-    Promise.all([api.collectionStats(), api.collection(), api.health()])
-      .then(([s, c, h]) => {
-        setStats(s)
-        setRecent(c.slice(0, 6))
-        setHealth(h)
+    if (!entries.length) return setColors({})
+    let cancelled = false
+    Promise.all(
+      entries.slice(0, 400).map((entry) =>
+        api.card(entry.card_id, entry.language).catch(() => null),
+      ),
+    ).then((cards) => {
+      if (cancelled) return
+      const tally: Record<string, number> = {}
+      cards.forEach((card: Card | null, i) => {
+        if (!card) return
+        const qty = entries[i].quantity
+        for (const color of card.colors) tally[color] = (tally[color] ?? 0) + qty
       })
-      .finally(() => setLoading(false))
-  }, [])
+      setColors(tally)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [entries])
 
-  if (loading) return <Spinner />
+  const started = useMemo(
+    () =>
+      (packs ?? [])
+        .filter((p) => p.owned_count > 0)
+        .sort((a, b) => b.owned_count / b.card_count - a.owned_count / a.card_count)
+        .slice(0, 4),
+    [packs],
+  )
+
+  if (failed) return <Screen><div className="pt-16"><ErrorState onRetry={load} /></div></Screen>
+  if (!ready || !packs) return <Spinner />
+
+  const total = stats?.total_quantity ?? 0
 
   return (
-    <div className="no-scrollbar h-full overflow-y-auto pb-32">
-      <PageTitle subtitle="Ta collection One Piece">MyTGC</PageTitle>
+    <Screen>
+      <PageHeader
+        title="MyTGC"
+        meta={`${total} carte${total > 1 ? 's' : ''} · ${stats?.distinct_cards ?? 0} référence${(stats?.distinct_cards ?? 0) > 1 ? 's' : ''}`}
+      />
 
-      <div className="mx-5 rounded-(--radius-card) bg-surface p-5 shadow-sm">
-        <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">
-          Prime
-        </p>
-        <p className="display-title mt-1 text-4xl">
-          {(stats?.acquisition_total ?? 0).toFixed(2)} €
-        </p>
-        <p className="mt-1 text-sm text-ink-soft">
-          {stats?.total_quantity ?? 0} cartes · {stats?.distinct_cards ?? 0} références
-        </p>
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-3 px-5">
-        <Shortcut to="/packs" label="Extensions" icon={<LayersIcon className="size-6" />} />
-        <Shortcut to="/search" label="Rechercher" icon={<SearchIcon className="size-6" />} />
-        <Shortcut to="/collection" label="Collection" icon={<BoxIcon className="size-6" />} />
-      </div>
-
-      {health && !health.scan_enabled && (
-        <div className="mx-5 mt-4 flex gap-3 rounded-(--radius-card) bg-gold-soft p-4">
-          <CameraOffIcon className="size-6 shrink-0 text-gold" />
-          <p className="text-sm text-ink-soft">
-            <span className="font-semibold text-ink">Scan indisponible.</span> La
-            reconnaissance attend d'être mesurée sur de vraies cartes photographiées.
-            L'ajout manuel fonctionne normalement.
-          </p>
-        </div>
-      )}
-
-      <SectionTitle hint="Les dernières cartes ajoutées à ta collection">
-        Ajouts récents
+      <SectionTitle
+        aside={
+          started.length > 0 ? (
+            <Link to="/packs" className="text-sm text-foam-dim">
+              Toutes
+            </Link>
+          ) : undefined
+        }
+      >
+        Extensions en cours
       </SectionTitle>
-      {recent.length === 0 ? (
-        <EmptyState icon={<TrendIcon className="size-9" />}>
-          Aucune carte pour l'instant. Parcours une extension pour en ajouter.
+
+      {started.length === 0 ? (
+        <EmptyState
+          title="Rien de commencé"
+          action={
+            <Link to="/scan">
+              <Button size="lg">
+                <CameraIcon className="size-5" />
+                Scanner ta première carte
+              </Button>
+            </Link>
+          }
+        >
+          Scanne une carte ou parcours une extension pour lancer une collection.
         </EmptyState>
       ) : (
-        <ul className="mx-5 divide-y divide-black/5 overflow-hidden rounded-(--radius-card) bg-surface">
-          {recent.map((entry) => (
-            <li key={entry.id}>
+        <ul className="space-y-2 px-5">
+          {started.map((pack) => (
+            <li key={pack.pack_id}>
               <Link
-                to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
-                className="flex items-center gap-3 p-3"
+                to={`/packs/${encodeURIComponent(pack.pack_code ?? pack.pack_id)}?language=${pack.language}`}
+                className="flex items-center gap-4 rounded-(--radius-card) bg-sea-raised p-3.5"
               >
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  {entry.card?.name ?? entry.card_id}
-                </span>
-                <span className="text-sm text-ink-faint">×{entry.quantity}</span>
+                <CompletionRing value={pack.owned_count} total={pack.card_count} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{pack.pack_name}</p>
+                  <p className="voice-data text-sm text-foam-faint">
+                    {pack.pack_code ?? '—'} · {pack.owned_count} / {pack.card_count} ·{' '}
+                    {pack.language.toUpperCase()}
+                  </p>
+                </div>
               </Link>
             </li>
           ))}
         </ul>
       )}
 
-      <SectionTitle>Catalogue</SectionTitle>
-      <div className="mx-5 rounded-(--radius-card) bg-surface p-4 text-sm text-ink-soft">
-        {Object.entries(health?.catalogue ?? {}).map(([code, count]) => (
-          <p key={code}>
-            {code === 'en' ? 'International' : 'Japon'} : {count.toLocaleString('fr')} cartes
-            {code === language && ' · édition active'}
-          </p>
-        ))}
-      </div>
-    </div>
+      {total > 0 && <ColorBalance tally={colors} total={total} />}
+    </Screen>
   )
 }
 
-function Shortcut({
-  to,
-  label,
-  icon,
-}: {
-  to: string
-  label: string
-  icon: React.ReactNode
-}) {
+/* Six colours is the axis One Piece is built on. Showing the collection's balance
+   across them says something true about it that a total never could. */
+function ColorBalance({ tally, total }: { tally: Record<string, number>; total: number }) {
+  const sum = Object.values(tally).reduce((a, b) => a + b, 0)
+  if (!sum) return null
+
   return (
-    <Link
-      to={to}
-      className="flex flex-col items-center gap-2 rounded-2xl bg-surface py-4 shadow-sm"
-    >
-      {icon}
-      <span className="text-sm font-semibold">{label}</span>
-    </Link>
+    <>
+      <SectionTitle>Répartition par couleur</SectionTitle>
+      <div className="px-5">
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-sea-raised">
+          {CARD_COLORS.filter((c) => tally[c]).map((color) => (
+            <span
+              key={color}
+              style={{
+                width: `${(tally[color] / sum) * 100}%`,
+                background: `var(--color-op-${color.toLowerCase()})`,
+              }}
+            />
+          ))}
+        </div>
+        <ul className="mt-3 grid grid-cols-3 gap-y-2">
+          {CARD_COLORS.filter((c) => tally[c]).map((color) => (
+            <li key={color} className="flex items-center gap-2 text-sm">
+              <span
+                className="size-2.5 rounded-full"
+                style={{ background: `var(--color-op-${color.toLowerCase()})` }}
+              />
+              <span className="text-foam-dim">{color}</span>
+              <span className="voice-data text-foam-faint">{tally[color]}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="pt-3 text-xs text-foam-faint">
+          Les cartes bicolores comptent dans leurs deux couleurs, d'où un total
+          supérieur aux {total} cartes.
+        </p>
+      </div>
+    </>
   )
 }
