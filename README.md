@@ -371,6 +371,31 @@ permits it for `10.0.2.2`, `localhost` and `127.0.0.1` only. Release builds do n
 that source set and stay HTTPS-only, which is what the tunnel serves. Add your LAN IP to
 that file to test from a physical phone.
 
+### Two scan modes
+
+**Live is the default**: the camera stays open and frames are sent as the view settles, so a
+card is identified by pointing at it. Recognition stays server-side per PROJECT_CONTEXT.md
+section 3 — frames are captured, downscaled and POSTed exactly like a photo. The only work
+done in the browser is deciding *when* to send: a mean-absolute-difference between two 40x56
+frames. Without it the stream would either flood the server ten times a second or send
+motion-blurred frames that cannot match. A hit freezes the stream and waits for confirmation;
+auto-adding would collect cards that were only ever pointed at.
+
+**Photo is the fallback**, and it is not optional. `getUserMedia` only runs in a secure
+context, so over `http://<lan-ip>:5173` — which is how this gets tested on a phone — the live
+scanner cannot start at all. The mode toggle defaults to whichever is actually available, and
+the live panel says why it is unavailable rather than showing a dead camera.
+
+To test live scanning on a phone:
+
+```bash
+npm run dev:https --prefix frontend
+```
+
+Serves the same app over a self-signed certificate. Safari warns once; accept it and the
+camera works. Plain `npm run dev` stays http, which is enough for everything except the
+camera. In a Capacitor build the WebView is already a secure context, so live works natively.
+
 ### Testing on a phone without a native build
 
 `npm run dev --prefix frontend` binds all interfaces (`vite --host`), so a phone on the same

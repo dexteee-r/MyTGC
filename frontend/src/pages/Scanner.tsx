@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { LiveScan } from '../components/LiveScan'
 import { CameraIcon } from '../components/icons'
 import {
   Button,
@@ -17,16 +18,28 @@ import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
 import type { ScanCandidate, ScanResult } from '../lib/types'
 
+type Mode = 'live' | 'photo'
+
 /* The core loop of the whole product: a binder in one hand, the phone in the other.
-   Every extra tap here is paid once per card, so the result screen adds to the
-   collection in place and re-arms the camera. Nothing about identifying a card
-   should require navigating away from the scanner. */
+   Every extra tap here is paid once per card, so the result adds to the collection
+   in place and the camera keeps running. Nothing about identifying a card should
+   require navigating away from the scanner.
+
+   Live is the default and photo is the fallback, not the reverse: pointing at a card
+   costs no taps at all. Photo stays because live needs a secure context and a granted
+   camera permission, and neither is guaranteed — over plain http on a LAN address,
+   which is how this is tested on a phone, photo is the only mode that works. */
 export function Scanner() {
   const { language, setLanguage } = useLanguage()
   const { add, ownedOf, setQuantity } = useCollection()
   const { show } = useToast()
   const navigate = useNavigate()
 
+  const [mode, setMode] = useState<Mode>(() =>
+    window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === 'function'
+      ? 'live'
+      : 'photo',
+  )
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +47,12 @@ export function Scanner() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const capture = () => inputRef.current?.click()
+
+  const onLiveResult = useCallback((incoming: ScanResult) => {
+    // Freeze on the first hit and let the user confirm. Auto-adding from a live
+    // stream would put cards in the collection that were only ever pointed at.
+    setResult((current) => current ?? incoming)
+  }, [])
 
   const submit = async (file: File) => {
     setBusy(true)
@@ -58,7 +77,8 @@ export function Scanner() {
       setSession((n) => Math.max(0, n - 1))
     })
     setResult(null)
-    capture()
+    // Live keeps running on its own; photo needs re-arming to save a tap per card.
+    if (mode === 'photo') capture()
   }
 
   return (
@@ -89,21 +109,44 @@ export function Scanner() {
         }}
       />
 
-      {!result && !busy && (
+      <div className="px-5 pb-4">
+        <Segmented
+          value={mode}
+          options={[
+            { value: 'live', label: 'En continu' },
+            { value: 'photo', label: 'Photo' },
+          ]}
+          onChange={(next) => {
+            setResult(null)
+            setError(null)
+            setMode(next)
+          }}
+          label="Mode de scan"
+        />
+      </div>
+
+      {mode === 'live' && !busy && (
+        <LiveScan language={language} paused={Boolean(result)} onResult={onLiveResult} />
+      )}
+
+      {mode === 'photo' && !result && !busy && (
         <div className="px-5">
           <Button variant="primary" size="lg" full onClick={capture}>
             <CameraIcon className="size-5" />
             Photographier une carte
           </Button>
-          <p className="pt-3 text-sm text-foam-dim">
-            Carte entière dans le cadre, seule, à plat. L'édition{' '}
-            <span className="font-semibold text-foam">
-              {language === 'en' ? 'International' : 'Japon'}
-            </span>{' '}
-            est celle qui sera enregistrée — l'illustration est identique dans les deux,
-            elle ne peut pas être devinée.
-          </p>
         </div>
+      )}
+
+      {!result && !busy && (
+        <p className="px-5 pt-3 text-sm text-foam-dim">
+          Une carte seule, à plat, entière dans le cadre. L'édition{' '}
+          <span className="font-semibold text-foam">
+            {language === 'en' ? 'International' : 'Japon'}
+          </span>{' '}
+          est celle qui sera enregistrée — l'illustration est identique dans les deux, elle
+          ne peut pas être devinée.
+        </p>
       )}
 
       {busy && (
@@ -171,11 +214,6 @@ function Outcome({
     <div className="animate-rise">
       <Match candidate={top} onAdd={onAdd} primary confident={result.confident} />
 
-      <div className="flex gap-2 px-5 pt-3">
-        <Button variant="quiet" onClick={onRetry}>
-          Reprendre
-        </Button>
-      </div>
 
       {rest.length > 0 && (
         <>
