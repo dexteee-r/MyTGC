@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CameraIcon } from '../components/icons'
+import { LogPoseIcon, ShipLogIcon } from '../components/icons'
 import {
   Button,
   ColorSpine,
@@ -55,11 +55,12 @@ export function Collection() {
 
       {entries.length === 0 ? (
         <EmptyState
-          title="Collection vide"
+          icon={<ShipLogIcon className="size-9" />}
+          title="Le journal de bord est vide"
           action={
             <Link to="/scan">
               <Button size="lg">
-                <CameraIcon className="size-5" />
+                <LogPoseIcon className="size-5" />
                 Scanner une carte
               </Button>
             </Link>

@@ -1,5 +1,11 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
-import { BoxIcon, CameraIcon, HomeIcon, LayersIcon, SearchIcon } from './components/icons'
+import {
+  LogPoseIcon,
+  NewsIcon,
+  SeaChartIcon,
+  ShipLogIcon,
+  StrawHatIcon,
+} from './components/icons'
 import { Spinner } from './components/ui'
 import { AuthProvider, useAuth } from './lib/auth'
 import { CollectionProvider } from './lib/collection'
@@ -17,13 +23,18 @@ import { SignIn } from './pages/SignIn'
 
 /* Scanner sits in the middle because it is the reason the app exists — the thumb
    reaches it without moving. No Decks tab: out of scope per PROJECT_CONTEXT.md
-   section 8, despite the reference app having one. */
+   section 8, despite the reference app having one.
+
+   Each tab carries the object from the story that does its job, rather than a
+   generic glyph: you point a Log Pose at something to read it, a ship's log is
+   where you write down what you brought back, a sea chart shows the territories.
+   The labels stay, so nothing depends on recognising a drawing. */
 const TABS = [
-  { to: '/', label: 'Accueil', Icon: HomeIcon },
-  { to: '/packs', label: 'Extensions', Icon: LayersIcon },
-  { to: '/scan', label: 'Scanner', Icon: CameraIcon, primary: true },
-  { to: '/search', label: 'Chercher', Icon: SearchIcon },
-  { to: '/collection', label: 'Collection', Icon: BoxIcon },
+  { to: '/', label: 'Accueil', Icon: StrawHatIcon },
+  { to: '/packs', label: 'Extensions', Icon: SeaChartIcon },
+  { to: '/scan', label: 'Scanner', Icon: LogPoseIcon, primary: true },
+  { to: '/search', label: 'Chercher', Icon: NewsIcon },
+  { to: '/collection', label: 'Collection', Icon: ShipLogIcon },
 ]
 
 export default function App() {

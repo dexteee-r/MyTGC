@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CameraIcon } from '../components/icons'
+import { LogPoseIcon } from '../components/icons'
 import {
   Button,
   CARD_COLORS,
@@ -110,7 +110,7 @@ export function Home() {
           action={
             <Link to="/scan">
               <Button size="lg">
-                <CameraIcon className="size-5" />
+                <LogPoseIcon className="size-5" />
                 Scanner ta première carte
               </Button>
             </Link>
