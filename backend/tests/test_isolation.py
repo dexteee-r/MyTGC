@@ -12,7 +12,7 @@ import pytest
 @pytest.fixture
 def two_accounts(client):
     alice = register(client, email="alice@example.com")
-    bob = register(client, email="bob@example.com")
+    bob = register(client, email="bob@example.com", invited_by=alice)
     entry = client.post(
         "/collection",
         json={"card_id": "OP01-001", "language": "en", "quantity": 3},

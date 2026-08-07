@@ -15,10 +15,28 @@ MIN_PASSWORD = 10
 
 class RegisterRequest(BaseModel):
     email: EmailStr
+    # Required unless registration is open, or this is the very first account.
+    invite_code: str | None = None
     # Length is the only rule enforced. Composition rules (a digit, a symbol) push
     # people towards predictable substitutions without adding real entropy.
     password: str = Field(min_length=MIN_PASSWORD, max_length=200)
     display_name: str | None = Field(default=None, max_length=60)
+
+
+class InviteCreate(BaseModel):
+    note: str | None = Field(default=None, max_length=80)
+    days_valid: int = Field(default=14, ge=1, le=365)
+
+
+class Invite(BaseModel):
+    id: int
+    note: str | None = None
+    created_at: str
+    expires_at: str | None = None
+    used_at: str | None = None
+    # Present only in the response that mints it: the code is stored hashed and
+    # cannot be shown again.
+    code: str | None = None
 
 
 class LoginRequest(BaseModel):

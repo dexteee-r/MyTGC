@@ -18,10 +18,12 @@ def test_register_returns_a_usable_session(client):
 
 
 def test_email_is_unique_case_insensitively(client):
-    register(client, email="Someone@Example.com")
+    owner = register(client, email="Someone@Example.com")
+    code = client.post("/auth/invites", json={}, headers=owner["headers"]).json()["code"]
     again = client.post(
         "/auth/register",
-        json={"email": "someone@example.com", "password": "another-long-password"},
+        json={"email": "someone@example.com", "password": "another-long-password",
+              "invite_code": code},
     )
     assert again.status_code == 409
 

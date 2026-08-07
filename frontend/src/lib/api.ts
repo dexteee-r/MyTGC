@@ -8,6 +8,7 @@ import type {
   Language,
   AuthSession,
   Pack,
+  RegistrationPolicy,
   ScanResult,
   UserProfile,
 } from './types'
@@ -136,7 +137,14 @@ export const api = {
   removeFromCollection: (id: number) =>
     request<void>(`/collection/${id}`, { method: 'DELETE' }),
 
-  register: (body: { email: string; password: string; display_name?: string }) =>
+  registrationPolicy: () => request<RegistrationPolicy>('/auth/registration'),
+
+  register: (body: {
+    email: string
+    password: string
+    display_name?: string
+    invite_code?: string
+  }) =>
     request<AuthSession>('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>

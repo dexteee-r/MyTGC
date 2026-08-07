@@ -16,7 +16,7 @@ Run:
 import os
 import sqlite3
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated
 
 import cv2
@@ -30,6 +30,7 @@ from PIL import Image
 from app import auth, db, detection, hashing, recognition, throttle
 from app.config import IMAGE_CACHE_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
+                        Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
                         LoginRequest, Pack, RefreshRequest, RegisterRequest,
                         ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile)
@@ -131,10 +132,26 @@ def _session(conn, response: Response, request: Request, row) -> Session:
 @app.post("/auth/register", response_model=Session, status_code=201)
 def register(conn: Conn, response: Response, request: Request, body: RegisterRequest):
     throttle.REGISTER.check(throttle.client_address(request))
+
+    # Nobody can invite the first person, so that account is always allowed. After
+    # that the configured policy applies.
+    needs_invite = False
+    if not auth.is_first_account(conn):
+        if auth.REGISTRATION_MODE == "closed":
+            raise HTTPException(403, "les inscriptions sont fermées")
+        if auth.REGISTRATION_MODE == "invite":
+            if not body.invite_code:
+                raise HTTPException(403, "un code d'invitation est nécessaire")
+            needs_invite = True
+
     email = body.email.strip()
     if conn.execute("SELECT 1 FROM users WHERE email_lower = ?",
                     (email.lower(),)).fetchone():
         raise HTTPException(409, "this email already has an account")
+
+    # Redeemed only once everything else has passed. Consuming it first would mean a
+    # mistyped or already-registered address burns a single-use code.
+    invite_id = auth.redeem_invite(conn, body.invite_code) if needs_invite else None
 
     cursor = conn.execute(
         "INSERT INTO users (email, email_lower, display_name, password_hash, created_at)"
@@ -142,6 +159,9 @@ def register(conn: Conn, response: Response, request: Request, body: RegisterReq
         (email, email.lower(), body.display_name or email.split("@")[0],
          auth.hash_password(body.password), auth.now().isoformat(timespec="seconds")),
     )
+    if invite_id is not None:
+        conn.execute("UPDATE invites SET used_by = ? WHERE id = ?",
+                     (cursor.lastrowid, invite_id))
     conn.commit()
     row = conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
     return _session(conn, response, request, row)
@@ -202,6 +222,46 @@ def logout(conn: Conn, response: Response, body: RefreshRequest | None = None,
     if token:
         auth.revoke_token(conn, token)
     auth.clear_refresh_cookie(response)
+
+
+@app.get("/auth/registration")
+def registration_policy(conn: Conn):
+    """Lets the sign-up screen ask for a code only when one is actually needed."""
+    return {
+        "mode": "open" if auth.is_first_account(conn) else auth.REGISTRATION_MODE,
+        "first_account": auth.is_first_account(conn),
+    }
+
+
+@app.post("/auth/invites", response_model=Invite, status_code=201)
+def mint_invite(conn: Conn, user: User, body: InviteCreate):
+    invite_id, code = auth.create_invite(
+        conn, user.id, body.note, ttl=timedelta(days=body.days_valid)
+    )
+    row = conn.execute("SELECT * FROM invites WHERE id = ?", (invite_id,)).fetchone()
+    # The code appears here and nowhere else: only its hash is stored.
+    return Invite(id=row["id"], note=row["note"], created_at=row["created_at"],
+                  expires_at=row["expires_at"], used_at=row["used_at"], code=code)
+
+
+@app.get("/auth/invites", response_model=list[Invite])
+def list_invites(conn: Conn, user: User):
+    rows = conn.execute(
+        "SELECT * FROM invites WHERE created_by = ? ORDER BY id DESC", (user.id,)
+    ).fetchall()
+    return [Invite(id=r["id"], note=r["note"], created_at=r["created_at"],
+                   expires_at=r["expires_at"], used_at=r["used_at"]) for r in rows]
+
+
+@app.delete("/auth/invites/{invite_id}", status_code=204)
+def revoke_invite(conn: Conn, user: User, invite_id: int):
+    cursor = conn.execute(
+        "DELETE FROM invites WHERE id = ? AND created_by = ? AND used_at IS NULL",
+        (invite_id, user.id),
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        raise HTTPException(404, "invitation introuvable ou déjà utilisée")
 
 
 @app.get("/auth/me", response_model=UserProfile)
@@ -363,7 +423,8 @@ async def scan(
     if image is None:
         raise HTTPException(400, "could not decode the image")
 
-    rectified = detection.detect_and_deskew(image)
+    with throttle.scan_slot():
+        rectified = detection.detect_and_deskew(image)
     if rectified is None:
         return ScanResult(detected=False, confident=False,
                           message="Aucune carte détectée. Cadre la carte entière sur "
@@ -372,14 +433,15 @@ async def scan(
     # Geometry cannot tell which way up the card was held, so both are hashed and the
     # closer one wins.
     best = None
-    for variant in detection.orientations(rectified):
-        query = hashing.phash_rgb(
-            hashing.crop_region(
-                Image.fromarray(cv2.cvtColor(variant, cv2.COLOR_BGR2RGB)), "art"))
-        result = catalogue.identify(query, top=5)
-        if result.best and (best is None
-                            or result.best.distance < best.best.distance):
-            best = result
+    with throttle.scan_slot():
+        for variant in detection.orientations(rectified):
+            query = hashing.phash_rgb(
+                hashing.crop_region(
+                    Image.fromarray(cv2.cvtColor(variant, cv2.COLOR_BGR2RGB)), "art"))
+            result = catalogue.identify(query, top=5)
+            if result.best and (best is None
+                                or result.best.distance < best.best.distance):
+                best = result
 
     if best is None or not best.candidates:
         return ScanResult(detected=True, confident=False,
@@ -557,5 +619,6 @@ def health(conn: Conn):
     hashed = conn.execute(
         "SELECT COUNT(*) FROM cards WHERE r_phash IS NOT NULL").fetchone()[0]
     return {"status": "ok", "catalogue": meta, "hashed_cards": hashed,
+            "registration": auth.REGISTRATION_MODE,
             "scan_enabled": app.state.catalogue is not None,
             "scan_threshold": recognition.DEFAULT_MAX_DISTANCE}

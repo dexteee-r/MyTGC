@@ -34,7 +34,7 @@ def test_guessing_one_account_does_not_lock_out_another(client):
     a per-email limit alone would let a rotating attacker through. Both are keyed,
     so a different account on the same address still has its own allowance."""
     victim = register(client, email="victim@example.com")
-    bystander = register(client, email="bystander@example.com")
+    bystander = register(client, email="bystander@example.com", invited_by=victim)
 
     for _ in range(throttle.LOGIN.limit + 1):
         client.post(

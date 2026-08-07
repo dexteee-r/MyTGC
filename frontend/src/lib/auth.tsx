@@ -23,7 +23,12 @@ interface AuthState {
   ready: boolean
   user: UserProfile | null
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, displayName?: string) => Promise<void>
+  signUp: (
+    email: string,
+    password: string,
+    displayName?: string,
+    inviteCode?: string,
+  ) => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -84,8 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName?: string) => {
-      apply(await api.register({ email, password, display_name: displayName }))
+    async (email: string, password: string, displayName?: string, inviteCode?: string) => {
+      apply(
+        await api.register({
+          email,
+          password,
+          display_name: displayName,
+          invite_code: inviteCode,
+        }),
+      )
     },
     [apply],
   )

@@ -52,7 +52,8 @@ def fresh_database():
 
     connection = db.connect()
     db.init_schema(connection)
-    for table in ("refresh_tokens", "collection", "wishlist", "users", "cards"):
+    for table in ("refresh_tokens", "invites", "collection", "wishlist", "users",
+                  "cards"):
         connection.execute(f"DELETE FROM {table}")
     connection.executemany(
         "INSERT INTO cards (id, language, name, pack_id, pack_code, pack_name,"
@@ -70,11 +71,22 @@ def client():
         yield test_client
 
 
-def register(client, email="a@example.com", password="a-long-enough-password"):
-    """Returns a client-shaped helper carrying the account's bearer header."""
-    response = client.post(
-        "/auth/register", json={"email": email, "password": password}
-    )
+def register(client, email="a@example.com", password="a-long-enough-password",
+             invited_by=None):
+    """Register and return the account's bearer header.
+
+    Registration is invite-only by default, so any account after the first needs a
+    code. Pass `invited_by` — an already-registered account — and one is minted
+    through the real endpoint, so the suite goes through the policy rather than
+    around it.
+    """
+    payload = {"email": email, "password": password}
+    if invited_by is not None:
+        minted = client.post("/auth/invites", json={}, headers=invited_by["headers"])
+        assert minted.status_code == 201, minted.text
+        payload["invite_code"] = minted.json()["code"]
+
+    response = client.post("/auth/register", json=payload)
     assert response.status_code == 201, response.text
     session = response.json()
     return {

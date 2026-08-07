@@ -121,6 +121,13 @@ export interface UserProfile {
   created_at: string | null
 }
 
+export type RegistrationMode = 'open' | 'invite' | 'closed'
+
+export interface RegistrationPolicy {
+  mode: RegistrationMode
+  first_account: boolean
+}
+
 export interface AuthSession {
   access_token: string
   token_type: string

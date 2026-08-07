@@ -70,6 +70,24 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens (user_id, revoked_at);
 CREATE INDEX IF NOT EXISTS idx_refresh_family ON refresh_tokens (family);
 
+-- Registration is invite-only by default: the instance answers on a public address,
+-- and an open sign-up form hands anyone an account and therefore access to /scan,
+-- which is the one endpoint that costs real CPU.
+--
+-- Codes are stored hashed, like refresh tokens: a leaked table must not mint accounts.
+CREATE TABLE IF NOT EXISTS invites (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code_hash   TEXT NOT NULL UNIQUE,
+    note        TEXT,                   -- who it was meant for
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT,
+    used_at     TEXT,
+    used_by     INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_invites_open ON invites (used_at, expires_at);
+
 CREATE TABLE IF NOT EXISTS collection (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

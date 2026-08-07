@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '../components/ui'
-import { ApiError } from '../lib/api'
+import { ApiError, api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import type { RegistrationPolicy } from '../lib/types'
 
 const MIN_PASSWORD = 10
 
@@ -13,6 +14,18 @@ export function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [code, setCode] = useState('')
+  const [policy, setPolicy] = useState<RegistrationPolicy | null>(null)
+
+  /* Ask the server what sign-up requires rather than assuming. The very first
+     account needs no code — nobody exists to issue one — so the field would be a
+     dead end on a fresh instance. */
+  useEffect(() => {
+    api.registrationPolicy().then(setPolicy).catch(() => {})
+  }, [])
+
+  const needsCode = policy?.mode === 'invite'
+  const signUpClosed = policy?.mode === 'closed' 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -24,7 +37,7 @@ export function SignIn() {
     setError(null)
     try {
       if (mode === 'in') await signIn(email, password)
-      else await signUp(email, password, name || undefined)
+      else await signUp(email, password, name || undefined, code || undefined)
     } catch (caught) {
       const status = caught instanceof ApiError ? caught.status : 0
       setError(
@@ -32,7 +45,9 @@ export function SignIn() {
           ? 'Email ou mot de passe incorrect.'
           : status === 409
             ? 'Un compte existe déjà avec cet email.'
-            : "Le serveur n'a pas répondu. Réessaie dans un instant.",
+            : status === 403
+              ? "Ce code d'invitation n'est pas valable."
+              : "Le serveur n'a pas répondu. Réessaie dans un instant.",
       )
     } finally {
       setBusy(false)
@@ -61,6 +76,24 @@ export function SignIn() {
             className="mt-2 min-h-12 w-full rounded-xl bg-sea-raised px-4 outline-none"
           />
         </label>
+
+        {mode === 'up' && needsCode && (
+          <label className="mt-4 block">
+            <span className="voice-label">Code d'invitation</span>
+            <input
+              type="text"
+              required
+              autoComplete="off"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              className="mt-2 min-h-12 w-full rounded-xl bg-sea-raised px-4 outline-none"
+            />
+            <span className="block pt-2 text-xs text-foam-faint">
+              Les inscriptions se font sur invitation. Demande un code à quelqu'un qui a
+              déjà un compte.
+            </span>
+          </label>
+        )}
 
         {mode === 'up' && (
           <label className="mt-4 block">
@@ -110,15 +143,19 @@ export function SignIn() {
         </div>
       </form>
 
-      <button
-        onClick={() => {
-          setMode(mode === 'in' ? 'up' : 'in')
-          setError(null)
-        }}
-        className="pt-6 text-sm text-foam-dim underline"
-      >
-        {mode === 'in' ? 'Pas encore de compte ? En créer un' : "J'ai déjà un compte"}
-      </button>
+      {signUpClosed && mode === 'in' ? (
+        <p className="pt-6 text-sm text-foam-faint">Les inscriptions sont fermées.</p>
+      ) : (
+        <button
+          onClick={() => {
+            setMode(mode === 'in' ? 'up' : 'in')
+            setError(null)
+          }}
+          className="pt-6 text-sm text-foam-dim underline"
+        >
+          {mode === 'in' ? 'Pas encore de compte ? En créer un' : "J'ai déjà un compte"}
+        </button>
+      )}
     </div>
   )
 }

@@ -17,9 +17,11 @@ resets on restart, which is acceptable: a restart is not an attack vector, and a
 shared store would mean running Redis for a household of one.
 """
 
+import os
 import time
 from collections import defaultdict, deque
-from threading import Lock
+from contextlib import contextmanager
+from threading import BoundedSemaphore, Lock
 
 from fastapi import HTTPException, Request
 
@@ -76,6 +78,36 @@ SCAN = SlidingWindow(
     window_seconds=60,
     message="Trop de scans d'affilée. Laisse la caméra respirer un instant.",
 )
+
+
+# --- concurrency -----------------------------------------------------------------
+# The per-user rate limit bounds how often one person scans; it does nothing about
+# how many people scan at once. Detection, deskew and three perceptual hashes on a
+# full frame is the heaviest thing this app does, and the host is a small low-power
+# box — so the number of scans running at any instant is capped outright.
+#
+# Requests wait briefly rather than failing immediately: a live scanner sending a
+# frame while another finishes should queue, not error. Past that, saying "busy" is
+# more honest than letting a queue grow until everything times out.
+
+MAX_CONCURRENT_SCANS = int(os.environ.get("MYTCG_MAX_CONCURRENT_SCANS", "2"))
+SCAN_QUEUE_SECONDS = float(os.environ.get("MYTCG_SCAN_QUEUE_SECONDS", "6"))
+
+_scan_slots = BoundedSemaphore(MAX_CONCURRENT_SCANS)
+
+
+@contextmanager
+def scan_slot():
+    if not _scan_slots.acquire(timeout=SCAN_QUEUE_SECONDS):
+        raise HTTPException(
+            503,
+            "Le serveur traite déjà plusieurs scans. Réessaie dans un instant.",
+            headers={"Retry-After": "2"},
+        )
+    try:
+        yield
+    finally:
+        _scan_slots.release()
 
 
 def client_address(request: Request) -> str:

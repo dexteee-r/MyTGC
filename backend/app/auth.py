@@ -49,6 +49,18 @@ if not SECRET_KEY:
 
 hasher = PasswordHasher()
 
+# open   — anyone may sign up. Only sane on a private network.
+# invite — a valid code is required. The default: the instance is publicly
+#          reachable, and an account is what unlocks /scan, the one endpoint that
+#          costs real CPU on a small box.
+# closed — nobody may sign up; existing accounts keep working.
+REGISTRATION_MODE = os.environ.get("MYTCG_REGISTRATION", "invite").strip().lower()
+if REGISTRATION_MODE not in {"open", "invite", "closed"}:
+    print(f"MYTCG_REGISTRATION={REGISTRATION_MODE!r} is not recognised; using 'invite'.")
+    REGISTRATION_MODE = "invite"
+
+INVITE_TTL = timedelta(days=14)
+
 
 def now() -> datetime:
     return datetime.now(timezone.utc)
@@ -199,6 +211,57 @@ def read_refresh_token(body_token: str | None, cookie_token: str | None) -> str:
     if not token:
         raise HTTPException(401, "no refresh token supplied")
     return token
+
+
+# --- invitations ----------------------------------------------------------------
+
+def create_invite(conn: sqlite3.Connection, created_by: int, note: str | None,
+                  ttl: timedelta = INVITE_TTL) -> tuple[int, str]:
+    """Mint a code, returning (row id, code).
+
+    The id comes from the insert itself rather than a follow-up "latest row" query,
+    which would hand back somebody else's invitation if two are minted at once.
+    """
+    code = secrets.token_urlsafe(9)
+    cursor = conn.execute(
+        "INSERT INTO invites (code_hash, note, created_by, created_at, expires_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (_digest(code), note, created_by, now().isoformat(timespec="seconds"),
+         (now() + ttl).isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return cursor.lastrowid, code
+
+
+def redeem_invite(conn: sqlite3.Connection, code: str) -> int:
+    """Consume a code, returning its row id. Raises if it is not usable.
+
+    Marking it used is conditional on it still being unused, so two people
+    submitting the same code at the same moment cannot both get through.
+    """
+    row = conn.execute(
+        "SELECT id, expires_at, used_at FROM invites WHERE code_hash = ?",
+        (_digest(code.strip()),),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(403, "code d'invitation invalide")
+    if row["used_at"] is not None:
+        raise HTTPException(403, "ce code d'invitation a déjà été utilisé")
+    if row["expires_at"] and datetime.fromisoformat(row["expires_at"]) < now():
+        raise HTTPException(403, "ce code d'invitation a expiré")
+
+    cursor = conn.execute(
+        "UPDATE invites SET used_at = ? WHERE id = ? AND used_at IS NULL",
+        (now().isoformat(timespec="seconds"), row["id"]),
+    )
+    if cursor.rowcount == 0:
+        raise HTTPException(403, "ce code d'invitation a déjà été utilisé")
+    return row["id"]
+
+
+def is_first_account(conn: sqlite3.Connection) -> bool:
+    """Nobody can invite the very first person, so that one is always allowed."""
+    return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
 
 
 # --- dependency -----------------------------------------------------------------

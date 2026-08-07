@@ -294,6 +294,31 @@ The isolation tests were checked by breaking the code on purpose: removing `user
 the collection `PATCH`, and from the pack `owned_count` subquery. Each mutation failed
 exactly one test and nothing else. A suite that passes against broken code is theatre.
 
+## Who may sign up
+
+Registration is **invite-only by default**. The instance answers on a public address,
+and an account is what unlocks `/scan` — the only endpoint that costs real CPU. An open
+sign-up form would hand that to anyone with the URL.
+
+`MYTCG_REGISTRATION` takes `invite` (default), `open` or `closed`. The very first
+account is always allowed whatever the mode: nobody exists yet to invite it.
+
+Codes are single-use, expire after 14 days by default, and are stored hashed like
+refresh tokens — a leaked table must not mint accounts. A signed-in account mints them
+at `POST /auth/invites`; the code is shown once and cannot be recovered.
+
+A code is redeemed only after everything else has passed, so a mistyped or
+already-registered address does not burn it.
+
+## Bounding the scan load
+
+The per-user rate limit bounds how often one person scans; it does nothing about how
+many people scan at once. `MYTCG_MAX_CONCURRENT_SCANS` (default 2) caps the number
+running at any instant. Requests wait up to `MYTCG_SCAN_QUEUE_SECONDS` for a slot — a
+live scanner sending a frame while another finishes should queue, not error — and past
+that get a 503 with `Retry-After`, which is more honest than a queue growing until
+everything times out.
+
 ## Rate limiting
 
 `/auth/login` is limited per address **and** per email, because either key alone is
