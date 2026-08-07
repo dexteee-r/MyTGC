@@ -1,4 +1,4 @@
-package be.elmzn.mytgc;
+package be.elmzn.mytcg;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -1,4 +1,4 @@
-# MyTGC
+# MyTCG
 
 Personal One Piece TCG collection manager. Scan a physical card with the phone camera,
 identify it, and track it in a personal collection across the English and Japanese editions.
@@ -286,8 +286,8 @@ of joining, because a `SELECT col.*, c.*` makes both tables contribute an `id` a
 38 tests, covering the properties that would fail silently: account isolation, token
 rotation and reuse detection, collection semantics, and the 64-bit hash storage.
 
-They run against a throwaway database in a temp directory — `MYTGC_DATA_DIR` and
-`MYTGC_DB_PATH` are set before the app is imported, so a test run can never reach the real
+They run against a throwaway database in a temp directory — `MYTCG_DATA_DIR` and
+`MYTCG_DB_PATH` are set before the app is imported, so a test run can never reach the real
 collection.
 
 The isolation tests were checked by breaking the code on purpose: removing `user_id` from
@@ -313,10 +313,10 @@ Behind Nginx and the tunnel every request arrives from localhost, so the address
 
 | Variable | Purpose |
 |---|---|
-| `MYTGC_SECRET_KEY` | Signs access tokens. **Required in production** — without it a key is generated per boot and every session dies on restart. |
-| `MYTGC_ORIGINS` | Comma-separated extra CORS origins, e.g. the tunnel host. Credentials are allowed, so a wildcard is neither legal nor wise. |
-| `MYTGC_DATA_DIR` | Where the database, image cache and punk-records clone live. In production this belongs outside the checkout: it is 2.5 GB and must survive a redeploy. |
-| `MYTGC_DB_PATH` | Overrides just the database path. |
+| `MYTCG_SECRET_KEY` | Signs access tokens. **Required in production** — without it a key is generated per boot and every session dies on restart. |
+| `MYTCG_ORIGINS` | Comma-separated extra CORS origins, e.g. the tunnel host. Credentials are allowed, so a wildcard is neither legal nor wise. |
+| `MYTCG_DATA_DIR` | Where the database, image cache and punk-records clone live. In production this belongs outside the checkout: it is 2.5 GB and must survive a redeploy. |
+| `MYTCG_DB_PATH` | Overrides just the database path. |
 
 ## Accounts
 
@@ -331,7 +331,7 @@ py backend/scripts/migrate_multiuser.py --email you@example.com
 Then set a signing key, or every session dies on each restart:
 
 ```bash
-export MYTGC_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
+export MYTCG_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
 ```
 
 ### The scheme
@@ -418,7 +418,7 @@ build has no proxy and must set `VITE_API_BASE`.
 
 React + TypeScript + Vite + Tailwind 4, extracted from the scaffold that was sitting at the
 workspace root; its `appId` was `be.elmzn.onepiecetracker` and is corrected to
-`be.elmzn.mytgc`. `android/` was dropped and will be regenerated at step 8.
+`be.elmzn.mytcg`. `android/` was dropped and will be regenerated at step 8.
 
 Four tabs: Accueil, Extensions, Recherche, Collection. **No Scanner tab** — recognition is
 paused and `/health` reports `scan_enabled: false`, which the home screen surfaces as a
@@ -450,7 +450,7 @@ JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" ANDROID_HOME="$LOCALAPPD
 Produces `frontend/android/app/build/outputs/apk/debug/app-debug.apk` (~7.9 MB). The system
 JDK is 1.8, which Gradle 8 rejects; Android Studio's bundled JBR 21 is used instead.
 
-`appId` is `be.elmzn.mytgc`, per PROJECT_CONTEXT.md section 1.
+`appId` is `be.elmzn.mytcg`, per PROJECT_CONTEXT.md section 1.
 
 ### Reaching the API from the device
 

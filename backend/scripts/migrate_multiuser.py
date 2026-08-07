@@ -87,7 +87,7 @@ def main() -> int:
 
     conn.commit()
     print(f"\nAccount created: {email} (id {user_id})")
-    print("Set MYTGC_SECRET_KEY in the environment before starting the API, "
+    print("Set MYTCG_SECRET_KEY in the environment before starting the API, "
           "otherwise every session dies on restart.")
     conn.close()
     return 0

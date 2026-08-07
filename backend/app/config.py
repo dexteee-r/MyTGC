@@ -14,10 +14,10 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
-DATA_DIR = Path(os.environ.get("MYTGC_DATA_DIR") or BACKEND_DIR / "data")
+DATA_DIR = Path(os.environ.get("MYTCG_DATA_DIR") or BACKEND_DIR / "data")
 PUNK_RECORDS_DIR = DATA_DIR / "punk-records"
 IMAGE_CACHE_DIR = DATA_DIR / "images"
-DB_PATH = Path(os.environ.get("MYTGC_DB_PATH") or DATA_DIR / "mytgc.db")
+DB_PATH = Path(os.environ.get("MYTCG_DB_PATH") or DATA_DIR / "mytcg.db")
 
 SCHEMA_PATH = BACKEND_DIR / "app" / "schema.sql"
 

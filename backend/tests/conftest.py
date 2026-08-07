@@ -15,10 +15,10 @@ import pytest
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
-_TEMP = tempfile.mkdtemp(prefix="mytgc-tests-")
-os.environ["MYTGC_DATA_DIR"] = _TEMP
-os.environ["MYTGC_DB_PATH"] = str(Path(_TEMP) / "test.db")
-os.environ.setdefault("MYTGC_SECRET_KEY", "test-key-fixed-so-tokens-are-stable")
+_TEMP = tempfile.mkdtemp(prefix="mytcg-tests-")
+os.environ["MYTCG_DATA_DIR"] = _TEMP
+os.environ["MYTCG_DB_PATH"] = str(Path(_TEMP) / "test.db")
+os.environ.setdefault("MYTCG_SECRET_KEY", "test-key-fixed-so-tokens-are-stable")
 
 from fastapi.testclient import TestClient  # noqa: E402
 

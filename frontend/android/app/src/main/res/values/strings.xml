@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">MyTGC</string>
-    <string name="title_activity_main">MyTGC</string>
-    <string name="package_name">be.elmzn.mytgc</string>
-    <string name="custom_url_scheme">be.elmzn.mytgc</string>
+    <string name="app_name">MyTCG</string>
+    <string name="title_activity_main">MyTCG</string>
+    <string name="package_name">be.elmzn.mytcg</string>
+    <string name="custom_url_scheme">be.elmzn.mytcg</string>
 </resources>

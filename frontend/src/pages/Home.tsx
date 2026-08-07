@@ -79,7 +79,7 @@ export function Home() {
   return (
     <Screen>
       <PageHeader
-        title="MyTGC"
+        title="MyTCG"
         meta={`${total} carte${total > 1 ? 's' : ''} · ${stats?.distinct_cards ?? 0} référence${(stats?.distinct_cards ?? 0) > 1 ? 's' : ''}`}
         action={
           <Link

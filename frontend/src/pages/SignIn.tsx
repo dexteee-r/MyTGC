@@ -42,7 +42,7 @@ export function SignIn() {
   return (
     <div className="mx-auto flex h-full max-w-md flex-col justify-center px-6">
       <p className="voice-label">Collection One Piece</p>
-      <h1 className="voice-display pt-2 text-[2.5rem]">MyTGC</h1>
+      <h1 className="voice-display pt-2 text-[2.5rem]">MyTCG</h1>
       <p className="pt-3 text-foam-dim">
         {mode === 'in'
           ? 'Connecte-toi pour retrouver ta collection.'

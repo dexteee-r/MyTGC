@@ -35,16 +35,16 @@ from fastapi import Cookie, Depends, Header, HTTPException, Request, Response
 
 ACCESS_TTL = timedelta(minutes=15)
 REFRESH_TTL = timedelta(days=30)
-REFRESH_COOKIE = "mytgc_refresh"
+REFRESH_COOKIE = "mytcg_refresh"
 ALGORITHM = "HS256"
 
 # Sessions must survive a restart, so the signing key is read from the environment
 # and only generated when absent — which is fine for a personal instance but logs a
 # warning, because a generated key means every session dies on the next boot.
-SECRET_KEY = os.environ.get("MYTGC_SECRET_KEY")
+SECRET_KEY = os.environ.get("MYTCG_SECRET_KEY")
 if not SECRET_KEY:
     SECRET_KEY = secrets.token_urlsafe(48)
-    print("MYTGC_SECRET_KEY is not set: generated an ephemeral key. "
+    print("MYTCG_SECRET_KEY is not set: generated an ephemeral key. "
           "Every session will be invalidated when this process restarts.")
 
 hasher = PasswordHasher()

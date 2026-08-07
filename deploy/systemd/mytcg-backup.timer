@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly MyTCG database backup
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+# Catch up after the box was off, rather than silently skipping a night.
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

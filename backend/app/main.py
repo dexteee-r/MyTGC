@@ -1,4 +1,4 @@
-"""MyTGC API.
+"""MyTCG API.
 
 Build step 6, minus /scan. PROJECT_CONTEXT.md section 7 gates backend and UI work on
 the step-5 recognition measurement, and that gate still stands — but it guards the scan
@@ -53,19 +53,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MyTGC", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="MyTCG", version="0.1.0", lifespan=lifespan)
 
 # capacitor:// and http://localhost are what the Android and iOS shells send as
 # Origin; the Vite dev server is same-origin through its proxy but is listed for the
 # case where VITE_API_BASE points straight at the API.
 #
 # The production host is not knowable at build time, so it comes from the
-# environment: MYTGC_ORIGINS="https://cards.example.com". Credentials are allowed,
+# environment: MYTCG_ORIGINS="https://cards.example.com". Credentials are allowed,
 # which makes a wildcard both illegal and a bad idea.
 ALLOWED_ORIGINS = [
     "http://localhost:5173", "https://localhost:5173",
     "capacitor://localhost", "http://localhost", "https://localhost",
-    *[o.strip() for o in os.environ.get("MYTGC_ORIGINS", "").split(",") if o.strip()],
+    *[o.strip() for o in os.environ.get("MYTCG_ORIGINS", "").split(",") if o.strip()],
 ]
 
 app.add_middleware(
@@ -178,8 +178,8 @@ def login(conn: Conn, response: Response, request: Request, body: LoginRequest):
 @app.post("/auth/refresh", response_model=Session)
 def refresh(conn: Conn, response: Response, request: Request,
             body: RefreshRequest | None = None,
-            mytgc_refresh: Annotated[str | None, Cookie()] = None):
-    token = auth.read_refresh_token(body.refresh_token if body else None, mytgc_refresh)
+            mytcg_refresh: Annotated[str | None, Cookie()] = None):
+    token = auth.read_refresh_token(body.refresh_token if body else None, mytcg_refresh)
     user_id, rotated = auth.rotate_refresh_token(conn, token,
                                                  request.headers.get("user-agent"))
     row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -197,8 +197,8 @@ def refresh(conn: Conn, response: Response, request: Request,
 
 @app.post("/auth/logout", status_code=204)
 def logout(conn: Conn, response: Response, body: RefreshRequest | None = None,
-           mytgc_refresh: Annotated[str | None, Cookie()] = None):
-    token = (body.refresh_token if body else None) or mytgc_refresh
+           mytcg_refresh: Annotated[str | None, Cookie()] = None):
+    token = (body.refresh_token if body else None) or mytcg_refresh
     if token:
         auth.revoke_token(conn, token)
     auth.clear_refresh_cookie(response)

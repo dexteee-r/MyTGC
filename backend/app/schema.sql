@@ -1,4 +1,4 @@
--- MyTGC schema. Follows PROJECT_CONTEXT.md section 5.
+-- MyTCG schema. Follows PROJECT_CONTEXT.md section 5.
 --
 -- Two columns are added to `cards` beyond the contract, both flagged in the
 -- import report:

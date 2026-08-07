@@ -80,7 +80,7 @@ def test_sibling_printings_are_listed_on_the_detail(client):
 
 def test_an_image_path_cannot_escape_the_cache(client):
     """The filename is user input; '..' would otherwise walk out of the directory."""
-    assert client.get("/images/en/../../mytgc.db").status_code == 404
+    assert client.get("/images/en/../../mytcg.db").status_code == 404
 
 
 # --- hash storage ---------------------------------------------------------------

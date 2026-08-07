@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "be.elmzn.mytgc"
+    namespace = "be.elmzn.mytcg"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "be.elmzn.mytgc"
+        applicationId "be.elmzn.mytcg"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

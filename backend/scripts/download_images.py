@@ -35,7 +35,7 @@ for stream in (sys.stdout, sys.stderr):
 
 # Identify the client honestly rather than impersonating a browser. A bare
 # python-requests UA is refused by the CDN.
-USER_AGENT = "MyTGC/0.1 (personal collection manager; +https://github.com/dexteee-r/MyTGC)"
+USER_AGENT = "MyTCG/0.1 (personal collection manager; +https://github.com/dexteee-r/MyTCG)"
 TIMEOUT = 30
 MIN_BYTES = 1024  # anything smaller is an error page, not a card
 
