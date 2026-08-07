@@ -42,3 +42,7 @@ frontend/dist/
 frontend/node_modules/
 .env.production
 backend/data/*.bak
+
+# Deployment config lives one level up, outside the repo: it is infrastructure
+# for one host (hostnames, paths, secrets layout), not application code.
+deploy/
