@@ -5,8 +5,10 @@ import { CollectionProvider } from '../lib/collection'
 import type { Card } from '../lib/types'
 import { CardTile } from './CardGrid'
 
-/* Ownership on the tile is the thing that turns a catalogue into a collection
-   tracker: browsing a set has to answer "what am I missing" at a glance. */
+/* A card you hold sits in its pocket; a card you do not is an empty pocket with its
+   number stamped in the well. Showing the artwork of a card someone does not own —
+   dimmed or otherwise — puts a picture of it in their binder, which is the opposite
+   of what they came to look at. */
 
 const card: Card = {
   id: 'OP01-001', language: 'en', name: 'Monkey.D.Luffy', pack_id: '569101',
@@ -35,32 +37,51 @@ function mount(collection: unknown[]) {
   )
 }
 
+function held(quantity: number) {
+  return [{
+    id: 1, card_id: 'OP01-001', language: 'en', quantity, condition: null,
+    date_added: '2026-01-01', acquisition_price: null, card: null,
+  }]
+}
+
 describe('card tile', () => {
-  it('marks a card that is not owned', async () => {
+  it('leaves an empty pocket for a card that is not held', async () => {
     mount([])
     const link = await screen.findByRole('link')
-    expect(link).toHaveAttribute('aria-label', expect.stringContaining('non possédée'))
-    // Dimmed rather than hidden: the set still reads as a whole.
-    expect(link.querySelector('img')?.className).toContain('opacity-45')
+
+    expect(link).toHaveAttribute('aria-label', expect.stringContaining('pochette vide'))
+    expect(link.querySelector('img')).toBeNull()
+    // The slot still says which card belongs there, so the gap is legible.
+    expect(screen.getByText('OP01-001')).toBeInTheDocument()
   })
 
-  it('shows how many copies are held', async () => {
-    mount([
-      { id: 1, card_id: 'OP01-001', language: 'en', quantity: 3, condition: null,
-        date_added: '2026-01-01', acquisition_price: null, card: null },
-    ])
+  it('seats the card once it is held', async () => {
+    mount(held(1))
+    await waitFor(() => expect(screen.getByRole('link').querySelector('img')).not.toBeNull())
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('1 en collection'),
+    )
+  })
 
-    await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument())
-    const link = screen.getByRole('link')
-    expect(link).toHaveAttribute('aria-label', expect.stringContaining('3 en collection'))
-    expect(link.querySelector('img')?.className).not.toContain('opacity-45')
+  it('stays quiet about a single copy and speaks up about duplicates', async () => {
+    /* A "1" on every card you own is noise on a screen whose whole job is showing
+       what you own; a "2" is the thing worth knowing. */
+    mount(held(1))
+    await waitFor(() => expect(screen.getByRole('link').querySelector('img')).not.toBeNull())
+    expect(screen.queryByText('×1')).toBeNull()
+
+    mount(held(3))
+    await waitFor(() => expect(screen.getAllByText('×3').length).toBeGreaterThan(0))
   })
 
   it('links to the right edition', async () => {
     mount([])
-    const link = await screen.findByRole('link')
-    // Losing the language turns a Japanese card into its English twin on the way
-    // to the detail screen.
-    expect(link).toHaveAttribute('href', '/card/OP01-001?language=en')
+    // Losing the language turns a Japanese card into its English twin on the way to
+    // the detail screen.
+    expect(await screen.findByRole('link')).toHaveAttribute(
+      'href',
+      '/card/OP01-001?language=en',
+    )
   })
 })

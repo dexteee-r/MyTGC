@@ -59,7 +59,7 @@ export function Account() {
         <button
           onClick={() => navigate(-1)}
           aria-label="Revenir"
-          className="flex size-11 items-center justify-center rounded-full text-foam-dim"
+          className="flex size-11 items-center justify-center rounded-full text-label-dim"
         >
           <ChevronLeftIcon className="size-6" />
         </button>
@@ -67,28 +67,28 @@ export function Account() {
 
       <PageHeader title={user?.display_name || 'Compte'} meta={user?.email} />
 
-      <section className="mx-5 rounded-(--radius-card) bg-sea-raised p-4">
-        <p className="voice-label">Collection</p>
-        <p className="voice-data pt-1 text-lg font-bold">
+      <section className="mx-5 rounded-none bg-pocket p-4">
+        <p className="t-code">Collection</p>
+        <p className="tabular-nums pt-1 text-lg font-bold">
           {stats?.total_quantity ?? 0} cartes · {stats?.distinct_cards ?? 0} références
         </p>
       </section>
 
-      <form onSubmit={changePassword} className="mx-5 mt-4 rounded-(--radius-card) bg-sea-raised p-4">
+      <form onSubmit={changePassword} className="mx-5 mt-4 rounded-none bg-pocket p-4">
         <p className="font-semibold">Changer le mot de passe</p>
         <label className="mt-3 block">
-          <span className="voice-label">Actuel</span>
+          <span className="t-code">Actuel</span>
           <input
             type="password"
             required
             autoComplete="current-password"
             value={current}
             onChange={(event) => setCurrent(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-sea-high px-4 outline-none"
+            className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
           />
         </label>
         <label className="mt-3 block">
-          <span className="voice-label">Nouveau</span>
+          <span className="t-code">Nouveau</span>
           <input
             type="password"
             required
@@ -96,11 +96,11 @@ export function Account() {
             autoComplete="new-password"
             value={next}
             onChange={(event) => setNext(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-sea-high px-4 outline-none"
+            className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
           />
         </label>
         {error && (
-          <p role="alert" className="pt-3 text-sm text-signal">
+          <p role="alert" className="pt-3 text-sm text-alert">
             {error}
           </p>
         )}
@@ -117,9 +117,9 @@ export function Account() {
         </Button>
       </div>
 
-      <section className="mx-5 mt-8 rounded-(--radius-card) border border-signal/30 p-4">
-        <p className="font-semibold text-signal">Supprimer le compte</p>
-        <p className="pt-1 text-sm text-foam-dim">
+      <section className="mx-5 mt-8 rounded-none border border-alert/30 p-4">
+        <p className="font-semibold text-alert">Supprimer le compte</p>
+        <p className="pt-1 text-sm text-label-dim">
           Ta collection et ta wishlist sont supprimées avec le compte. Le catalogue des
           cartes n'est pas affecté. C'est définitif.
         </p>

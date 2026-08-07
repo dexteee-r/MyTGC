@@ -55,6 +55,16 @@ export interface CollectionEntry {
   card: Card | null
 }
 
+export interface WishlistEntry {
+  id: number
+  card_id: string
+  language: Language
+  priority: number
+  alert_threshold: number | null
+  notes: string | null
+  card: Card | null
+}
+
 export interface CollectionStats {
   distinct_cards: number
   total_quantity: number

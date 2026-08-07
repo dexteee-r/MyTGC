@@ -4,12 +4,15 @@ import { Link } from 'react-router-dom'
 import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import type { Card } from '../lib/types'
-import { ColorSpine } from './ui'
+import { EmptyPocket } from './ui'
 
-/* 9,447 printings. PROJECT_CONTEXT.md section 2 forbids rendering a list that size
-   unvirtualized, so the grid is windowed by row. */
+/* A binder page is three pockets across, so this is three across. Wider screens get
+   six — two pages open side by side — rather than an arbitrary number that fits.
+
+   9,447 printings: PROJECT_CONTEXT.md section 2 forbids rendering that unwindowed,
+   so rows are virtualised. */
 const CARD_ASPECT = 838 / 600
-const GAP = 10
+const GAP = 8
 
 export function CardGrid({
   cards,
@@ -28,11 +31,11 @@ export function CardGrid({
     const element = scrollRef.current
     if (!element) return
     const measure = () => {
-      const width = element.clientWidth - 24
-      const count = width < 420 ? 3 : width < 640 ? 4 : Math.floor(width / 160)
-      const tile = (width - GAP * (count - 1)) / count
+      const width = element.clientWidth - 32
+      const count = width >= 620 ? 6 : 3
+      const pocket = (width - GAP * (count - 1)) / count
       setColumns(count)
-      setRowHeight(tile * CARD_ASPECT + 34)
+      setRowHeight(pocket * CARD_ASPECT + 26)
     }
     measure()
     const observer = new ResizeObserver(measure)
@@ -50,7 +53,7 @@ export function CardGrid({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => rowHeight,
-    overscan: 5,
+    overscan: 6,
   })
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export function CardGrid({
   }, [last, rows.length, onEndReached])
 
   return (
-    <div ref={scrollRef} className="no-scrollbar h-full overflow-y-auto px-3 pb-32">
+    <div ref={scrollRef} className="no-scrollbar h-full overflow-y-auto px-4 pb-28">
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
         {items.map((row) => (
           <div
@@ -82,9 +85,7 @@ export function CardGrid({
           </div>
         ))}
       </div>
-      {loadingMore && (
-        <p className="py-4 text-center text-sm text-foam-faint">Chargement…</p>
-      )}
+      {loadingMore && <p className="t-code py-5 text-center">Chargement…</p>}
     </div>
   )
 }
@@ -97,33 +98,26 @@ export function CardTile({ card }: { card: Card }) {
   return (
     <Link
       to={`/card/${encodeURIComponent(card.id)}?language=${card.language}`}
-      className="group block"
-      aria-label={`${card.name}, ${card.id}${owned ? `, ${owned.quantity} en collection` : ', non possédée'}`}
+      aria-label={`${card.name}, ${card.id}${owned ? `, ${owned.quantity} en collection` : ', pochette vide'}`}
     >
-      <div className="relative overflow-hidden rounded-lg bg-sea-raised">
-        {src ? (
+      <div className="relative">
+        {owned && src ? (
           <img
             src={src}
             alt=""
             loading="lazy"
-            /* Unowned cards sit back so the collection reads at a glance; this is
-               the whole point of browsing a set. */
-            className={`aspect-[600/838] w-full object-cover transition ${
-              owned ? '' : 'opacity-45 saturate-[0.55]'
-            }`}
+            className="aspect-[600/838] w-full rounded-[0.35rem] object-cover"
           />
         ) : (
-          <div className="aspect-[600/838] w-full" />
+          <EmptyPocket code={card.id} />
         )}
-        {owned && (
-          <span className="voice-data absolute top-1.5 right-1.5 min-w-5 rounded-full bg-gold px-1.5 text-center text-[11px] font-bold text-sea">
-            {owned.quantity}
+        {owned && owned.quantity > 1 && (
+          /* Only worth saying when it is more than one. A "1" on every card you own
+             is noise on a screen whose whole job is showing what you own. */
+          <span className="t-stat absolute right-1 bottom-1 rounded-xs bg-ink/85 px-1.5 py-0.5 text-xs text-label">
+            ×{owned.quantity}
           </span>
         )}
-      </div>
-      <div className="mt-1.5 flex items-center gap-1.5">
-        <ColorSpine colors={card.colors} className="h-4" />
-        <p className="voice-data truncate text-[11px] text-foam-faint">{card.id}</p>
       </div>
     </Link>
   )

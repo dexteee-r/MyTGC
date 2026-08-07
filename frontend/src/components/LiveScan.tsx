@@ -151,7 +151,7 @@ export function LiveScan({
 
   if (state.kind === 'unsupported' || state.kind === 'denied') {
     return (
-      <div className="mx-5 rounded-(--radius-card) border border-line/60 p-4 text-sm text-foam-dim">
+      <div className="mx-5 rounded-none border border-rail/60 p-4 text-sm text-label-dim">
         {state.kind === 'denied'
           ? "Accès caméra refusé. Autorise-le dans les réglages du navigateur, ou reste en mode photo."
           : state.reason}
@@ -160,7 +160,7 @@ export function LiveScan({
   }
 
   return (
-    <div className="relative mx-5 overflow-hidden rounded-(--radius-card) bg-black">
+    <div className="relative mx-5 overflow-hidden rounded-none bg-black">
       <video
         ref={videoRef}
         playsInline

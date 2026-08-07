@@ -4,7 +4,7 @@ import { LiveScan } from '../components/LiveScan'
 import { CameraIcon } from '../components/icons'
 import {
   Button,
-  ColorSpine,
+  ColorBar,
   EmptyState,
   PageHeader,
   Screen,
@@ -71,7 +71,7 @@ export function Scanner() {
     const cardId = candidate.printings[0]?.card_id ?? candidate.card_number
     await add({ id: cardId, language: candidate.language })
     setSession((n) => n + 1)
-    show(`${candidate.name} ajoutée`, () => {
+    show(`${candidate.name} rangée`, () => {
       const owned = ownedOf(cardId, candidate.language)
       if (owned) setQuantity(cardId, candidate.language, owned.quantity - 1)
       setSession((n) => Math.max(0, n - 1))
@@ -85,7 +85,7 @@ export function Scanner() {
     <Screen>
       <PageHeader
         title="Scanner"
-        meta={session > 0 ? `${session} ajoutée${session > 1 ? 's' : ''} dans cette session` : 'Une carte à la fois'}
+        meta={session > 0 ? `${session} rangée${session > 1 ? 's' : ''} dans cette session` : 'Une carte à la fois'}
         action={
           <Segmented
             value={language}
@@ -133,15 +133,15 @@ export function Scanner() {
         <div className="px-5">
           <Button variant="primary" size="lg" full onClick={capture}>
             <CameraIcon className="size-5" />
-            Photographier une carte
+            Prendre une photo
           </Button>
         </div>
       )}
 
       {!result && !busy && (
-        <p className="px-5 pt-3 text-sm text-foam-dim">
+        <p className="px-5 pt-3 text-sm text-label-dim">
           Une carte seule, à plat, entière dans le cadre. L'édition{' '}
-          <span className="font-semibold text-foam">
+          <span className="font-semibold text-label">
             {language === 'en' ? 'International' : 'Japon'}
           </span>{' '}
           est celle qui sera enregistrée — l'illustration est identique dans les deux, elle
@@ -152,7 +152,7 @@ export function Scanner() {
       {busy && (
         <>
           <Spinner />
-          <p className="text-center text-sm text-foam-dim">Identification…</p>
+          <p className="text-center text-sm text-label-dim">Identification…</p>
         </>
       )}
 
@@ -211,13 +211,13 @@ function Outcome({
 
   const [top, ...rest] = result.candidates
   return (
-    <div className="animate-rise">
+    <div className="animate-seat">
       <Match candidate={top} onAdd={onAdd} primary confident={result.confident} />
 
 
       {rest.length > 0 && (
         <>
-          <p className="voice-label px-5 pt-7 pb-2">Ou l'une de celles-ci</p>
+          <p className="t-code px-5 pt-7 pb-2">Ou l'une de celles-ci</p>
           {rest.map((candidate) => (
             <Match
               key={`${candidate.language}-${candidate.card_number}`}
@@ -250,12 +250,12 @@ function Match({
 
   return (
     <section
-      className={`mx-5 mt-2 rounded-(--radius-card) bg-sea-raised p-3 ${
-        primary ? 'ring-1 ring-line' : ''
+      className={`mx-5 mt-2 rounded-none bg-pocket p-3 ${
+        primary ? 'ring-1 ring-rail' : ''
       }`}
     >
       {primary && !confident && (
-        <p className="pb-2 text-xs text-gold">
+        <p className="pb-2 text-xs text-label-dim">
           Deux cartes se ressemblent ici — vérifie avant d'ajouter.
         </p>
       )}
@@ -269,12 +269,12 @@ function Match({
         )}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-start gap-2">
-            <ColorSpine colors={card?.colors ?? []} className="mt-1 h-8" />
+            <ColorBar colors={card?.colors ?? []} className="mt-1 h-8" />
             <div className="min-w-0">
               <p className={`truncate font-semibold ${primary ? 'text-lg' : ''}`}>
                 {candidate.name}
               </p>
-              <p className="voice-data truncate text-sm text-foam-faint">
+              <p className="tabular-nums truncate text-sm text-label-faint">
                 {candidate.card_number} · {card?.rarity ?? ''} ·{' '}
                 {candidate.language.toUpperCase()}
               </p>
@@ -284,7 +284,7 @@ function Match({
           {candidate.ambiguous_printing && (
             <Link
               to={`/card/${encodeURIComponent(cardId)}?language=${candidate.language}`}
-              className="pt-1 text-xs text-gold underline"
+              className="pt-1 text-xs text-label-dim underline"
             >
               {candidate.printings.length} tirages identiques — choisir lequel
             </Link>
@@ -293,7 +293,7 @@ function Match({
           <div className="mt-auto flex items-center justify-between gap-3 pt-3">
             {owned ? (
               <>
-                <span className="text-sm text-foam-dim">En collection</span>
+                <span className="text-sm text-label-dim">En collection</span>
                 <Stepper
                   value={owned.quantity}
                   onChange={(next) => setQuantity(cardId, candidate.language, next)}
@@ -306,7 +306,7 @@ function Match({
                 full={primary}
                 onClick={() => onAdd(candidate)}
               >
-                Ajouter à la collection
+                Ranger dans la collection
               </Button>
             )}
           </div>

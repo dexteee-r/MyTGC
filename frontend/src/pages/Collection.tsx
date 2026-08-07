@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LogPoseIcon, ShipLogIcon } from '../components/icons'
 import {
   Button,
-  ColorSpine,
+  ColorBar,
   EmptyState,
   PageHeader,
   Screen,
@@ -28,7 +27,6 @@ export function Collection() {
     } else if (sort === 'set') {
       sorted.sort((a, b) => (a.card?.pack_code ?? 'zz').localeCompare(b.card?.pack_code ?? 'zz'))
     }
-
     if (sort !== 'set') return [{ key: '', items: sorted }]
 
     const buckets = new Map<string, typeof sorted>()
@@ -48,73 +46,76 @@ export function Collection() {
         title="Collection"
         meta={
           stats
-            ? `${stats.total_quantity} carte${stats.total_quantity > 1 ? 's' : ''} · ${stats.distinct_cards} référence${stats.distinct_cards > 1 ? 's' : ''}`
+            ? `${stats.total_quantity} cartes · ${stats.distinct_cards} références`
             : undefined
         }
       />
 
       {entries.length === 0 ? (
-        <EmptyState
-          icon={<ShipLogIcon className="size-9" />}
-          title="Le journal de bord est vide"
-          action={
-            <Link to="/scan">
-              <Button size="lg">
-                <LogPoseIcon className="size-5" />
-                Scanner une carte
-              </Button>
-            </Link>
-          }
-        >
-          Scanne une carte, ou ajoute-la depuis sa fiche dans le catalogue.
-        </EmptyState>
+        <div className="pt-8">
+          <EmptyState
+            title="Rien de rangé pour le moment"
+            action={
+              <Link to="/scan">
+                <Button size="lg">Scanner une carte</Button>
+              </Link>
+            }
+          >
+            Scanne une carte, ou ajoute-la depuis sa fiche.
+          </EmptyState>
+        </div>
       ) : (
         <>
-          <div className="px-5 pb-3">
-            <Segmented
-              value={sort}
-              options={[
-                { value: 'recent', label: 'Récentes' },
-                { value: 'set', label: 'Par extension' },
-                { value: 'name', label: 'A → Z' },
-              ]}
-              onChange={setSort}
-              label="Trier"
-            />
-          </div>
+          <Segmented
+            value={sort}
+            options={[
+              { value: 'recent', label: 'Récentes' },
+              { value: 'set', label: 'Par extension' },
+              { value: 'name', label: 'A → Z' },
+            ]}
+            onChange={setSort}
+            label="Trier"
+          />
 
           {groups.map((group) => (
             <section key={group.key}>
-              {group.key && <p className="voice-label px-5 pt-5 pb-2">{group.key}</p>}
-              <ul className="space-y-2 px-5">
+              {group.key && (
+                <p className="t-code border-b border-rail px-4 py-2.5">{group.key}</p>
+              )}
+              <ul>
                 {group.items.map((entry) => {
                   const src = entry.card ? imageUrl(entry.card) : null
                   return (
                     <li
                       key={entry.id}
-                      className="flex items-center gap-3 rounded-(--radius-card) bg-sea-raised p-2.5"
+                      className="flex items-center gap-3 border-b border-rail p-3"
                     >
                       <Link
                         to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
                         className="flex min-w-0 flex-1 items-center gap-3"
                       >
-                        {src && (
+                        {src ? (
                           <img
                             src={src}
                             alt=""
-                            className="h-[74px] w-[53px] shrink-0 rounded-md object-cover"
+                            className="h-[68px] w-[49px] shrink-0 rounded-[0.25rem] object-cover"
                           />
+                        ) : (
+                          <div className="pocket h-[68px] w-[49px] shrink-0" />
                         )}
-                        <ColorSpine colors={entry.card?.colors ?? []} className="h-12" />
+                        <ColorBar
+                          colors={entry.card?.colors ?? []}
+                          className="h-11 w-[3px] shrink-0"
+                        />
                         <div className="min-w-0">
-                          <p className="truncate font-semibold">
+                          <p className="t-plate truncate">
                             {entry.card?.name ?? entry.card_id}
                           </p>
-                          <p className="voice-data truncate text-sm text-foam-faint">
-                            {entry.card_id} · {entry.language.toUpperCase()}
+                          <p className="t-code pt-1">
+                            {entry.card_id} · {entry.language}
                           </p>
                           {entry.condition && (
-                            <p className="truncate text-xs text-foam-dim">
+                            <p className="truncate pt-0.5 text-xs text-label-dim">
                               {CONDITION_LABELS[entry.condition]}
                             </p>
                           )}

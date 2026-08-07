@@ -145,3 +145,15 @@ export function NewsIcon(props: { className?: string }) {
     </svg>
   )
 }
+
+/* A wanted poster: what a card on the hunt list is. The bounty world's own object
+   for "I am looking for this", and it keeps the tab bar in one vocabulary. */
+export function WantedIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 3.4h14v17.2l-2.3-1.6-2.4 1.6-2.3-1.6-2.3 1.6-2.4-1.6L5 20.6Z" />
+      <circle cx="12" cy="9.4" r="2.5" />
+      <path d="M8.4 15.2c.6-1.7 1.9-2.6 3.6-2.6s3 .9 3.6 2.6" />
+    </svg>
+  )
+}

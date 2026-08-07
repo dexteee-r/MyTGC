@@ -56,9 +56,9 @@ export function SignIn() {
 
   return (
     <div className="mx-auto flex h-full max-w-md flex-col justify-center px-6">
-      <p className="voice-label">Collection One Piece</p>
-      <h1 className="voice-display pt-2 text-[2.5rem]">MyTCG</h1>
-      <p className="pt-3 text-foam-dim">
+      <p className="t-code">Collection One Piece</p>
+      <h1 className="t-stat pt-2 text-[2.5rem]">MyTCG</h1>
+      <p className="pt-3 text-label-dim">
         {mode === 'in'
           ? 'Connecte-toi pour retrouver ta collection.'
           : 'Crée un compte pour commencer une collection.'}
@@ -66,29 +66,29 @@ export function SignIn() {
 
       <form onSubmit={submit} className="pt-8">
         <label className="block">
-          <span className="voice-label">Email</span>
+          <span className="t-code">Email</span>
           <input
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-sea-raised px-4 outline-none"
+            className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
           />
         </label>
 
         {mode === 'up' && needsCode && (
           <label className="mt-4 block">
-            <span className="voice-label">Code d'invitation</span>
+            <span className="t-code">Code d'invitation</span>
             <input
               type="text"
               required
               autoComplete="off"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="mt-2 min-h-12 w-full rounded-xl bg-sea-raised px-4 outline-none"
+              className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
             />
-            <span className="block pt-2 text-xs text-foam-faint">
+            <span className="block pt-2 text-xs text-label-faint">
               Les inscriptions se font sur invitation. Demande un code à quelqu'un qui a
               déjà un compte.
             </span>
@@ -97,20 +97,20 @@ export function SignIn() {
 
         {mode === 'up' && (
           <label className="mt-4 block">
-            <span className="voice-label">Nom affiché</span>
+            <span className="t-code">Nom affiché</span>
             <input
               type="text"
               autoComplete="nickname"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="facultatif"
-              className="mt-2 min-h-12 w-full rounded-xl bg-sea-raised px-4 outline-none placeholder:text-foam-faint"
+              className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none placeholder:text-label-faint"
             />
           </label>
         )}
 
         <label className="mt-4 block">
-          <span className="voice-label">Mot de passe</span>
+          <span className="t-code">Mot de passe</span>
           <input
             type="password"
             required
@@ -120,10 +120,10 @@ export function SignIn() {
             minLength={mode === 'up' ? MIN_PASSWORD : undefined}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-sea-raised px-4 outline-none"
+            className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
           />
           {mode === 'up' && (
-            <span className={`block pt-2 text-xs ${tooShort ? 'text-signal' : 'text-foam-faint'}`}>
+            <span className={`block pt-2 text-xs ${tooShort ? 'text-alert' : 'text-label-faint'}`}>
               {MIN_PASSWORD} caractères minimum. La longueur compte plus que les
               symboles.
             </span>
@@ -131,7 +131,7 @@ export function SignIn() {
         </label>
 
         {error && (
-          <p role="alert" className="pt-4 text-sm text-signal">
+          <p role="alert" className="pt-4 text-sm text-alert">
             {error}
           </p>
         )}
@@ -144,14 +144,14 @@ export function SignIn() {
       </form>
 
       {signUpClosed && mode === 'in' ? (
-        <p className="pt-6 text-sm text-foam-faint">Les inscriptions sont fermées.</p>
+        <p className="pt-6 text-sm text-label-faint">Les inscriptions sont fermées.</p>
       ) : (
         <button
           onClick={() => {
             setMode(mode === 'in' ? 'up' : 'in')
             setError(null)
           }}
-          className="pt-6 text-sm text-foam-dim underline"
+          className="pt-6 text-sm text-label-dim underline"
         >
           {mode === 'in' ? 'Pas encore de compte ? En créer un' : "J'ai déjà un compte"}
         </button>

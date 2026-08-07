@@ -11,6 +11,7 @@ import type {
   RegistrationPolicy,
   ScanResult,
   UserProfile,
+  WishlistEntry,
 } from './types'
 
 /* In dev, Vite proxies /api to the local uvicorn. In a Capacitor build there is no
@@ -136,6 +137,21 @@ export const api = {
 
   removeFromCollection: (id: number) =>
     request<void>(`/collection/${id}`, { method: 'DELETE' }),
+
+  wishlist: () => request<WishlistEntry[]>('/wishlist'),
+
+  addToWishlist: (body: {
+    card_id: string
+    language: Language
+    priority?: number
+    notes?: string | null
+  }) => request<WishlistEntry>('/wishlist', { method: 'POST', body: JSON.stringify(body) }),
+
+  updateWishlist: (id: number, body: { priority?: number; notes?: string | null }) =>
+    request<WishlistEntry>(`/wishlist/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  removeFromWishlist: (id: number) =>
+    request<void>(`/wishlist/${id}`, { method: 'DELETE' }),
 
   registrationPolicy: () => request<RegistrationPolicy>('/auth/registration'),
 

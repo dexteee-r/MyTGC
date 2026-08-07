@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  CompletionRing,
-  ErrorState,
-  PageHeader,
-  Screen,
-  Segmented,
-  Spinner,
-} from '../components/ui'
+import { ErrorState, PageHeader, Screen, Segmented, Spinner } from '../components/ui'
 import { api } from '../lib/api'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import type { Pack } from '../lib/types'
@@ -29,6 +22,8 @@ function familyOf(pack: Pack): Family {
   return 'other'
 }
 
+/* The dividers in the binder, listed. Each one says how full it is; nothing else
+   about a set matters from here. */
 export function Packs() {
   const { language, setLanguage } = useLanguage()
   const [packs, setPacks] = useState<Pack[] | null>(null)
@@ -58,46 +53,48 @@ export function Packs() {
         title="Extensions"
         meta={size ? `${owned} sur ${size} cartes` : undefined}
         action={
-          <Segmented
-            value={language}
-            options={LANGUAGE_OPTIONS}
-            onChange={setLanguage}
-            label="Édition"
-          />
+          <div className="w-40">
+            <Segmented value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} label="Édition" />
+          </div>
         }
       />
 
-      <div className="no-scrollbar overflow-x-auto px-5 pb-4">
-        <Segmented
-          value={family}
-          options={(Object.keys(FAMILY_LABELS) as Family[]).map((key) => ({
-            value: key,
-            label: FAMILY_LABELS[key],
-            badge: counts[key],
-          }))}
-          onChange={setFamily}
-          label="Type d'extension"
-        />
-      </div>
+      <Segmented
+        value={family}
+        options={(Object.keys(FAMILY_LABELS) as Family[]).map((key) => ({
+          value: key,
+          label: FAMILY_LABELS[key],
+          badge: counts[key],
+        }))}
+        onChange={setFamily}
+        label="Type d'extension"
+      />
 
       {failed ? (
-        <ErrorState onRetry={load} />
+        <div className="pt-8"><ErrorState onRetry={load} /></div>
       ) : !packs ? (
         <Spinner />
       ) : (
-        <ul className="space-y-2 px-5">
+        <ul>
           {visible.map((pack) => (
-            <li key={`${pack.language}-${pack.pack_id}`}>
+            <li key={`${pack.language}-${pack.pack_id}`} className="border-b border-rail">
               <Link
                 to={`/packs/${encodeURIComponent(pack.pack_code ?? pack.pack_id)}?language=${pack.language}`}
-                className="flex items-center gap-4 rounded-(--radius-card) bg-sea-raised p-3.5 transition active:scale-[0.995]"
+                className="block px-4 py-3.5"
               >
-                <CompletionRing value={pack.owned_count} total={pack.card_count} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{pack.pack_name}</p>
-                  <p className="voice-data text-sm text-foam-faint">
-                    {pack.pack_code ?? 'Sans code'} · {pack.owned_count} / {pack.card_count}
-                  </p>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="t-plate truncate">{pack.pack_name}</span>
+                  <span className="t-stat shrink-0 text-sm">
+                    {pack.owned_count}
+                    <span className="text-label-faint">/{pack.card_count}</span>
+                  </span>
+                </div>
+                <p className="t-code pt-1.5">{pack.pack_code ?? 'Sans code'}</p>
+                <div className="mt-2.5 h-px w-full bg-rail">
+                  <div
+                    className="h-px bg-label"
+                    style={{ width: `${(pack.owned_count / pack.card_count) * 100}%` }}
+                  />
                 </div>
               </Link>
             </li>

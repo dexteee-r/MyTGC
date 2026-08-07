@@ -1,36 +1,39 @@
 @import "tailwindcss";
 
-/* ── MyTCG design tokens ────────────────────────────────────────────────────
-   The cards are the colour; the app is the wall. 9,447 pieces of vivid artwork
-   are the content, so the chrome recedes to a deep navy and lets them hang like
-   a gallery. Red is reserved for the primary action, gold for ownership —
-   nothing else is allowed to use them.                                        */
+/* ── MyTCG ──────────────────────────────────────────────────────────────────
+   The app is a binder.
+
+   Not as decoration: it is the object a collector actually handles. The chrome is
+   the matte black of a binder page and the paper white of a card's border, and it
+   carries no accent colour of its own — every colour on screen comes from the cards,
+   whose six printed colours are the axis the whole game is built on. A brand red
+   would compete with a red card and mean nothing.
+
+   Ownership is therefore not a badge. A card you hold sits in its pocket; a card you
+   do not is an empty pocket with its number stamped in the well. The gap is the
+   information.                                                                     */
 @theme {
-  /* Ground and surfaces */
-  --color-sea: #0e1726;
-  --color-sea-raised: #17222f;
-  --color-sea-high: #1f2c3d;
-  --color-line: #27364c;
+  /* The binder */
+  --color-ink: #0b0b0c;
+  --color-pocket: #141416;
+  --color-well: #0e0e10;
+  --color-rail: #26262a;
 
-  /* Text */
-  --color-foam: #f1f5fa;
-  --color-foam-dim: #93a3b8;
-  --color-foam-faint: #62738a;
+  /* The card's white border, and its quieter registers */
+  --color-label: #f4f3f0;
+  --color-label-dim: #9c9c9f;
+  --color-label-faint: #64646a;
 
-  /* The only two accents, each with exactly one job */
-  --color-signal: #e23a2e; /* primary action */
-  --color-gold: #e2a93c; /* owned / complete */
+  /* Not an accent. Reserved for losing something, and used nowhere else. */
+  --color-alert: #c8322b;
 
-  /* The six printed card colours. Data, not decoration — these are fixed by
-     the game and drive the colour spine on every card. */
+  /* The six printed card colours. Data, fixed by the game. */
   --color-op-red: #e0303a;
   --color-op-green: #2aa161;
   --color-op-blue: #2f7fd6;
   --color-op-purple: #8f56c4;
-  --color-op-black: #4b5566;
+  --color-op-black: #6c7688;
   --color-op-yellow: #e6c02f;
-
-  --radius-card: 1.1rem;
 
   --font-sans: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI",
     system-ui, -apple-system, sans-serif;
@@ -43,41 +46,56 @@ body,
 }
 
 body {
-  background: var(--color-sea);
-  color: var(--color-foam);
+  background: var(--color-ink);
+  color: var(--color-label);
   font-family: var(--font-sans);
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
 }
 
-/* One family, three voices. The personality comes from the treatment — weight
-   contrast and tracking — rather than from a downloaded display face, which
-   would cost an offline app a network dependency it must not have. */
-.voice-display {
+/* Three voices, all taken from the card itself rather than from a type catalogue.
+   A One Piece card carries no serif anywhere; it has a huge weighty power numeral,
+   a bold name plate, and a small letterspaced code in the corner. */
+
+/* The power numeral. */
+.t-stat {
   font-weight: 800;
-  letter-spacing: -0.033em;
-  line-height: 1.02;
-}
-
-.voice-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-foam-faint);
-}
-
-.voice-data {
+  letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  line-height: 0.92;
 }
 
-/* Quality floor: a visible focus ring everywhere, and no motion for anyone who
-   asked not to have it. */
+/* The name plate. */
+.t-plate {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* The printed card code, bottom right. Also every label and every count. */
+.t-code {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-label-faint);
+}
+
+/* A pocket is a well pressed into the page: darker than the page, with a lit top
+   edge and a shadowed bottom one. Three of them across, because a binder page is
+   three across. */
+.pocket {
+  background: var(--color-well);
+  border-radius: 0.5rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+}
+
 :focus-visible {
-  outline: 2px solid var(--color-gold);
+  outline: 2px solid var(--color-label);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -97,10 +115,11 @@ body {
   scrollbar-width: none;
 }
 
-@keyframes rise {
+/* A card seats into its pocket. The one piece of motion in the app. */
+@keyframes seat {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(-6px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -108,6 +127,6 @@ body {
   }
 }
 
-.animate-rise {
-  animation: rise 0.22s ease-out both;
+.animate-seat {
+  animation: seat 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }

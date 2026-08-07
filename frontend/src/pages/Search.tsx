@@ -7,7 +7,6 @@ import {
   EmptyState,
   ErrorState,
   PageHeader,
-
   Segmented,
   Spinner,
 } from '../components/ui'
@@ -60,9 +59,7 @@ export function Search() {
     api
       .cards({ ...filters, limit: PAGE, offset: cards.length })
       .then((page) =>
-        setCards((current) =>
-          current.length >= total ? current : [...current, ...page.items],
-        ),
+        setCards((current) => (current.length >= total ? current : [...current, ...page.items])),
       )
       .catch(() => {})
   }
@@ -73,26 +70,28 @@ export function Search() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Recherche"
-        meta={loading ? 'Recherche…' : `${total.toLocaleString('fr')} résultats`}
+        meta={loading ? 'Recherche…' : `${total.toLocaleString('fr')} carte${total > 1 ? 's' : ''}`}
         action={
-          <Segmented
-            value={language}
-            options={LANGUAGE_OPTIONS}
-            onChange={setLanguage}
-            label="Édition"
-          />
+          <div className="w-36">
+            <Segmented
+              value={language}
+              options={LANGUAGE_OPTIONS}
+              onChange={setLanguage}
+              label="Édition"
+            />
+          </div>
         }
       />
 
-      <div className="px-5 pb-3">
-        <div className="flex min-h-12 items-center gap-2.5 rounded-full bg-sea-raised px-4">
-          <SearchIcon className="size-5 shrink-0 text-foam-faint" />
+      <div className="border-b border-rail px-4 py-3">
+        <div className="flex min-h-11 items-center gap-2.5 bg-pocket px-3 ring-1 ring-rail">
+          <SearchIcon className="size-4 shrink-0 text-label-faint" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Nom ou code (OP09-093)"
             aria-label="Rechercher une carte"
-            className="min-w-0 flex-1 bg-transparent py-3 outline-none placeholder:text-foam-faint"
+            className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-label-faint"
           />
           {active && (
             <button
@@ -102,7 +101,7 @@ export function Search() {
                 setRarity(null)
                 setOwned(null)
               }}
-              className="shrink-0 text-sm text-foam-dim"
+              className="t-code shrink-0"
             >
               Effacer
             </button>
@@ -110,14 +109,14 @@ export function Search() {
         </div>
       </div>
 
-      <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 pb-2.5">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-2.5">
         <Chip active={owned === true} onClick={() => setOwned(owned === true ? null : true)}>
           Possédées
         </Chip>
         <Chip active={owned === false} onClick={() => setOwned(owned === false ? null : false)}>
           Manquantes
         </Chip>
-        <span className="w-px shrink-0 bg-line" />
+        <span className="w-px shrink-0 bg-rail" />
         {CARD_COLORS.map((name) => (
           <Chip
             key={name}
@@ -130,7 +129,7 @@ export function Search() {
         ))}
       </div>
 
-      <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 pb-3">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto border-b border-rail px-4 pb-3">
         {RARITIES.map((name) => (
           <Chip
             key={name}
@@ -143,13 +142,17 @@ export function Search() {
       </div>
 
       {failed ? (
-        <ErrorState onRetry={() => setQuery((q) => q)} />
+        <div className="pt-8">
+          <ErrorState onRetry={() => setQuery((q) => q)} />
+        </div>
       ) : loading && cards.length === 0 ? (
         <Spinner />
       ) : cards.length === 0 ? (
-        <EmptyState title="Aucun résultat">
-          Aucune carte ne correspond. Retire un filtre ou vérifie le code.
-        </EmptyState>
+        <div className="pt-8">
+          <EmptyState title="Aucun résultat">
+            Aucune carte ne correspond. Retire un filtre ou vérifie le code.
+          </EmptyState>
+        </div>
       ) : (
         <CardGrid cards={cards} onEndReached={loadMore} loadingMore={cards.length < total} />
       )}

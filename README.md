@@ -397,38 +397,55 @@ reach another's holdings by guessing a number.
 
 ## Design
 
-**The cards are the colour; the app is the wall.** 9,447 pieces of vivid artwork are the
-content, so the chrome is a deep navy that lets them hang like a gallery instead of a shop
-listing. Red is reserved for the primary action and gold for ownership — nothing else may
-use either.
+**The app is a binder.** Not as decoration: it is the object a collector actually
+handles, and their own photos of this collection are black binder pages with 3×3
+pockets.
 
-The six printed card colours are data, not decoration: One Piece is built on that axis, so
-every card carries a **colour spine**, and the home screen shows the collection's balance
-across the six.
+**Ownership is not a badge, it is presence.** A card you hold sits in its pocket; a
+card you do not is an empty pocket with its number stamped in the well. The previous
+version showed the artwork of unowned cards at low opacity — putting a picture of a
+card in the binder of someone who does not have it, which is the opposite of what
+they opened the set to see. The gap is the information.
 
-The signature is the **completion ring** with cardinal ticks. A collector's live question is
-never "how many cards do I have" but "how close is this set", and a ring reads at a glance in
-a list where a bar does not. It turns gold only when the set is finished.
+**There is no accent colour.** The chrome is the matte black of a binder page and the
+paper white of a card's border, and nothing else. Every colour on screen comes from
+the cards, whose six printed colours are the axis the game is built on — a brand red
+would compete with a red card and mean nothing. The primary action is therefore white
+on black. One red exists, `--color-alert`, reserved for losing something.
 
-Type is one family in three voices — display, body, and a tracked uppercase label — because a
-downloaded display face would cost an offline app a network dependency it must not have. The
-personality comes from weight contrast and tracking instead.
+**Type is taken from the card, not from a catalogue.** A One Piece card carries no
+serif anywhere: it has a heavy power numeral, a bold name plate, and a small
+letterspaced code in the corner. Those are the three voices — `.t-stat`, `.t-plate`,
+`.t-code` — and counts are set like a power stat because that is the idiom a player
+already reads.
+
+The grid is three across because a binder page is three across; wide screens get six,
+which is two pages open side by side rather than an arbitrary number that fits.
+
+### What was cut
+
+The previous pass was a dark dashboard with a One Piece coat of paint: near-black plus
+one bright accent, completion donuts, a stacked colour bar, a floating pill tab bar.
+All of it is generic app vocabulary that would suit any subject. The rings and the
+stacked bar are gone — a filled rule reads the same and asks for less; the tab bar is
+flush and squared, marked by a rule along the active tab's top edge, the way a raised
+binder divider reads.
 
 ### UX decisions that drove the structure
 
-- **Adding a scanned card takes one tap, in place.** It used to take five and a navigation.
-  The result screen adds to the collection and re-arms the camera, so emptying a binder is
-  scan, tap, scan, tap. A session counter and an undo on every add make the loop legible.
-- **Ownership is visible on every tile.** Unowned cards are dimmed, owned ones carry a gold
-  count. Browsing a set is otherwise indistinguishable from browsing a catalogue.
-- **Owned/missing filtering is server-side.** Doing it on the loaded page made the set header
-  disagree with the Extensions list and made "Possédées" look empty whenever the owned cards
-  sat past the first 60 by id.
-- **Home is not filtered by the browsing edition.** A collector holding only Japanese cards
-  was being told "nothing started" directly under a count of 19 cards.
-- **The collection is held in memory** with optimistic writes, so a quantity moves under the
-  thumb instead of after a round trip, and ownership can be known by every tile in a
-  9,447-card grid without asking the server per card.
+- **Adding a scanned card takes one tap, in place.** It used to take five and a
+  navigation. The result screen adds to the collection and re-arms the camera, so
+  emptying a binder is scan, tap, scan, tap.
+- **A single copy says nothing; a duplicate says "×2".** A "1" on every card owned is
+  noise on a screen whose whole job is showing what is owned.
+- **Owned/missing filtering is server-side.** Doing it on the loaded page made the set
+  header disagree with the Extensions list, and left "Possédées" empty whenever the
+  owned cards sat past the first 60 by id.
+- **Home is not filtered by the browsing edition.** A collector holding only Japanese
+  cards was being told "nothing started" directly under a count of their cards.
+- **The collection is held in memory** with optimistic writes, so a quantity moves
+  under the thumb instead of after a round trip, and every tile in a 9,447-card grid
+  knows its state without a request per card.
 - **Touch targets are 44px** on the controls that get hammered while emptying a binder.
 
 ## Build step 7 — frontend
