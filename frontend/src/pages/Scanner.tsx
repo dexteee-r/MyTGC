@@ -10,7 +10,6 @@ import {
   Screen,
   Segmented,
   Spinner,
-  Stepper,
 } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
@@ -67,11 +66,22 @@ export function Scanner() {
     }
   }
 
+  /* Dismiss without adding. In live mode the stream is paused while a result is on
+     screen, so clearing it is what resumes scanning. */
+  const skipCard = () => {
+    setResult(null)
+    if (mode === 'photo') capture()
+  }
+
   const addCard = async (candidate: ScanCandidate) => {
     const cardId = candidate.printings[0]?.card_id ?? candidate.card_number
+    const before = ownedOf(cardId, candidate.language)
     await add({ id: cardId, language: candidate.language })
     setSession((n) => n + 1)
-    show(`${candidate.name} rangée`, () => {
+    const message = before
+      ? `${candidate.name} · ${before.quantity + 1}e exemplaire`
+      : `${candidate.name} rangée`
+    show(message, () => {
       const owned = ownedOf(cardId, candidate.language)
       if (owned) setQuantity(cardId, candidate.language, owned.quantity - 1)
       setSession((n) => Math.max(0, n - 1))
@@ -126,7 +136,12 @@ export function Scanner() {
       </div>
 
       {mode === 'live' && !busy && (
-        <LiveScan language={language} paused={Boolean(result)} onResult={onLiveResult} />
+        <LiveScan
+          language={language}
+          paused={Boolean(result)}
+          onResult={onLiveResult}
+          onFallback={() => setMode('photo')}
+        />
       )}
 
       {mode === 'photo' && !result && !busy && (
@@ -168,6 +183,7 @@ export function Scanner() {
         <Outcome
           result={result}
           onAdd={addCard}
+          onSkip={skipCard}
           onRetry={capture}
           onSearch={() => navigate('/search')}
         />
@@ -179,11 +195,13 @@ export function Scanner() {
 function Outcome({
   result,
   onAdd,
+  onSkip,
   onRetry,
   onSearch,
 }: {
   result: ScanResult
   onAdd: (candidate: ScanCandidate) => void
+  onSkip: () => void
   onRetry: () => void
   onSearch: () => void
 }) {
@@ -212,7 +230,7 @@ function Outcome({
   const [top, ...rest] = result.candidates
   return (
     <div className="animate-seat">
-      <Match candidate={top} onAdd={onAdd} primary confident={result.confident} />
+      <Match candidate={top} onAdd={onAdd} onSkip={onSkip} primary confident={result.confident} />
 
 
       {rest.length > 0 && (
@@ -234,15 +252,17 @@ function Outcome({
 function Match({
   candidate,
   onAdd,
+  onSkip,
   primary,
   confident,
 }: {
   candidate: ScanCandidate
   onAdd: (candidate: ScanCandidate) => void
+  onSkip?: () => void
   primary?: boolean
   confident?: boolean
 }) {
-  const { ownedOf, setQuantity } = useCollection()
+  const { ownedOf } = useCollection()
   const card = candidate.card
   const cardId = candidate.printings[0]?.card_id ?? candidate.card_number
   const owned = ownedOf(cardId, candidate.language)
@@ -290,14 +310,33 @@ function Match({
             </Link>
           )}
 
-          <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+          {/* Already held: say so and ask, rather than silently incrementing.
+              Emptying a binder means scanning fast, and a card that quietly becomes
+              a ×3 because it passed the lens twice is a mistake nobody notices.
+
+              A question with two answers, and no stepper alongside them — adjusting a
+              count is what the collection screen is for, and a third control here
+              would only make the choice harder to read at scanning speed. */}
+          <div className="mt-auto pt-3">
             {owned ? (
               <>
-                <span className="text-sm text-label-dim">En collection</span>
-                <Stepper
-                  value={owned.quantity}
-                  onChange={(next) => setQuantity(cardId, candidate.language, next)}
-                />
+                <p className="t-code pb-2">
+                  Déjà dans ta collection · ×{owned.quantity}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={primary ? 'primary' : 'quiet'}
+                    size={primary ? 'lg' : 'md'}
+                    onClick={() => onAdd(candidate)}
+                  >
+                    Ajouter un exemplaire
+                  </Button>
+                  {primary && onSkip && (
+                    <Button variant="ghost" size="lg" onClick={onSkip}>
+                      Passer
+                    </Button>
+                  )}
+                </div>
               </>
             ) : (
               <Button

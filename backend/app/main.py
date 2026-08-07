@@ -721,5 +721,9 @@ def health(conn: Conn):
     return {"status": "ok", "commit": app.state.commit,
             "catalogue": meta, "hashed_cards": hashed,
             "registration": auth.REGISTRATION_MODE,
+            # Published so the live scanner paces itself from the real limit rather
+            # than a constant of its own that can quietly drift out of step.
+            "scan_rate_limit": throttle.SCAN.limit,
+            "scan_window_seconds": int(throttle.SCAN.window),
             "scan_enabled": app.state.catalogue is not None,
             "scan_threshold": recognition.DEFAULT_MAX_DISTANCE}

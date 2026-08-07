@@ -66,6 +66,21 @@ def test_signing_in_successfully_clears_the_counter(client):
     ).status_code == 401
 
 
+def test_the_scan_limit_is_published_so_the_camera_can_pace_itself(client):
+    """The live scanner sends a frame every 1.2s at most — 50 a minute. When the
+    limit here was 40 the camera spent the back half of every minute collecting
+    429s and identifying nothing, which read as a broken scanner rather than as
+    throttling. The client now reads the real numbers from /health, so they have
+    to be there, and they have to leave room for a steady hand."""
+    body = client.get("/health").json()
+
+    assert body["scan_rate_limit"] == throttle.SCAN.limit
+    assert body["scan_window_seconds"] == int(throttle.SCAN.window)
+
+    frames_per_window = body["scan_window_seconds"] / 1.2
+    assert body["scan_rate_limit"] > frames_per_window
+
+
 def test_the_forwarded_address_is_used_behind_a_proxy(client):
     """Behind Nginx and the tunnel every request arrives from localhost, so without
     this the limit would apply to the whole world as one key."""

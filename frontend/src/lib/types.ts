@@ -79,6 +79,8 @@ export interface Health {
   hashed_cards: number
   scan_enabled: boolean
   scan_threshold?: number
+  scan_rate_limit?: number
+  scan_window_seconds?: number
 }
 
 export interface ScanPrinting {

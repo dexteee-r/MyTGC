@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Language, ScanResult } from '../lib/types'
-import { api } from '../lib/api'
+import { ApiError, api } from '../lib/api'
 
 /* Continuous scanning: the camera stays open and frames are sent as they settle,
    so a card is identified by pointing at it rather than by taking a photo.
@@ -15,23 +15,44 @@ import { api } from '../lib/api'
 const FRAME_WIDTH = 1100 // what gets POSTed; detection downscales again server-side
 const PROBE = 40 // grid used for the stillness test
 const IDLE_MS = 420 // how long the view must hold still before a frame is sent
-const COOLDOWN_MS = 1200 // minimum gap between two requests
+const COOLDOWN_MS = 1200 // minimum gap between two requests, before the server has its say
+
+/* Pace from the server's own limit rather than a constant of our own. A cooldown that
+   outruns the rate limit spends the session collecting 429s — which is exactly how the
+   scanner broke — and the two numbers live in different files, so the only way they
+   stay in step is if one asks the other. Asked once per page load: the limit does not
+   move while the app is open, and toggling between live and photo should not re-ask. */
+let pacing: Promise<number> | null = null
+
+function scanCooldown() {
+  pacing ??= api
+    .health()
+    .then(({ scan_rate_limit, scan_window_seconds }) =>
+      scan_rate_limit && scan_window_seconds
+        ? Math.max(COOLDOWN_MS, Math.ceil(((scan_window_seconds * 1000) / scan_rate_limit) * 1.15))
+        : COOLDOWN_MS,
+    )
+    .catch(() => COOLDOWN_MS)
+  return pacing
+}
 
 export type LiveState =
   | { kind: 'idle' }
   | { kind: 'starting' }
   | { kind: 'unsupported'; reason: string }
   | { kind: 'denied' }
-  | { kind: 'running'; hint: 'hold' | 'reading' }
+  | { kind: 'running'; hint: 'hold' | 'reading' | 'throttled' }
 
 export function LiveScan({
   language,
   paused,
   onResult,
+  onFallback,
 }: {
   language: Language
   paused: boolean
   onResult: (result: ScanResult) => void
+  onFallback?: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -39,7 +60,15 @@ export function LiveScan({
   const stillSince = useRef<number>(0)
   const lastSent = useRef<number>(0)
   const inFlight = useRef(false)
+  const backoffUntil = useRef(0)
+  const cooldown = useRef(COOLDOWN_MS)
   const [state, setState] = useState<LiveState>({ kind: 'starting' })
+
+  useEffect(() => {
+    scanCooldown().then((ms) => {
+      cooldown.current = ms
+    })
+  }, [])
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -100,6 +129,7 @@ export function LiveScan({
     const tick = window.setInterval(async () => {
       const video = videoRef.current
       if (!video || video.readyState < 2 || paused || inFlight.current) return
+      if (Date.now() < backoffUntil.current) return
 
       probeCtx.drawImage(video, 0, 0, probe.width, probe.height)
       const current = probeCtx.getImageData(0, 0, probe.width, probe.height).data
@@ -118,7 +148,7 @@ export function LiveScan({
         return
       }
       if (!stillSince.current) stillSince.current = now
-      if (now - stillSince.current < IDLE_MS || now - lastSent.current < COOLDOWN_MS) return
+      if (now - stillSince.current < IDLE_MS || now - lastSent.current < cooldown.current) return
 
       const width = FRAME_WIDTH
       const height = Math.round((video.videoHeight / video.videoWidth) * width)
@@ -138,11 +168,20 @@ export function LiveScan({
       try {
         const result = await api.scan(new File([blob], 'frame.jpg', { type: 'image/jpeg' }), language)
         if (result.detected && result.candidates.length > 0) onResult(result)
-      } catch {
-        /* a dropped frame is not worth interrupting the run for */
+        setState({ kind: 'running', hint: 'hold' })
+      } catch (error) {
+        /* A dropped frame is not worth interrupting the run for — but being turned
+           away is. Swallowing a 429 left the camera running and identifying nothing,
+           which looks exactly like a broken scanner. */
+        const status = error instanceof ApiError ? error.status : 0
+        if (status === 429 || status === 503) {
+          backoffUntil.current = Date.now() + 8000
+          setState({ kind: 'running', hint: 'throttled' })
+        } else {
+          setState({ kind: 'running', hint: 'hold' })
+        }
       } finally {
         inFlight.current = false
-        setState((s) => (s.kind === 'running' ? { kind: 'running', hint: 'hold' } : s))
       }
     }, 180)
 
@@ -153,8 +192,13 @@ export function LiveScan({
     return (
       <div className="mx-5 rounded-none border border-rail/60 p-4 text-sm text-label-dim">
         {state.kind === 'denied'
-          ? "Accès caméra refusé. Autorise-le dans les réglages du navigateur, ou reste en mode photo."
+          ? 'Accès caméra refusé. Autorise-le dans les réglages du navigateur.'
           : state.reason}
+        {onFallback && (
+          <button onClick={onFallback} className="mt-3 block underline">
+            Passer en mode photo
+          </button>
+        )}
       </div>
     )
   }
@@ -179,7 +223,9 @@ export function LiveScan({
           ? 'Démarrage de la caméra…'
           : state.hint === 'reading'
             ? 'Lecture…'
-            : 'Aligne la carte dans le cadre et garde la main immobile'}
+            : state.hint === 'throttled'
+              ? 'Le serveur demande une pause. Reprise dans quelques secondes.'
+              : 'Aligne la carte dans le cadre et garde la main immobile'}
       </p>
     </div>
   )

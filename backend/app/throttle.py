@@ -73,8 +73,13 @@ REGISTER = SlidingWindow(
     message="Trop de comptes créés depuis cette adresse. Réessaie plus tard.",
 )
 
+# Sized above what the live scanner can physically produce. It used to be 40 while
+# the camera could send 50 a minute, so a steady hand ran into a 429 after about
+# forty seconds and the stream went quiet — the limit was throttling the feature it
+# was meant to protect. The concurrency cap is what actually protects the box; this
+# is only a ceiling on one client running away.
 SCAN = SlidingWindow(
-    limit=40,
+    limit=int(os.environ.get("MYTCG_SCAN_RATE_LIMIT", "90")),
     window_seconds=60,
     message="Trop de scans d'affilée. Laisse la caméra respirer un instant.",
 )
