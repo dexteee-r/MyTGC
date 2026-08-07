@@ -77,12 +77,12 @@ export function PackDetail() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-rail px-2 pt-4 pb-3">
+      <header className="cut px-2 pt-4 pb-3">
         <div className="flex items-center gap-1">
           <Link
             to="/packs"
             aria-label="Revenir aux extensions"
-            className="flex size-11 items-center justify-center text-label-dim"
+            className="flex size-11 items-center justify-center text-carve-dim"
           >
             <ChevronLeftIcon className="size-5" />
           </Link>
@@ -91,12 +91,12 @@ export function PackDetail() {
           </div>
           <span className="t-stat pr-3 text-lg">
             {ownedTotal}
-            <span className="text-label-faint">/{setSize}</span>
+            <span className="text-carve-faint">/{setSize}</span>
           </span>
         </div>
-        <div className="mt-3 ml-2 h-px w-[calc(100%-1rem)] bg-rail">
+        <div className="channel mt-3 ml-2 w-[calc(100%-1rem)]">
           <div
-            className="h-px bg-label"
+            
             style={{ width: setSize ? `${(ownedTotal / setSize) * 100}%` : 0 }}
           />
         </div>

@@ -1,33 +1,58 @@
 @import "tailwindcss";
 
+/* Self-hosted rather than fetched from a font CDN: the app runs behind a tunnel on a
+   box at home, and a third-party request is one more thing that can be slow or down.
+
+   Latin only. The interface is French, which Latin-1 covers, and the Japanese edition
+   is marked by a flag rather than by Japanese text — Japanese card names fall through
+   to the system CJK face, which is what a phone renders them best in anyway. Plex Sans
+   is the exception: it only ships one variable file per subset, each behind a
+   unicode-range, so the Greek, Cyrillic and Vietnamese cuts sit in dist but are never
+   requested by a browser rendering French. */
+@import "@fontsource/cinzel/latin-600.css";
+@import "@fontsource/cinzel/latin-700.css";
+@import "@fontsource-variable/ibm-plex-sans/wght.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
+
 /* ── MyTCG ──────────────────────────────────────────────────────────────────
-   The app is a binder.
+   The app is a Poneglyph.
 
-   Not as decoration: it is the object a collector actually handles. The chrome is
-   the matte black of a binder page and the paper white of a card's border, and it
-   carries no accent colour of its own — every colour on screen comes from the cards,
-   whose six printed colours are the axis the whole game is built on. A brand red
-   would compete with a red card and mean nothing.
+   A slab of indestructible stone carved with a grid of glyphs, scattered across the
+   world, and the whole story is the quest to gather them. That is a collection, and
+   the mapping is exact rather than decorative: the catalogue is a wall of glyphs, a
+   card held is carved and lit, a card missing is an empty niche with its code cut
+   into the stone. The Road Poneglyphs glow red, which is where the one accent comes
+   from — it is light in a groove, never a button fill.
 
-   Ownership is therefore not a badge. A card you hold sits in its pocket; a card you
-   do not is an empty pocket with its number stamped in the well. The gap is the
-   information.                                                                     */
+   Everything on screen is therefore either cut into the surface or raised out of it,
+   under one light coming from above. That is what makes it read as material instead
+   of as boxes: a flat dark rectangle with a bright accent is what every dark app
+   looks like, and it is what this one used to look like.
+
+   The stone is warm — #12100d, not a neutral #0b0b0c. A single hue shift is most of
+   the distance between "cheap dark UI" and something that looks quarried.           */
 @theme {
-  /* The binder */
-  --color-ink: #0b0b0c;
-  --color-pocket: #141416;
-  --color-well: #0e0e10;
-  --color-rail: #26262a;
+  /* The slab, and what light does to it */
+  --color-stone: #12100d;
+  --color-stone-lit: #1c1915; /* a plate raised into the light */
+  --color-niche: #17140f; /* the floor of an empty niche */
+  --color-rail: #2a251d; /* the lip of a groove, when it must be a border */
 
-  /* The card's white border, and its quieter registers */
-  --color-label: #f4f3f0;
-  --color-label-dim: #9c9c9f;
-  --color-label-faint: #64646a;
+  /* Carved limestone. Never pure white — pure white is what a screenshot of a
+     template looks like, and stone does not reflect like paper. */
+  --color-carve: #e8dfd0;
+  --color-carve-dim: #9b9184;
+  --color-carve-faint: #6a6157;
 
-  /* Not an accent. Reserved for losing something, and used nowhere else. */
-  --color-alert: #c8322b;
+  /* Light in the groove. One accent, and it is emitted, not painted. */
+  --color-ember: #d93a20;
 
-  /* The six printed card colours. Data, fixed by the game. */
+  /* Aged brass: the Log Pose ring, the rim of a bounty plate. Numerals only. */
+  --color-brass: #c9a227;
+
+  /* The six printed card colours. Data, fixed by the game, and the only other
+     colour allowed on screen — it belongs to the cards, not to the chrome. */
   --color-op-red: #e0303a;
   --color-op-green: #2aa161;
   --color-op-blue: #2f7fd6;
@@ -35,8 +60,19 @@
   --color-op-black: #6c7688;
   --color-op-yellow: #e6c02f;
 
-  --font-sans: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI",
-    system-ui, -apple-system, sans-serif;
+  /* Inscriptional capitals for anything stamped into the stone; a humanist sans
+     with actual character for prose; a mono for codes, because a card number is a
+     code and the monospaced grid is the glyph wall in miniature. */
+  --font-inscribed: "Cinzel", "Palatino Linotype", Georgia, serif;
+  --font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* The engraving pair. A cut is dark on its top edge and catches light on its lower
+   one; a raised plate is the reverse. One light source, from above, everywhere. */
+:root {
+  --groove: inset 0 1px 2px rgba(0, 0, 0, 0.85), inset 0 -1px 0 rgba(255, 240, 214, 0.05);
+  --relief: inset 0 1px 0 rgba(255, 240, 214, 0.07), inset 0 -1px 2px rgba(0, 0, 0, 0.6);
 }
 
 html,
@@ -46,56 +82,133 @@ body,
 }
 
 body {
-  background: var(--color-ink);
-  color: var(--color-label);
+  background: var(--color-stone);
+  color: var(--color-carve);
   font-family: var(--font-sans);
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Three voices, all taken from the card itself rather than from a type catalogue.
-   A One Piece card carries no serif anywhere; it has a huge weighty power numeral,
-   a bold name plate, and a small letterspaced code in the corner. */
-
-/* The power numeral. */
-.t-stat {
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  font-variant-numeric: tabular-nums;
-  line-height: 0.92;
+/* The grain. Quarried stone is not a flat fill, and at 3.5% it is felt rather than
+   seen — the moment it is legible as noise it becomes a texture overlay from a
+   template. Fixed to the viewport so it does not swim when a list scrolls. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* The name plate. */
-.t-plate {
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Voices ─────────────────────────────────────────────────────────────────── */
+
+/* Stamped into the stone: page titles and section labels, and nothing else. Cinzel
+   is inscriptional capitals, which is the letterform this whole idea rests on — and
+   also the fastest way to look like wedding stationery if it is let out of its cage.
+   Caps, tracked, and never more than two per screen. */
+.t-inscribed {
+  font-family: var(--font-inscribed);
   font-weight: 700;
-  letter-spacing: -0.015em;
-}
-
-/* The printed card code, bottom right. Also every label and every count. */
-.t-code {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-label-faint);
+  letter-spacing: 0.12em;
+  /* Cut into the surface: a shadow above the letter, a highlight below it. */
+  text-shadow:
+    0 -1px 0 rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 240, 214, 0.09);
 }
 
-/* A pocket is a well pressed into the page: darker than the page, with a lit top
-   edge and a shadowed bottom one. Three of them across, because a binder page is
-   three across. */
-.pocket {
-  background: var(--color-well);
-  border-radius: 0.5rem;
+/* A count, set like the power numeral on a card: large, tight, tabular. The one
+   place the interface raises its voice. */
+.t-stat {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.94;
+}
+
+/* A card's name plate. */
+.t-plate {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* A code cut in the corner of the slab: card numbers, pack codes, counts, labels. */
+.t-code {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-carve-faint);
+}
+
+/* ── Material ───────────────────────────────────────────────────────────────── */
+
+/* A niche: the recess a card sits in, empty. Squared with the barest radius — stone
+   is chiselled, not moulded. The floor is lit at the back and falls into shadow at
+   the front, which is what separates one recess from the next; a flat fill turned a
+   wall of empty slots into a single black void with codes floating in it. */
+.niche {
+  background: linear-gradient(180deg, #1b1712, var(--color-niche) 55%, #100e0a);
+  border-radius: 2px;
+  box-shadow: var(--groove);
+}
+
+/* A plate raised off the slab: rows, panels, anything holding content. */
+.plate {
+  background: var(--color-stone-lit);
+  box-shadow: var(--relief);
+}
+
+/* A card seated in its niche. The rim is what sells the inlay: the artwork sits
+   below the surface, so the stone casts onto its top edge. */
+.inlay {
+  border-radius: 2px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+    inset 0 1px 3px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+/* The groove between glyphs on the wall. Used as a grid gap colour. */
+.wall {
+  background: linear-gradient(180deg, #050403, #0b0907);
+}
+
+/* A groove as a border, for rows in a list. Two lines, not one: the cut is dark and
+   the stone below it catches the light. A single grey 1px border is the thing that
+   makes an interface look drawn rather than carved. */
+.cut {
+  border-bottom: 1px solid #050403;
+  box-shadow: 0 1px 0 rgba(255, 240, 214, 0.045);
+}
+
+/* A progress channel cut into the stone, filled with brass. Used for how full a
+   set is — the one measurement in the app that is worth a bar. */
+.channel {
+  height: 3px;
+  border-radius: 1px;
+  background: #050403;
+  box-shadow: var(--groove);
+  overflow: hidden;
+}
+
+.channel > * {
+  height: 100%;
+  background: linear-gradient(180deg, #e0bc45, var(--color-brass));
+  box-shadow: 0 0 6px rgba(201, 162, 39, 0.45);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-label);
+  outline: 2px solid var(--color-brass);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -115,11 +228,13 @@ body {
   scrollbar-width: none;
 }
 
-/* A card seats into its pocket. The one piece of motion in the app. */
+/* ── Motion ─────────────────────────────────────────────────────────────────── */
+
+/* A glyph settling into the stone. */
 @keyframes seat {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.97);
+    transform: translateY(-5px);
   }
   to {
     opacity: 1;
@@ -128,5 +243,24 @@ body {
 }
 
 .animate-seat {
-  animation: seat 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  animation: seat 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* The one orchestrated moment in the app: a card is added and the groove around it
+   takes the light, the way a Road Poneglyph answers when it is read. Once, on the
+   thing that changed — not scattered across the screen. */
+@keyframes ignite {
+  0% {
+    box-shadow: inset 0 0 0 1px rgba(217, 58, 32, 0), 0 0 0 rgba(217, 58, 32, 0);
+  }
+  35% {
+    box-shadow: inset 0 0 0 1px rgba(217, 58, 32, 0.9), 0 0 18px rgba(217, 58, 32, 0.35);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(217, 58, 32, 0), 0 0 0 rgba(217, 58, 32, 0);
+  }
+}
+
+.animate-ignite {
+  animation: ignite 1.1s ease-out both;
 }

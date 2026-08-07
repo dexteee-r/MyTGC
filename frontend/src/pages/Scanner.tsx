@@ -16,6 +16,7 @@ import { useCollection } from '../lib/collection'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
 import type { ScanCandidate, ScanResult } from '../lib/types'
+import { Edition, EditionName } from '../components/Edition'
 
 type Mode = 'live' | 'photo'
 
@@ -154,10 +155,10 @@ export function Scanner() {
       )}
 
       {!result && !busy && (
-        <p className="px-5 pt-3 text-sm text-label-dim">
+        <p className="px-5 pt-3 text-sm text-carve-dim">
           Une carte seule, à plat, entière dans le cadre. L'édition{' '}
-          <span className="font-semibold text-label">
-            {language === 'en' ? 'International' : 'Japon'}
+          <span className="font-semibold text-carve">
+            <EditionName language={language} />
           </span>{' '}
           est celle qui sera enregistrée — l'illustration est identique dans les deux, elle
           ne peut pas être devinée.
@@ -167,7 +168,7 @@ export function Scanner() {
       {busy && (
         <>
           <Spinner />
-          <p className="text-center text-sm text-label-dim">Identification…</p>
+          <p className="text-center text-sm text-carve-dim">Identification…</p>
         </>
       )}
 
@@ -270,12 +271,10 @@ function Match({
 
   return (
     <section
-      className={`mx-5 mt-2 rounded-none bg-pocket p-3 ${
-        primary ? 'ring-1 ring-rail' : ''
-      }`}
+      className={`mx-5 mt-2 rounded-[2px] p-3 ${primary ? 'plate' : 'niche'}`}
     >
       {primary && !confident && (
-        <p className="pb-2 text-xs text-label-dim">
+        <p className="pb-2 text-xs text-carve-dim">
           Deux cartes se ressemblent ici — vérifie avant d'ajouter.
         </p>
       )}
@@ -294,9 +293,9 @@ function Match({
               <p className={`truncate font-semibold ${primary ? 'text-lg' : ''}`}>
                 {candidate.name}
               </p>
-              <p className="tabular-nums truncate text-sm text-label-faint">
+              <p className="tabular-nums truncate text-sm text-carve-faint">
                 {candidate.card_number} · {card?.rarity ?? ''} ·{' '}
-                {candidate.language.toUpperCase()}
+                <Edition language={candidate.language} />
               </p>
             </div>
           </div>
@@ -304,7 +303,7 @@ function Match({
           {candidate.ambiguous_printing && (
             <Link
               to={`/card/${encodeURIComponent(cardId)}?language=${candidate.language}`}
-              className="pt-1 text-xs text-label-dim underline"
+              className="pt-1 text-xs text-carve-dim underline"
             >
               {candidate.printings.length} tirages identiques — choisir lequel
             </Link>

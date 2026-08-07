@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Edition } from '../components/Edition'
 import { ChevronLeftIcon } from '../components/icons'
 import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
@@ -71,7 +72,7 @@ export function CardDetail() {
         <button
           onClick={() => navigate(-1)}
           aria-label="Revenir"
-          className="flex size-11 items-center justify-center text-label-dim"
+          className="flex size-11 items-center justify-center text-carve-dim"
         >
           <ChevronLeftIcon className="size-5" />
         </button>
@@ -85,7 +86,7 @@ export function CardDetail() {
         ) : src ? (
           <img src={src} alt={card.name} className="w-full rounded-[0.45rem] opacity-70" />
         ) : (
-          <div className="pocket aspect-[600/838] w-full" />
+          <div className="niche aspect-[600/838] w-full" />
         )}
       </div>
 
@@ -94,13 +95,13 @@ export function CardDetail() {
         <div className="min-w-0">
           <h1 className="t-stat text-2xl">{card.name}</h1>
           <p className="t-code pt-2">
-            {card.id} · {card.rarity} · {card.category}
+            {card.id} · {card.rarity} · {card.category} · <Edition language={language} />
           </p>
         </div>
       </div>
 
       {/* The card's own stat block, in the card's own idiom. */}
-      <dl className="mt-5 grid grid-cols-3 gap-px border-y border-rail bg-rail">
+      <dl className="mt-5 grid grid-cols-3 wall gap-px">
         <Stat label="Coût" value={card.cost} />
         <Stat label="Puissance" value={card.power} />
         <Stat label="Contre" value={card.counter} />
@@ -112,7 +113,7 @@ export function CardDetail() {
             <p className="text-[0.94rem] leading-relaxed whitespace-pre-line">{card.effect}</p>
           )}
           {card.trigger && (
-            <p className="text-[0.94rem] leading-relaxed whitespace-pre-line text-label-dim">
+            <p className="text-[0.94rem] leading-relaxed whitespace-pre-line text-carve-dim">
               <span className="t-code">Trigger</span> {card.trigger}
             </p>
           )}
@@ -120,13 +121,13 @@ export function CardDetail() {
       )}
 
       {card.types.length > 0 && (
-        <p className="px-4 pt-3 text-sm text-label-dim">{card.types.join(' / ')}</p>
+        <p className="px-4 pt-3 text-sm text-carve-dim">{card.types.join(' / ')}</p>
       )}
 
       {card.printings.length > 0 && (
         <section className="pt-7">
           <p className="t-code px-4 pb-2">Autres tirages</p>
-          <p className="px-4 pb-3 text-sm text-label-dim">
+          <p className="px-4 pb-3 text-sm text-carve-dim">
             Même illustration et même code imprimé. Choisis celui que tu possèdes — rien
             ne permet de les distinguer automatiquement.
           </p>
@@ -135,7 +136,7 @@ export function CardDetail() {
               <Link
                 key={id}
                 to={`/card/${encodeURIComponent(id)}?language=${language}`}
-                className="t-code min-h-10 shrink-0 px-3 leading-10 ring-1 ring-rail"
+                className="t-code niche min-h-10 shrink-0 px-3 leading-10"
               >
                 {id}
               </Link>
@@ -144,7 +145,7 @@ export function CardDetail() {
         </section>
       )}
 
-      <section className="mt-8 border-t border-rail px-4 pt-5">
+      <section className="mt-8 cut px-4 pt-5">
         {owned ? (
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -165,7 +166,7 @@ export function CardDetail() {
               <select
                 value={condition}
                 onChange={(event) => setCondition(event.target.value as Condition)}
-                className="mt-2 min-h-12 w-full bg-pocket px-3 text-label ring-1 ring-rail outline-none"
+                className="niche mt-2 min-h-12 w-full px-3 text-carve outline-none"
               >
                 {Object.entries(CONDITION_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -194,7 +195,7 @@ export function CardDetail() {
 
 function Stat({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="bg-ink px-3 py-3.5 text-center">
+    <div className="bg-stone px-3 py-3.5 text-center">
       <dt className="t-code">{label}</dt>
       <dd className="t-stat pt-1.5 text-xl">{value ?? '—'}</dd>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Edition } from '../components/Edition'
 import { ErrorState, PageHeader, Screen, Segmented, Spinner } from '../components/ui'
 import { api } from '../lib/api'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
@@ -77,7 +78,7 @@ export function Packs() {
       ) : (
         <ul>
           {visible.map((pack) => (
-            <li key={`${pack.language}-${pack.pack_id}`} className="border-b border-rail">
+            <li key={`${pack.language}-${pack.pack_id}`} className="cut">
               <Link
                 to={`/packs/${encodeURIComponent(pack.pack_code ?? pack.pack_id)}?language=${pack.language}`}
                 className="block px-4 py-3.5"
@@ -86,15 +87,14 @@ export function Packs() {
                   <span className="t-plate truncate">{pack.pack_name}</span>
                   <span className="t-stat shrink-0 text-sm">
                     {pack.owned_count}
-                    <span className="text-label-faint">/{pack.card_count}</span>
+                    <span className="text-carve-faint">/{pack.card_count}</span>
                   </span>
                 </div>
-                <p className="t-code pt-1.5">{pack.pack_code ?? 'Sans code'}</p>
-                <div className="mt-2.5 h-px w-full bg-rail">
-                  <div
-                    className="h-px bg-label"
-                    style={{ width: `${(pack.owned_count / pack.card_count) * 100}%` }}
-                  />
+                <p className="t-code flex items-center gap-1.5 pt-1.5">
+                  {pack.pack_code ?? 'Sans code'} · <Edition language={pack.language} />
+                </p>
+                <div className="channel mt-2.5 w-full">
+                  <div style={{ width: `${(pack.owned_count / pack.card_count) * 100}%` }} />
                 </div>
               </Link>
             </li>

@@ -81,26 +81,35 @@ function Gate() {
   )
 }
 
-/* Divider tabs, flush to the bottom edge and squared off — the labelled dividers of
-   a binder rather than the floating pill every app has had since 2021. The active
-   one is marked by a rule along its top edge, which is how a raised divider reads. */
+/* Six niches chiselled along the base of the slab, flush to the edge and squared —
+   not the floating pill every app has had since 2021. The one you are in is the
+   plate that has been raised out of the stone and caught the light, with a thread
+   of ember burning in the groove above it. Depth and light carry the state; nothing
+   is painted a brand colour to look selected. */
 function TabBar() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="shrink-0 border-t border-rail bg-ink pb-[env(safe-area-inset-bottom)]"
+      className="wall shrink-0 pb-[env(safe-area-inset-bottom)]"
+      style={{ boxShadow: '0 -1px 0 rgba(255,240,214,0.05) inset' }}
     >
-      <div className="flex">
+      <div className="flex gap-px">
         {TABS.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end={to === '/'} className="min-w-0 flex-1">
             {({ isActive }) => (
               <span
-                className={`flex min-h-14 flex-col items-center justify-center gap-1.5 border-t-2 transition ${
-                  isActive
-                    ? 'border-label bg-pocket text-label'
-                    : 'border-transparent text-label-faint'
+                style={{ boxShadow: isActive ? 'var(--relief)' : 'var(--groove)' }}
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-1.5 transition ${
+                  isActive ? 'bg-stone-lit text-carve' : 'bg-niche text-carve-faint'
                 }`}
               >
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-0 top-0 h-px bg-ember"
+                    style={{ boxShadow: '0 0 6px 1px rgba(217,58,32,0.55)' }}
+                  />
+                )}
                 <Icon className="size-[20px]" />
                 <span className="text-[9px] leading-none font-semibold tracking-wide">
                   {label}

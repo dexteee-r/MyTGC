@@ -58,7 +58,7 @@ export function SignIn() {
     <div className="mx-auto flex h-full max-w-md flex-col justify-center px-6">
       <p className="t-code">Collection One Piece</p>
       <h1 className="t-stat pt-2 text-[2.5rem]">MyTCG</h1>
-      <p className="pt-3 text-label-dim">
+      <p className="pt-3 text-carve-dim">
         {mode === 'in'
           ? 'Connecte-toi pour retrouver ta collection.'
           : 'Crée un compte pour commencer une collection.'}
@@ -73,7 +73,7 @@ export function SignIn() {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
+            className="mt-2 min-h-12 w-full rounded-xl bg-stone-lit px-4 outline-none"
           />
         </label>
 
@@ -86,9 +86,9 @@ export function SignIn() {
               autoComplete="off"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
+              className="mt-2 min-h-12 w-full rounded-xl bg-stone-lit px-4 outline-none"
             />
-            <span className="block pt-2 text-xs text-label-faint">
+            <span className="block pt-2 text-xs text-carve-faint">
               Les inscriptions se font sur invitation. Demande un code à quelqu'un qui a
               déjà un compte.
             </span>
@@ -104,7 +104,7 @@ export function SignIn() {
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="facultatif"
-              className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none placeholder:text-label-faint"
+              className="mt-2 min-h-12 w-full rounded-xl bg-stone-lit px-4 outline-none placeholder:text-carve-faint"
             />
           </label>
         )}
@@ -120,10 +120,10 @@ export function SignIn() {
             minLength={mode === 'up' ? MIN_PASSWORD : undefined}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-pocket px-4 outline-none"
+            className="mt-2 min-h-12 w-full rounded-xl bg-stone-lit px-4 outline-none"
           />
           {mode === 'up' && (
-            <span className={`block pt-2 text-xs ${tooShort ? 'text-alert' : 'text-label-faint'}`}>
+            <span className={`block pt-2 text-xs ${tooShort ? 'text-ember' : 'text-carve-faint'}`}>
               {MIN_PASSWORD} caractères minimum. La longueur compte plus que les
               symboles.
             </span>
@@ -131,7 +131,7 @@ export function SignIn() {
         </label>
 
         {error && (
-          <p role="alert" className="pt-4 text-sm text-alert">
+          <p role="alert" className="pt-4 text-sm text-ember">
             {error}
           </p>
         )}
@@ -144,14 +144,14 @@ export function SignIn() {
       </form>
 
       {signUpClosed && mode === 'in' ? (
-        <p className="pt-6 text-sm text-label-faint">Les inscriptions sont fermées.</p>
+        <p className="pt-6 text-sm text-carve-faint">Les inscriptions sont fermées.</p>
       ) : (
         <button
           onClick={() => {
             setMode(mode === 'in' ? 'up' : 'in')
             setError(null)
           }}
-          className="pt-6 text-sm text-label-dim underline"
+          className="pt-6 text-sm text-carve-dim underline"
         >
           {mode === 'in' ? 'Pas encore de compte ? En créer un' : "J'ai déjà un compte"}
         </button>

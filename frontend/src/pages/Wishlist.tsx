@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Edition } from '../components/Edition'
 import { Button, ColorBar, EmptyState, PageHeader, Screen, Spinner } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useToast } from '../lib/toast'
@@ -65,7 +66,7 @@ export function Wishlist() {
           {entries.map((entry) => {
             const src = entry.card ? imageUrl(entry.card) : null
             return (
-              <li key={entry.id} className="border-b border-rail p-3">
+              <li key={entry.id} className="cut p-3">
                 <div className="flex items-start gap-3">
                   <Link
                     to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
@@ -77,7 +78,7 @@ export function Wishlist() {
                         className="h-[68px] w-[49px] rounded-[0.25rem] object-cover"
                       />
                     ) : (
-                      <div className="pocket h-[68px] w-[49px]" />
+                      <div className="niche h-[68px] w-[49px]" />
                     )}
                   </Link>
                   <ColorBar
@@ -87,31 +88,37 @@ export function Wishlist() {
                   <div className="min-w-0 flex-1">
                     <p className="t-plate truncate">{entry.card?.name ?? entry.card_id}</p>
                     <p className="t-code pt-1">
-                      {entry.card_id} · {entry.language}
+                      {entry.card_id} · <Edition language={entry.language} />
                     </p>
                     {entry.notes && (
-                      <p className="truncate pt-1 text-xs text-label-dim">{entry.notes}</p>
+                      <p className="truncate pt-1 text-xs text-carve-dim">{entry.notes}</p>
                     )}
                   </div>
                   <button
                     onClick={() => remove(entry)}
                     aria-label="Retirer de la liste"
-                    className="size-11 shrink-0 text-xl text-label-faint"
+                    className="size-11 shrink-0 text-xl text-carve-faint"
                   >
                     ×
                   </button>
                 </div>
 
-                <div className="mt-3 flex gap-px bg-rail">
+                <div className="mt-3 flex wall gap-px">
                   {[1, 2, 3].map((level) => (
                     <button
                       key={level}
                       onClick={() => setPriority(entry, level)}
                       aria-pressed={entry.priority === level}
+                      /* Raised and lettered in brass, not filled with it. A gold
+                         slab on every row turns the one accent into a colour
+                         scheme, and the list stops having a focal point. */
+                      style={{
+                        boxShadow: entry.priority === level ? 'var(--relief)' : 'var(--groove)',
+                      }}
                       className={`min-h-9 flex-1 px-2 text-xs transition ${
                         entry.priority === level
-                          ? 'bg-label font-semibold text-ink'
-                          : 'bg-ink text-label-faint'
+                          ? 'bg-stone-lit font-semibold text-brass'
+                          : 'bg-niche text-carve-faint'
                       }`}
                     >
                       {PRIORITY[level]}

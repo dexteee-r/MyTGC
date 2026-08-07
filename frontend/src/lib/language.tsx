@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
+import { Edition } from '../components/Edition'
 import type { Language } from './types'
 
 /* Which edition the user is browsing. It is an explicit choice, never inferred:
@@ -22,7 +23,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export const useLanguage = () => useContext(LanguageContext)
 
+/* The Japanese edition carries its flag wherever it is named. The two editions are
+   otherwise indistinguishable on screen — same artwork, same everything — so the
+   mark is the fastest way to tell which one you are looking at. */
 export const LANGUAGE_OPTIONS = [
-  { value: 'en' as const, label: 'International' },
-  { value: 'jp' as const, label: 'Japon' },
+  { value: 'en' as const, label: <Edition language="en" /> },
+  { value: 'jp' as const, label: <Edition language="jp" /> },
 ]
