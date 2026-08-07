@@ -14,7 +14,9 @@ Run:
 """
 
 import os
+import shutil
 import sqlite3
+import subprocess
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from typing import Annotated
@@ -28,7 +30,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 
 from app import auth, db, detection, hashing, recognition, throttle
-from app.config import IMAGE_CACHE_DIR
+from app.config import BACKEND_DIR, IMAGE_CACHE_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
@@ -39,8 +41,27 @@ CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, cate
                 " colors, cost, power, counter, attributes, types, image_path")
 
 
+def running_commit() -> str | None:
+    """The commit actually serving requests.
+
+    Without it, "is the deploy up to date?" can only be answered by guessing from
+    which endpoints exist — which is how a silently stalled auto-deploy went
+    unnoticed. Read once at startup; a restart is what a deploy ends with anyway.
+    """
+    if not shutil.which("git"):
+        return None
+    try:
+        return subprocess.run(
+            ["git", "-C", str(BACKEND_DIR.parent), "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5, check=True,
+        ).stdout.strip() or None
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.commit = running_commit()
     connection = db.connect()
     db.init_schema(connection)
     # The hashed catalogue is ~9,400 x 192 bits, well under a megabyte, so it is built
@@ -618,7 +639,8 @@ def health(conn: Conn):
             conn.execute("SELECT language, card_count FROM catalogue_meta")}
     hashed = conn.execute(
         "SELECT COUNT(*) FROM cards WHERE r_phash IS NOT NULL").fetchone()[0]
-    return {"status": "ok", "catalogue": meta, "hashed_cards": hashed,
+    return {"status": "ok", "commit": app.state.commit,
+            "catalogue": meta, "hashed_cards": hashed,
             "registration": auth.REGISTRATION_MODE,
             "scan_enabled": app.state.catalogue is not None,
             "scan_threshold": recognition.DEFAULT_MAX_DISTANCE}
