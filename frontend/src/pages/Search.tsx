@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { CardGrid } from '../components/CardGrid'
 import { SearchIcon } from '../components/icons'
 import {
+  Button,
   CARD_COLORS,
   Chip,
   EmptyState,
   ErrorState,
+  Groove,
   PageHeader,
   Segmented,
+  Sheet,
   Spinner,
 } from '../components/ui'
 import { api } from '../lib/api'
@@ -27,6 +30,7 @@ export function Search() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const filters = {
     q: query || undefined,
@@ -64,7 +68,20 @@ export function Search() {
       .catch(() => {})
   }
 
-  const active = Boolean(query || color || rarity || owned !== null)
+  const clearFilters = () => {
+    setColor(null)
+    setRarity(null)
+    setOwned(null)
+  }
+
+  /* Named so the trigger can say what is on without being opened. Losing that was the
+     risk in moving the chips off the screen: a filter you cannot see is a filter you
+     forget you set, and then the result count looks like a bug. */
+  const applied = [
+    owned === true ? 'Possédées' : owned === false ? 'Manquantes' : null,
+    color,
+    rarity,
+  ].filter(Boolean) as string[]
 
   return (
     <div className="flex h-full flex-col">
@@ -83,7 +100,10 @@ export function Search() {
         }
       />
 
-      <div className="cut px-4 py-3">
+      {/* The search field and the way into the filters, and nothing else. Two rows of
+          chips used to sit here permanently — they cost a third of the screen on a
+          phone, every time, to hold controls that are touched occasionally. */}
+      <div className="relative px-4 py-3">
         <div className="niche flex min-h-11 items-center gap-2.5 px-3">
           <SearchIcon className="size-4 shrink-0 text-carve-faint" />
           <input
@@ -93,52 +113,37 @@ export function Search() {
             aria-label="Rechercher une carte"
             className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-carve-faint"
           />
-          {active && (
-            <button
-              onClick={() => {
-                setQuery('')
-                setColor(null)
-                setRarity(null)
-                setOwned(null)
-              }}
-              className="t-code shrink-0"
-            >
+          {query && (
+            <button onClick={() => setQuery('')} className="t-code shrink-0 px-1">
               Effacer
             </button>
           )}
         </div>
-      </div>
 
-      <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-2.5">
-        <Chip active={owned === true} onClick={() => setOwned(owned === true ? null : true)}>
-          Possédées
-        </Chip>
-        <Chip active={owned === false} onClick={() => setOwned(owned === false ? null : false)}>
-          Manquantes
-        </Chip>
-        <span className="w-px shrink-0 self-stretch bg-[#050403]" />
-        {CARD_COLORS.map((name) => (
-          <Chip
-            key={name}
-            swatch={name}
-            active={color === name}
-            onClick={() => setColor(color === name ? null : name)}
+        <div className="flex items-center gap-2 pt-2.5">
+          <button
+            onClick={() => setFiltersOpen(true)}
+            aria-haspopup="dialog"
+            style={{ boxShadow: applied.length ? 'var(--relief)' : 'var(--groove)' }}
+            className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-[2px] px-3 text-sm ${
+              applied.length ? 'bg-stone-lit text-carve' : 'bg-niche text-carve-dim'
+            }`}
           >
-            {name}
-          </Chip>
-        ))}
-      </div>
-
-      <div className="no-scrollbar flex gap-2 overflow-x-auto cut px-4 pb-3">
-        {RARITIES.map((name) => (
-          <Chip
-            key={name}
-            active={rarity === name}
-            onClick={() => setRarity(rarity === name ? null : name)}
-          >
-            {name}
-          </Chip>
-        ))}
+            <FilterIcon className="size-4 shrink-0" />
+            <span className="shrink-0 font-semibold">Filtres</span>
+            {applied.length > 0 && (
+              <span className="t-code min-w-0 flex-1 truncate text-left text-brass">
+                {applied.join(' · ')}
+              </span>
+            )}
+          </button>
+          {applied.length > 0 && (
+            <button onClick={clearFilters} className="t-code min-h-10 shrink-0 px-2">
+              Tout effacer
+            </button>
+          )}
+        </div>
+        <Groove />
       </div>
 
       {failed ? (
@@ -161,6 +166,86 @@ export function Search() {
           showArt
         />
       )}
+
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filtres"
+        footer={
+          <div className="flex gap-2">
+            <div className="shrink-0">
+              <Button variant="quiet" onClick={clearFilters} disabled={applied.length === 0}>
+                Tout effacer
+              </Button>
+            </div>
+            <Button full onClick={() => setFiltersOpen(false)}>
+              {loading
+                ? 'Recherche…'
+                : `Voir ${total.toLocaleString('fr')} carte${total > 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        }
+      >
+        {/* Filters apply as they are tapped rather than on a Confirm: the count in the
+            footer moves with each one, which is the answer you came for. */}
+        <FilterGroup label="Collection">
+          <Chip active={owned === true} onClick={() => setOwned(owned === true ? null : true)}>
+            Possédées
+          </Chip>
+          <Chip active={owned === false} onClick={() => setOwned(owned === false ? null : false)}>
+            Manquantes
+          </Chip>
+        </FilterGroup>
+
+        <FilterGroup label="Couleur">
+          {CARD_COLORS.map((name) => (
+            <Chip
+              key={name}
+              swatch={name}
+              active={color === name}
+              onClick={() => setColor(color === name ? null : name)}
+            >
+              {name}
+            </Chip>
+          ))}
+        </FilterGroup>
+
+        <FilterGroup label="Rareté">
+          {RARITIES.map((name) => (
+            <Chip
+              key={name}
+              active={rarity === name}
+              onClick={() => setRarity(rarity === name ? null : name)}
+            >
+              {name}
+            </Chip>
+          ))}
+        </FilterGroup>
+      </Sheet>
     </div>
+  )
+}
+
+/* Wrapped rather than scrolled sideways: in a sheet there is room to show every option
+   at once, and a horizontal scroller hides the ones at the end. */
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="pt-4">
+      <h3 className="t-inscribed pb-2.5 text-[0.65rem] text-carve-dim">{label}</h3>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </section>
+  )
+}
+
+function FilterIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
+      <path
+        d="M3 5h14M6 10h8M8.5 15h3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }

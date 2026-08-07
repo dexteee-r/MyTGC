@@ -248,6 +248,22 @@ body::before {
   animation: seat 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
+/* A slab pushed up out of the floor. */
+@keyframes rise {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
 /* The one orchestrated moment in the app: a card is added and the groove around it
    takes the light, the way a Road Poneglyph answers when it is read. Once, on the
    thing that changed — not scattered across the screen. */

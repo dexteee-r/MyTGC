@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 const CARD_COLOR: Record<string, string> = {
   Red: 'var(--color-op-red)',
@@ -184,7 +184,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       style={carved}
-      className={`inline-flex items-center justify-center gap-2 rounded-[2px] tracking-tight transition-[filter,opacity] hover:brightness-110 active:brightness-95 disabled:opacity-35 ${look[variant]} ${
+      className={`inline-flex items-center justify-center gap-2 rounded-[2px] whitespace-nowrap tracking-tight transition-[filter,opacity] hover:brightness-110 active:brightness-95 disabled:opacity-35 ${look[variant]} ${
         size === 'lg' ? 'min-h-[3.25rem] px-6' : 'min-h-11 px-5 text-sm'
       } ${full ? 'w-full' : ''}`}
     >
@@ -297,6 +297,77 @@ export function Chip({
       )}
       {children}
     </button>
+  )
+}
+
+/* A slab that rises from the bottom edge and covers the screen while it is open.
+
+   Everything it holds is secondary to what is behind it, which is why it is a sheet
+   and not a permanent strip: a control you touch occasionally should not spend the
+   rest of the session taking up the space the results need. */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+  footer?: ReactNode
+}) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    // The list behind must not scroll under the sheet — on a phone that reads as the
+    // page having jumped when the sheet closes.
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      <button
+        aria-label="Fermer"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/65"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="animate-rise relative max-h-[82%] overflow-y-auto bg-stone pb-[env(safe-area-inset-bottom)]"
+        style={{ boxShadow: '0 -1px 0 rgba(255,240,214,0.09), 0 -20px 40px rgba(0,0,0,0.7)' }}
+      >
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-stone px-4 pt-5 pb-3">
+          <h2 className="t-inscribed text-[0.8rem]">{title}</h2>
+          <button onClick={onClose} className="t-code -mr-2 min-h-11 px-2">
+            Fermer
+          </button>
+          <Groove />
+        </header>
+        <div className="px-4 pb-4">{children}</div>
+        {footer && (
+          <div
+            className="sticky bottom-0 bg-stone px-4 pt-3 pb-4"
+            style={{ boxShadow: '0 -1px 0 #050403' }}
+          >
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
