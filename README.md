@@ -277,6 +277,47 @@ in a worker pool; and the collection endpoints look the card up in a second quer
 of joining, because a `SELECT col.*, c.*` makes both tables contribute an `id` and
 `sqlite3.Row` silently resolves it to the wrong one.
 
+## Tests
+
+```bash
+.venv/Scripts/python -m pytest backend -c backend/pytest.ini
+```
+
+38 tests, covering the properties that would fail silently: account isolation, token
+rotation and reuse detection, collection semantics, and the 64-bit hash storage.
+
+They run against a throwaway database in a temp directory — `MYTGC_DATA_DIR` and
+`MYTGC_DB_PATH` are set before the app is imported, so a test run can never reach the real
+collection.
+
+The isolation tests were checked by breaking the code on purpose: removing `user_id` from
+the collection `PATCH`, and from the pack `owned_count` subquery. Each mutation failed
+exactly one test and nothing else. A suite that passes against broken code is theatre.
+
+## Rate limiting
+
+`/auth/login` is limited per address **and** per email, because either key alone is
+sidestepped — rotating addresses beats a per-IP limit, and one password sprayed across many
+accounts beats a per-email one. A successful sign-in clears the counter, so mistyping twice
+does not cost a lockout. `/auth/register` and `/scan` have their own windows; scanning is
+CPU-heavy and the live camera fires it by design.
+
+Counters live in the process. That is the right size for a self-hosted single instance:
+they reset on restart, which is not an attack vector, and a shared store would mean running
+Redis for a household of one.
+
+Behind Nginx and the tunnel every request arrives from localhost, so the address comes from
+`X-Forwarded-For` — first entry only, and only because the proxy in front is ours.
+
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `MYTGC_SECRET_KEY` | Signs access tokens. **Required in production** — without it a key is generated per boot and every session dies on restart. |
+| `MYTGC_ORIGINS` | Comma-separated extra CORS origins, e.g. the tunnel host. Credentials are allowed, so a wildcard is neither legal nor wise. |
+| `MYTGC_DATA_DIR` | Where the database, image cache and punk-records clone live. In production this belongs outside the checkout: it is 2.5 GB and must survive a redeploy. |
+| `MYTGC_DB_PATH` | Overrides just the database path. |
+
 ## Accounts
 
 Multi-user, replacing the original single-user premise. Run the migration once on an

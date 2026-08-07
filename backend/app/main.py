@@ -13,6 +13,7 @@ Run:
     .venv/Scripts/uvicorn --app-dir backend app.main:app --reload
 """
 
+import os
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import date
@@ -26,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from app import auth, db, detection, hashing, recognition
+from app import auth, db, detection, hashing, recognition, throttle
 from app.config import IMAGE_CACHE_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
@@ -54,15 +55,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="MyTGC", version="0.1.0", lifespan=lifespan)
 
-# Single user, self-hosted behind a Cloudflare Tunnel. The Capacitor shell serves the
-# frontend from a different origin, so it needs to be allowed explicitly.
+# capacitor:// and http://localhost are what the Android and iOS shells send as
+# Origin; the Vite dev server is same-origin through its proxy but is listed for the
+# case where VITE_API_BASE points straight at the API.
+#
+# The production host is not knowable at build time, so it comes from the
+# environment: MYTGC_ORIGINS="https://cards.example.com". Credentials are allowed,
+# which makes a wildcard both illegal and a bad idea.
+ALLOWED_ORIGINS = [
+    "http://localhost:5173", "https://localhost:5173",
+    "capacitor://localhost", "http://localhost", "https://localhost",
+    *[o.strip() for o in os.environ.get("MYTGC_ORIGINS", "").split(",") if o.strip()],
+]
+
 app.add_middleware(
     CORSMiddleware,
-    # capacitor:// and http://localhost are what the Android and iOS shells send as
-    # Origin; the Vite dev server is same-origin via its proxy but is listed for the
-    # case where VITE_API_BASE is pointed straight at the API.
-    allow_origins=["http://localhost:5173", "capacitor://localhost",
-                   "http://localhost", "https://localhost"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -121,6 +130,7 @@ def _session(conn, response: Response, request: Request, row) -> Session:
 
 @app.post("/auth/register", response_model=Session, status_code=201)
 def register(conn: Conn, response: Response, request: Request, body: RegisterRequest):
+    throttle.REGISTER.check(throttle.client_address(request))
     email = body.email.strip()
     if conn.execute("SELECT 1 FROM users WHERE email_lower = ?",
                     (email.lower(),)).fetchone():
@@ -139,13 +149,22 @@ def register(conn: Conn, response: Response, request: Request, body: RegisterReq
 
 @app.post("/auth/login", response_model=Session)
 def login(conn: Conn, response: Response, request: Request, body: LoginRequest):
+    # Limited by address and by email: either key alone is trivially sidestepped.
+    email_key = body.email.strip().lower()
+    address = throttle.client_address(request)
+    throttle.LOGIN.check(address, f"email:{email_key}")
+
     row = conn.execute("SELECT * FROM users WHERE email_lower = ?",
-                       (body.email.strip().lower(),)).fetchone()
+                       (email_key,)).fetchone()
 
     # One message for both a wrong address and a wrong password: saying which was
     # wrong tells an attacker which addresses have accounts.
     if row is None or not auth.verify_password(row["password_hash"], body.password):
         raise HTTPException(401, "email ou mot de passe incorrect")
+
+    # A successful sign-in clears the counter, so someone who mistyped twice is not
+    # left sitting out the window.
+    throttle.LOGIN.forget(address, f"email:{email_key}")
 
     if auth.needs_rehash(row["password_hash"]):
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
@@ -321,6 +340,7 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 async def scan(
     conn: Conn,
     user: User,
+    request: Request,
     file: Annotated[UploadFile, File()],
     language: Language | None = Query(
         None,
@@ -329,6 +349,8 @@ async def scan(
                     "omitting it searches both and may return the wrong edition.",
     ),
 ):
+    throttle.SCAN.check(f"user:{user.id}")
+
     catalogue = app.state.catalogue
     if catalogue is None:
         raise HTTPException(503, "catalogue not hashed; run compute_phashes.py")

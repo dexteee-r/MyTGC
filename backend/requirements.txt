@@ -20,3 +20,7 @@ python-multipart>=0.0.20        # multipart upload for /scan
 argon2-cffi>=25.1              # Argon2id password hashing
 PyJWT>=2.13                    # access tokens
 pydantic[email]>=2.13          # email validation
+
+# Tests
+pytest>=9.1
+httpx>=0.28
