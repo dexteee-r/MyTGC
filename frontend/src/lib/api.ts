@@ -150,9 +150,19 @@ export const api = {
   login: (body: { email: string; password: string }) =>
     request<AuthSession>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
-  refresh: () => request<AuthSession>('/auth/refresh', { method: 'POST' }),
+  /* On native the token comes from secure storage and travels in the body; in a
+     browser it rides the httpOnly cookie and this argument stays undefined. */
+  refresh: (refreshToken?: string) =>
+    request<AuthSession>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken ?? null }),
+    }),
 
-  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  logout: (refreshToken?: string) =>
+    request<void>('/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken ?? null }),
+    }),
 
   me: () => request<UserProfile>('/auth/me'),
 

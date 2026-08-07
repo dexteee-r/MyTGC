@@ -35,7 +35,8 @@ from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
                         LoginRequest, Pack, RefreshRequest, RegisterRequest,
-                        ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile)
+                        ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
+                        WishlistCreate, WishlistEntry, WishlistUpdate)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
                 " colors, cost, power, counter, attributes, types, image_path")
@@ -595,6 +596,84 @@ def update_collection(conn: Conn, user: User, entry_id: int, patch: CollectionUp
 @app.delete("/collection/{entry_id}", status_code=204)
 def delete_from_collection(conn: Conn, user: User, entry_id: int):
     cursor = conn.execute("DELETE FROM collection WHERE id = ? AND user_id = ?",
+                          (entry_id, user.id))
+    conn.commit()
+    if cursor.rowcount == 0:
+        raise HTTPException(404, "entry not found")
+
+
+# --- wishlist -------------------------------------------------------------------
+
+def _wish(conn: sqlite3.Connection, entry_id: int) -> WishlistEntry:
+    row = conn.execute("SELECT * FROM wishlist WHERE id = ?", (entry_id,)).fetchone()
+    return WishlistEntry(**{k: row[k] for k in
+                            ("id", "card_id", "language", "priority",
+                             "alert_threshold", "notes")},
+                         card=_card_for(conn, row["card_id"], row["language"]))
+
+
+@app.get("/wishlist", response_model=list[WishlistEntry])
+def list_wishlist(conn: Conn, user: User):
+    rows = conn.execute(
+        "SELECT * FROM wishlist WHERE user_id = ? ORDER BY priority, id DESC", (user.id,)
+    ).fetchall()
+    return [
+        WishlistEntry(**{k: r[k] for k in ("id", "card_id", "language", "priority",
+                                           "alert_threshold", "notes")},
+                      card=_card_for(conn, r["card_id"], r["language"]))
+        for r in rows
+    ]
+
+
+@app.post("/wishlist", response_model=WishlistEntry, status_code=201)
+def add_to_wishlist(conn: Conn, user: User, entry: WishlistCreate):
+    if not conn.execute("SELECT 1 FROM cards WHERE id = ? AND language = ?",
+                        (entry.card_id, entry.language)).fetchone():
+        raise HTTPException(404, f"{entry.card_id} not found in {entry.language}")
+
+    # Wanting the same card twice is not a thing: adding again edits the entry
+    # rather than stacking duplicates, which is what the collection does too.
+    existing = conn.execute(
+        "SELECT id FROM wishlist WHERE user_id = ? AND card_id = ? AND language = ?",
+        (user.id, entry.card_id, entry.language),
+    ).fetchone()
+    if existing:
+        conn.execute(
+            "UPDATE wishlist SET priority = ?, alert_threshold = ?, notes = ?"
+            " WHERE id = ?",
+            (entry.priority, entry.alert_threshold, entry.notes, existing["id"]),
+        )
+        conn.commit()
+        return _wish(conn, existing["id"])
+
+    cursor = conn.execute(
+        "INSERT INTO wishlist (user_id, card_id, language, priority, alert_threshold,"
+        " notes) VALUES (?, ?, ?, ?, ?, ?)",
+        (user.id, entry.card_id, entry.language, entry.priority,
+         entry.alert_threshold, entry.notes),
+    )
+    conn.commit()
+    return _wish(conn, cursor.lastrowid)
+
+
+@app.patch("/wishlist/{entry_id}", response_model=WishlistEntry)
+def update_wishlist(conn: Conn, user: User, entry_id: int, patch: WishlistUpdate):
+    if not conn.execute("SELECT 1 FROM wishlist WHERE id = ? AND user_id = ?",
+                        (entry_id, user.id)).fetchone():
+        raise HTTPException(404, "entry not found")
+
+    fields = patch.model_dump(exclude_unset=True)
+    if fields:
+        assignments = ", ".join(f"{k} = ?" for k in fields)
+        conn.execute(f"UPDATE wishlist SET {assignments} WHERE id = ?",
+                     [*fields.values(), entry_id])
+        conn.commit()
+    return _wish(conn, entry_id)
+
+
+@app.delete("/wishlist/{entry_id}", status_code=204)
+def remove_from_wishlist(conn: Conn, user: User, entry_id: int):
+    cursor = conn.execute("DELETE FROM wishlist WHERE id = ? AND user_id = ?",
                           (entry_id, user.id))
     conn.commit()
     if cursor.rowcount == 0:

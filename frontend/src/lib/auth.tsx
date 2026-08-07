@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api, setAccessToken, setTokenRenewer } from './api'
+import { clearRefreshToken, loadRefreshToken, saveRefreshToken } from './session-store'
 import type { UserProfile } from './types'
 
 /* Session handling.
@@ -39,14 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   const renewing = useRef<Promise<boolean> | null>(null)
 
-  const apply = useCallback((session: { access_token: string; user: UserProfile }) => {
-    setAccessToken(session.access_token)
-    setUser(session.user)
-  }, [])
+  const apply = useCallback(
+    (session: { access_token: string; refresh_token: string; user: UserProfile }) => {
+      setAccessToken(session.access_token)
+      setUser(session.user)
+      // No-op in a browser: there the token is in a cookie the page cannot see.
+      void saveRefreshToken(session.refresh_token)
+    },
+    [],
+  )
 
   const clear = useCallback(() => {
     setAccessToken(null)
     setUser(null)
+    void clearRefreshToken()
   }, [])
 
   /* Renewal is shared: several requests can hit a 401 at once, and each firing its
@@ -54,8 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      and answers by revoking the whole family, signing the person out. */
   const renew = useCallback(async () => {
     if (!renewing.current) {
-      renewing.current = api
-        .refresh()
+      renewing.current = loadRefreshToken()
+        .then((stored) => api.refresh(stored ?? undefined))
         .then((session) => {
           apply(session)
           return true
@@ -103,7 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
-    await api.logout().catch(() => {})
+    const stored = await loadRefreshToken()
+    await api.logout(stored ?? undefined).catch(() => {})
     clear()
   }, [clear])
 

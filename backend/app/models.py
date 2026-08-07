@@ -186,6 +186,32 @@ class ScanResult(BaseModel):
     message: str | None = None
 
 
+class WishlistEntry(BaseModel):
+    id: int
+    card_id: str
+    language: Language
+    # 1 is "grab it on sight", 3 is "eventually". Kept small on purpose: a ten-point
+    # scale invites agonising over the difference between a 6 and a 7.
+    priority: int = 2
+    alert_threshold: float | None = None
+    notes: str | None = None
+    card: Card | None = None
+
+
+class WishlistCreate(BaseModel):
+    card_id: str
+    language: Language
+    priority: int = Field(default=2, ge=1, le=3)
+    alert_threshold: float | None = Field(default=None, ge=0)
+    notes: str | None = Field(default=None, max_length=280)
+
+
+class WishlistUpdate(BaseModel):
+    priority: int | None = Field(default=None, ge=1, le=3)
+    alert_threshold: float | None = Field(default=None, ge=0)
+    notes: str | None = Field(default=None, max_length=280)
+
+
 class CollectionStats(BaseModel):
     distinct_cards: int
     total_quantity: int

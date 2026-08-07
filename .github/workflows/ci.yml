@@ -60,6 +60,9 @@ jobs:
       - name: Lint
         run: npm run lint --prefix frontend
 
+      - name: Tests
+        run: npm test --prefix frontend
+
       - name: Typecheck and build
         # `build` runs tsc first, so a type error fails here rather than in
         # production.
