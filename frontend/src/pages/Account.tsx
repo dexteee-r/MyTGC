@@ -67,14 +67,14 @@ export function Account() {
 
       <PageHeader title={user?.display_name || 'Compte'} meta={user?.email} />
 
-      <section className="mx-5 rounded-none bg-stone-lit p-4">
+      <section className="plate mx-5 rounded-[2px] p-4">
         <p className="t-code">Collection</p>
         <p className="tabular-nums pt-1 text-lg font-bold">
           {stats?.total_quantity ?? 0} cartes · {stats?.distinct_cards ?? 0} références
         </p>
       </section>
 
-      <form onSubmit={changePassword} className="mx-5 mt-4 rounded-none bg-stone-lit p-4">
+      <form onSubmit={changePassword} className="plate mx-5 mt-4 rounded-[2px] p-4">
         <p className="font-semibold">Changer le mot de passe</p>
         <label className="mt-3 block">
           <span className="t-code">Actuel</span>
@@ -84,7 +84,7 @@ export function Account() {
             autoComplete="current-password"
             value={current}
             onChange={(event) => setCurrent(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-stone-lit px-4 outline-none"
+            className="niche mt-2 min-h-12 w-full px-4 outline-none"
           />
         </label>
         <label className="mt-3 block">
@@ -96,7 +96,7 @@ export function Account() {
             autoComplete="new-password"
             value={next}
             onChange={(event) => setNext(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-stone-lit px-4 outline-none"
+            className="niche mt-2 min-h-12 w-full px-4 outline-none"
           />
         </label>
         {error && (
