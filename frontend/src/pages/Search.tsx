@@ -154,7 +154,12 @@ export function Search() {
           </EmptyState>
         </div>
       ) : (
-        <CardGrid cards={cards} onEndReached={loadMore} loadingMore={cards.length < total} />
+        <CardGrid
+          cards={cards}
+          onEndReached={loadMore}
+          loadingMore={cards.length < total}
+          showArt
+        />
       )}
     </div>
   )

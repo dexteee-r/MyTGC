@@ -48,7 +48,7 @@ export function Home() {
     [packs],
   )
 
-  const recent = entries.slice(0, 12)
+  const recent = entries.slice(0, 8)
 
   /* The size of the whole catalogue, both editions. /health already publishes it —
      asking again would be a second source of the same number. */
@@ -157,7 +157,7 @@ export function Home() {
       {recent.length > 0 && (
         <>
           <SectionLabel>Rangées en dernier</SectionLabel>
-          <div className="wall mx-3 grid grid-cols-6 gap-px p-px">
+          <div className="wall mx-3 grid grid-cols-4 gap-px p-px">
             {recent.map((entry) => (
               <Link
                 key={entry.id}

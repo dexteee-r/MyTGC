@@ -8,7 +8,10 @@ import { EmptyPocket } from './ui'
 
 /* The glyph wall.
 
-   Three across on a phone, six on anything wide enough for two panels side by side.
+   Two across on a phone, four on anything wide enough for two panels side by side.
+   Three across put a card at 120px, which is too small to recognise an illustration
+   or read a printed code — and recognising a card at a glance is the whole job of
+   this screen. Two puts it at 180px, near the size of the real card in the hand.
    The cards are separated by a 2px groove rather than by a gap: on a poneglyph the
    glyphs are cut edge to edge into one surface, and a wall of them is a single
    object. Space them out and it becomes a shelf of floating tiles, which is what
@@ -23,10 +26,12 @@ export function CardGrid({
   cards,
   onEndReached,
   loadingMore,
+  showArt,
 }: {
   cards: Card[]
   onEndReached?: () => void
   loadingMore?: boolean
+  showArt?: boolean
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(3)
@@ -37,7 +42,7 @@ export function CardGrid({
     if (!element) return
     const measure = () => {
       const width = element.clientWidth - 24 /* the wall's own 12px margin either side */
-      const count = width >= 620 ? 6 : 3
+      const count = width >= 620 ? 4 : 2
       const pocket = (width - GAP * (count - 1)) / count
       setColumns(count)
       setRowHeight(pocket * CARD_ASPECT + GAP)
@@ -90,7 +95,7 @@ export function CardGrid({
             }}
           >
             {rows[row.index].map((card) => (
-              <CardTile key={`${card.language}-${card.id}`} card={card} />
+              <CardTile key={`${card.language}-${card.id}`} card={card} showArt={showArt} />
             ))}
           </div>
         ))}
@@ -100,10 +105,15 @@ export function CardGrid({
   )
 }
 
-export function CardTile({ card }: { card: Card }) {
+export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
   const { ownedOf } = useCollection()
   const owned = ownedOf(card.id, card.language)
   const src = imageUrl(card)
+  /* Held cards are always shown. Unheld ones are an empty niche by default — on the
+     binder screens the gap is the information — but the search screen passes showArt,
+     because you search to identify a card, not to audit what you are missing. */
+  const seated = Boolean(owned)
+  const art = src && (seated || showArt)
 
   return (
     <Link
@@ -111,14 +121,33 @@ export function CardTile({ card }: { card: Card }) {
       aria-label={`${card.name}, ${card.id}${owned ? `, ${owned.quantity} en collection` : ', pochette vide'}`}
     >
       <div className="relative">
-        {owned && src ? (
+        {art ? (
           /* Inlaid, not stuck on: the artwork sits below the surface of the stone,
-             so the slab casts a line of shadow across its top edge. */
+             so the slab casts a line of shadow across its top edge.
+
+             Not loading="lazy". Inside the virtualiser the rows are absolutely
+             positioned and transformed, and Chrome never decided these were near the
+             viewport — the request returned 200 and the element sat at complete=false
+             forever, which looked exactly like previews that fail to load. The
+             windowing already does what lazy loading is for: only the visible rows
+             plus a few exist in the DOM at all. */
           <img
-            src={src}
+            src={src!}
             alt=""
-            loading="lazy"
-            className="inlay aspect-[600/838] w-full object-cover"
+            decoding="async"
+            style={
+              /* Held cards are lit; the rest sit back in the stone. It is the held
+                 state that gets marked, never the missing one — on a screen where you
+                 own almost nothing, a "manquante" stamp on every tile is noise, and
+                 dimming hard enough to be unmistakable makes the card unreadable,
+                 which defeats the reason for showing it. */
+              seated
+                ? { boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.75), 0 0 0 1px rgba(201,162,39,0.55)' }
+                : undefined
+            }
+            className={`inlay aspect-[600/838] w-full object-cover ${
+              seated ? '' : 'opacity-65 saturate-[0.8]'
+            }`}
           />
         ) : (
           <EmptyPocket code={card.id} />

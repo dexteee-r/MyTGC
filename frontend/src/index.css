@@ -9,8 +9,7 @@
    is the exception: it only ships one variable file per subset, each behind a
    unicode-range, so the Greek, Cyrillic and Vietnamese cuts sit in dist but are never
    requested by a browser rendering French. */
-@import "@fontsource/cinzel/latin-600.css";
-@import "@fontsource/cinzel/latin-700.css";
+@import "@fontsource-variable/space-grotesk/wght.css";
 @import "@fontsource-variable/ibm-plex-sans/wght.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-600.css";
@@ -60,10 +59,13 @@
   --color-op-black: #6c7688;
   --color-op-yellow: #e6c02f;
 
-  /* Inscriptional capitals for anything stamped into the stone; a humanist sans
-     with actual character for prose; a mono for codes, because a card number is a
-     code and the monospaced grid is the glyph wall in miniature. */
-  --font-inscribed: "Cinzel", "Palatino Linotype", Georgia, serif;
+  /* Three sans faces, no serif anywhere — a One Piece card carries none either.
+     Space Grotesk is the display voice: geometric, slightly technical, with enough
+     character in its letterforms to be recognisable, and monumental in tracked caps
+     without borrowing a Roman inscription to get there. Plex Sans carries prose, and
+     Plex Mono the codes — a card number is a code, and the monospaced grid is the
+     glyph wall in miniature. */
+  --font-inscribed: "Space Grotesk Variable", "Space Grotesk", system-ui, sans-serif;
   --font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -109,15 +111,15 @@ body::before {
 
 /* ── Voices ─────────────────────────────────────────────────────────────────── */
 
-/* Stamped into the stone: page titles and section labels, and nothing else. Cinzel
-   is inscriptional capitals, which is the letterform this whole idea rests on — and
-   also the fastest way to look like wedding stationery if it is let out of its cage.
-   Caps, tracked, and never more than two per screen. */
+/* Stamped into the stone: page titles and section labels, and nothing else. The
+   carved quality comes from the shadow pair below, not from the letterforms — which
+   frees the display face to be a modern sans instead of a Roman inscription. Caps and
+   wide tracking do the monumental part; never more than two per screen. */
 .t-inscribed {
   font-family: var(--font-inscribed);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   /* Cut into the surface: a shadow above the letter, a highlight below it. */
   text-shadow:
     0 -1px 0 rgba(0, 0, 0, 0.85),

@@ -80,11 +80,11 @@ export function CardDetail() {
       </header>
 
       {/* Seated in its pocket, or the pocket it would go in. */}
-      <div className="mx-auto mt-3 w-[min(70%,290px)]">
+      <div className="mx-auto mt-3 w-[min(86%,340px)]">
         {owned && src ? (
-          <img src={src} alt={card.name} className="w-full rounded-[0.45rem]" />
+          <img src={src} alt={card.name} className="inlay w-full" />
         ) : src ? (
-          <img src={src} alt={card.name} className="w-full rounded-[0.45rem] opacity-70" />
+          <img src={src} alt={card.name} className="inlay w-full opacity-45 saturate-50" />
         ) : (
           <div className="niche aspect-[600/838] w-full" />
         )}
