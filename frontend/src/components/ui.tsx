@@ -158,7 +158,7 @@ export function Button({
 }: {
   children: ReactNode
   onClick?: () => void
-  variant?: 'primary' | 'quiet' | 'ghost' | 'danger'
+  variant?: 'primary' | 'quiet' | 'ghost' | 'danger' | 'destructive'
   size?: 'md' | 'lg'
   disabled?: boolean
   full?: boolean
@@ -174,6 +174,14 @@ export function Button({
     quiet: { background: 'var(--surface-rail)', color: 'var(--text-primary)' },
     ghost: { background: 'transparent', color: 'var(--text-secondary)' },
     danger: { background: 'transparent', color: 'var(--accent-emitted)' },
+    /* Reserved for confirming something irreversible. It is filled, because the
+       moment of no return should not look like a link — and it is ember rather than
+       gold, because gold is the app saying "do this". */
+    destructive: {
+      background: 'var(--accent-emitted)',
+      color: 'var(--color-paper-100)',
+      fontWeight: 600,
+    },
   }
   return (
     <button

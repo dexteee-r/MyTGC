@@ -59,6 +59,12 @@ class UserProfile(BaseModel):
     email: str
     display_name: str | None = None
     created_at: str | None = None
+    default_language: Language = "en"
+
+
+class ProfileUpdate(BaseModel):
+    default_language: Language | None = None
+    display_name: str | None = Field(default=None, max_length=60)
 
 
 class Session(BaseModel):

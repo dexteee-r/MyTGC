@@ -40,10 +40,15 @@ décision.
 
 ### Choisir l'affichage depuis le panneau de filtres
 Deux ou trois par ligne, éventuellement une vue liste. Se range dans la feuille de
-filtres, se retient d'une session à l'autre — attention, `PROJECT_CONTEXT.md` §2 exclut
-`localStorage`, donc soit ça vit en mémoire, soit ça devient une préférence de compte
-côté serveur. La deuxième option est la bonne si le réglage doit survivre à un
-rechargement.
+filtres. Le chemin est tracé : `users.default_language` a montré comment une préférence
+persiste côté compte, et le mécanisme `LATE_COLUMNS` fait la migration tout seul.
+Ajouter `users.grid_columns` suit exactement le même patron.
+
+### Ajouter aux recherchées au survol
+Sur navigateur, survoler une carte de la grille fait apparaître un bouton qui la met
+dans les recherchées sans ouvrir sa fiche. Souris uniquement — sur mobile il n'y a pas
+de survol, et la fiche reste le chemin. À câbler dans `CardTile`, avec le même appel
+que le bouton de la fiche carte.
 
 ### Recherche par tirage : `Ace & Newgate (ST22-001) (V.1)`
 Il faut que taper un nom propose les tirages, avec leur code et leur version. La donnée
@@ -82,15 +87,19 @@ d'écrire quoi que ce soit.
 
 - **Favicon.** L'éclair violet du scaffold Vite est remplacé par la marque de l'app :
   le soleil sur l'horizon, dessiné, lisible à 16 px.
+- **Export CSV.** Sur l'écran Compte. Point-virgule et BOM UTF-8, parce que le fichier
+  s'ouvrira dans un Excel français.
+- **Édition par défaut.** Retenue sur le compte (`users.default_language`), plus
+  réinitialisée à chaque rechargement.
 
 ---
 
 ## Déjà connu, plus ancien
 
 - Réinitialisation de mot de passe (demande un SMTP)
-- Prix et valeur totale de la collection (demande une source de prix)
+- Prix et valeur totale de la collection (demande une source de prix ; le prix saisi
+  à la main sur les recherchées est déjà là)
 - Scan hors ligne
 - Statistiques de collection
-- Export CSV
 - Build iOS via CI
 - Renommer le dépôt et les dossiers `MyTGC` → `MyTCG`

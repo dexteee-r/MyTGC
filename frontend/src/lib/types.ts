@@ -134,6 +134,11 @@ export interface UserProfile {
   email: string
   display_name: string | null
   created_at: string | null
+  /* Which edition this account browses by default. Server-side rather than local:
+     PROJECT_CONTEXT.md section 2 rules out localStorage, and the choice has to
+     survive a reload — the two printings of a card cannot be told apart by sight, so
+     resetting to 'en' every time is simply wrong for a Japanese collection. */
+  default_language: Language
 }
 
 export type RegistrationMode = 'open' | 'invite' | 'closed'

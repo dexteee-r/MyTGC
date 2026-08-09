@@ -34,6 +34,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
 # somebody has to remember to run.
 LATE_COLUMNS = [
     ("wishlist", "price", "REAL"),
+    ("users", "default_language", "TEXT NOT NULL DEFAULT 'en'"),
 ]
 
 

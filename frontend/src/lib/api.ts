@@ -156,6 +156,9 @@ export const api = {
   removeFromWishlist: (id: number) =>
     request<void>(`/wishlist/${id}`, { method: 'DELETE' }),
 
+  updateProfile: (body: { default_language?: Language; display_name?: string }) =>
+    request<UserProfile>('/auth/me', { method: 'PATCH', body: JSON.stringify(body) }),
+
   registrationPolicy: () => request<RegistrationPolicy>('/auth/registration'),
 
   register: (body: {

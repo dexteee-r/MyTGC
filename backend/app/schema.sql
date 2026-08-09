@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS users (
     email_lower   TEXT NOT NULL UNIQUE,  -- lookups are case-insensitive
     display_name  TEXT,
     password_hash TEXT NOT NULL,         -- Argon2id
+    -- Which edition this account browses by default. The two printings of a card are
+    -- indistinguishable by sight, so the choice can never be inferred -- and resetting
+    -- it to 'en' on every reload is wrong for anyone whose collection is Japanese.
+    default_language TEXT NOT NULL DEFAULT 'en',
     created_at    TEXT NOT NULL,
     last_login_at TEXT
 );

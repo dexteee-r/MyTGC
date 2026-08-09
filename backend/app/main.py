@@ -34,7 +34,8 @@ from app.config import BACKEND_DIR, IMAGE_CACHE_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
-                        LoginRequest, Pack, RefreshRequest, RegisterRequest,
+                        LoginRequest, Pack, ProfileUpdate, RefreshRequest,
+                        RegisterRequest,
                         ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
@@ -135,8 +136,10 @@ User = Annotated[auth.CurrentUser, Depends(current_user)]
 # --- accounts -------------------------------------------------------------------
 
 def _profile(row) -> UserProfile:
+    # Rows written before the column existed read as NULL rather than as the default.
     return UserProfile(id=row["id"], email=row["email"],
-                       display_name=row["display_name"], created_at=row["created_at"])
+                       display_name=row["display_name"], created_at=row["created_at"],
+                       default_language=row["default_language"] or "en")
 
 
 def _session(conn, response: Response, request: Request, row) -> Session:
@@ -288,6 +291,17 @@ def revoke_invite(conn: Conn, user: User, invite_id: int):
 
 @app.get("/auth/me", response_model=UserProfile)
 def me(conn: Conn, user: User):
+    return _profile(conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone())
+
+
+@app.patch("/auth/me", response_model=UserProfile)
+def update_profile(conn: Conn, user: User, patch: ProfileUpdate):
+    fields = patch.model_dump(exclude_unset=True)
+    if fields:
+        assignments = ", ".join(f"{k} = ?" for k in fields)
+        conn.execute(f"UPDATE users SET {assignments} WHERE id = ?",
+                     [*fields.values(), user.id])
+        conn.commit()
     return _profile(conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone())
 
 
