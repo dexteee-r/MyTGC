@@ -5,13 +5,12 @@ import {
   Button,
   CARD_COLORS,
   Chip,
+  Adrift,
   EmptyState,
-  ErrorState,
-  Rule,
   PageHeader,
   Segmented,
   Sheet,
-  Spinner,
+  Sounding,
 } from '../components/ui'
 import { api } from '../lib/api'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
@@ -103,8 +102,11 @@ export function Search() {
       {/* The search field and the way into the filters, and nothing else. Two rows of
           chips used to sit here permanently — they cost a third of the screen on a
           phone, every time, to hold controls that are touched occasionally. */}
-      <div className="relative px-4 py-3">
-        <div className="sunken flex min-h-11 items-center gap-2.5 px-3">
+      <div className="flex items-center gap-2.5 px-5 pb-3">
+        <div
+          className="flex min-h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-full px-4"
+          style={{ background: 'var(--surface-recessed)' }}
+        >
           <SearchIcon className="size-4 shrink-0 text-[var(--text-faint)]" />
           <input
             value={query}
@@ -114,44 +116,53 @@ export function Search() {
             className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-[var(--text-faint)]"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="t-code shrink-0 px-1">
-              Effacer
+            <button
+              onClick={() => setQuery('')}
+              aria-label="Effacer la recherche"
+              className="-mr-2 flex size-[var(--touch)] shrink-0 items-center justify-center text-lg text-[var(--text-faint)]"
+            >
+              ×
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 pt-2.5">
-          <button
-            onClick={() => setFiltersOpen(true)}
-            aria-haspopup="dialog"
-            style={{ boxShadow: applied.length ? 'var(--relief)' : 'var(--groove)' }}
-            className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-[2px] px-3 text-sm ${
-              applied.length ? 'bg-[var(--surface-rail)] text-[var(--text-primary)]' : 'bg-[var(--surface-recessed)] text-[var(--text-secondary)]'
-            }`}
-          >
-            <FilterIcon className="size-4 shrink-0" />
-            <span className="shrink-0 font-semibold">Filtres</span>
-            {applied.length > 0 && (
-              <span className="t-code min-w-0 flex-1 truncate text-left text-sun-500">
-                {applied.join(' · ')}
-              </span>
-            )}
-          </button>
-          {applied.length > 0 && (
-            <button onClick={clearFilters} className="t-code min-h-10 shrink-0 px-2">
-              Tout effacer
-            </button>
-          )}
-        </div>
-        <Rule />
+        {/* A filter that is on says so on the button itself: a dot rather than a
+            second row of text, because the list underneath is already the evidence
+            and the count sits in the header. */}
+        <button
+          onClick={() => setFiltersOpen(true)}
+          aria-haspopup="dialog"
+          aria-label={
+            applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
+          }
+          className="relative grid size-[46px] shrink-0 place-items-center rounded-full"
+          style={{
+            background: applied.length ? 'var(--gradient-sun)' : 'var(--surface-recessed)',
+            color: applied.length ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
+            boxShadow: applied.length ? 'var(--shadow-action)' : 'none',
+          }}
+        >
+          <FilterIcon className="size-[18px]" />
+        </button>
       </div>
+
+      {applied.length > 0 && (
+        <div className="flex items-center gap-2 px-5 pb-3">
+          <p className="t-code min-w-0 flex-1 truncate text-sun-500">{applied.join(' · ')}</p>
+          <button onClick={clearFilters} className="t-code min-h-[var(--touch)] shrink-0 px-2">
+            Tout effacer
+          </button>
+        </div>
+      )}
 
       {failed ? (
         <div className="pt-8">
-          <ErrorState onRetry={() => setQuery((q) => q)} />
+          <Adrift onRetry={() => setQuery((q) => q)} />
         </div>
       ) : loading && cards.length === 0 ? (
-        <Spinner />
+        <div className="pt-8">
+          <Sounding label="Sondage du catalogue" />
+        </div>
       ) : cards.length === 0 ? (
         <div className="pt-8">
           <EmptyState title="Aucun résultat">

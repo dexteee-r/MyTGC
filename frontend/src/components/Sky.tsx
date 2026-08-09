@@ -111,9 +111,12 @@ export function Sky({
 
   const sun = SUN[variant]
   const tint = WAVE_TINT[variant] ?? WAVE_TINT.default
-  const waves = showWaves && !reduced
-  const ship =
-    waves && showShip && !quiet && variant !== 'paper' && variant !== 'deep'
+  /* Deep water is below the surface by definition: there is no horizon on it, so a
+     swell crest is a stray line drawn across the cards rather than a sea. The grids
+     run on `deep`, and it is their screens where the decor has to get out of the
+     way. */
+  const waves = showWaves && !reduced && variant !== 'deep'
+  const ship = waves && showShip && !quiet && variant !== 'paper'
 
   return (
     <div
