@@ -87,7 +87,15 @@ function Gate() {
     return (
       <div className="relative h-full overflow-hidden">
         <Sky variant="dawn" />
-        <SignIn />
+        {/* Sky is positioned at z-index 0, and a positioned element paints above
+            static content whatever the DOM order — without a stacking context of its
+            own the whole sign-in form ended up underneath the sky. Every screen that
+            sits over Sky needs this; the Scrim carries it for the rest of the app. */}
+        {/* Same veil as every other screen: the wordmark and the labels sit on the
+            brightest band of the sky, which is where bare text measures 1.08:1. */}
+        <Scrim over="dawn" className="h-full">
+          <SignIn />
+        </Scrim>
       </div>
     )
 

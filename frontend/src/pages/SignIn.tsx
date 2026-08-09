@@ -55,9 +55,14 @@ export function SignIn() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-md flex-col justify-center px-6">
+    <div className="mx-auto flex h-full max-w-md flex-col justify-end px-6 pb-10">
       <p className="t-code">Collection One Piece</p>
-      <h1 className="t-numeral pt-2 text-[2.5rem]">MyTCG</h1>
+      <h1
+        className="t-display pt-2 text-[3.5rem]"
+        style={{ color: 'var(--color-paper-100)', textShadow: '0 4px 34px rgba(0,0,0,.55)' }}
+      >
+        MyTCG
+      </h1>
       <p className="pt-3 text-[var(--text-secondary)]">
         {mode === 'in'
           ? 'Connecte-toi pour retrouver ta collection.'
