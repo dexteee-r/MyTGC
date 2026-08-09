@@ -66,7 +66,7 @@ export function Wishlist() {
           {entries.map((entry) => {
             const src = entry.card ? imageUrl(entry.card) : null
             return (
-              <li key={entry.id} className="cut p-3">
+              <li key={entry.id} className="border-b border-[rgba(243,230,203,.12)] p-3">
                 <div className="flex items-start gap-3">
                   <Link
                     to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
@@ -78,7 +78,7 @@ export function Wishlist() {
                         className="h-[68px] w-[49px] rounded-[0.25rem] object-cover"
                       />
                     ) : (
-                      <div className="niche h-[68px] w-[49px]" />
+                      <div className="sunken h-[68px] w-[49px]" />
                     )}
                   </Link>
                   <ColorBar
@@ -86,18 +86,18 @@ export function Wishlist() {
                     className="h-11 w-[3px] shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="t-plate truncate">{entry.card?.name ?? entry.card_id}</p>
+                    <p className="t-deck truncate">{entry.card?.name ?? entry.card_id}</p>
                     <p className="t-code pt-1">
                       {entry.card_id} · <Edition language={entry.language} />
                     </p>
                     {entry.notes && (
-                      <p className="truncate pt-1 text-xs text-carve-dim">{entry.notes}</p>
+                      <p className="truncate pt-1 text-xs text-[var(--text-secondary)]">{entry.notes}</p>
                     )}
                   </div>
                   <button
                     onClick={() => remove(entry)}
                     aria-label="Retirer de la liste"
-                    className="size-11 shrink-0 text-xl text-carve-faint"
+                    className="size-11 shrink-0 text-xl text-[var(--text-faint)]"
                   >
                     ×
                   </button>
@@ -117,8 +117,8 @@ export function Wishlist() {
                       }}
                       className={`min-h-9 flex-1 px-2 text-xs transition ${
                         entry.priority === level
-                          ? 'bg-stone-lit font-semibold text-brass'
-                          : 'bg-niche text-carve-faint'
+                          ? 'bg-[var(--surface-rail)] font-semibold text-sun-500'
+                          : 'bg-[var(--surface-recessed)] text-[var(--text-faint)]'
                       }`}
                     >
                       {PRIORITY[level]}

@@ -81,7 +81,7 @@ export function Collection() {
           {groups.map((group) => (
             <section key={group.key}>
               {group.key && (
-                <p className="t-code cut px-4 py-2.5">{group.key}</p>
+                <p className="t-code border-b border-[rgba(243,230,203,.12)] px-4 py-2.5">{group.key}</p>
               )}
               <ul>
                 {group.items.map((entry) => {
@@ -89,7 +89,7 @@ export function Collection() {
                   return (
                     <li
                       key={entry.id}
-                      className="flex items-center gap-3 cut p-3"
+                      className="flex items-center gap-3 border-b border-[rgba(243,230,203,.12)] p-3"
                     >
                       <Link
                         to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
@@ -102,21 +102,21 @@ export function Collection() {
                             className="h-[68px] w-[49px] shrink-0 rounded-[0.25rem] object-cover"
                           />
                         ) : (
-                          <div className="niche h-[68px] w-[49px] shrink-0" />
+                          <div className="sunken h-[68px] w-[49px] shrink-0" />
                         )}
                         <ColorBar
                           colors={entry.card?.colors ?? []}
                           className="h-11 w-[3px] shrink-0"
                         />
                         <div className="min-w-0">
-                          <p className="t-plate truncate">
+                          <p className="t-deck truncate">
                             {entry.card?.name ?? entry.card_id}
                           </p>
                           <p className="t-code pt-1">
                             {entry.card_id} · <Edition language={entry.language} />
                           </p>
                           {entry.condition && (
-                            <p className="truncate pt-0.5 text-xs text-carve-dim">
+                            <p className="truncate pt-0.5 text-xs text-[var(--text-secondary)]">
                               {CONDITION_LABELS[entry.condition]}
                             </p>
                           )}

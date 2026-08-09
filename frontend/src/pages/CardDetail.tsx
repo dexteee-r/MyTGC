@@ -72,7 +72,7 @@ export function CardDetail() {
         <button
           onClick={() => navigate(-1)}
           aria-label="Revenir"
-          className="flex size-11 items-center justify-center text-carve-dim"
+          className="flex size-11 items-center justify-center text-[var(--text-secondary)]"
         >
           <ChevronLeftIcon className="size-5" />
         </button>
@@ -82,18 +82,18 @@ export function CardDetail() {
       {/* Seated in its pocket, or the pocket it would go in. */}
       <div className="mx-auto mt-3 w-[min(86%,340px)]">
         {owned && src ? (
-          <img src={src} alt={card.name} className="inlay w-full" />
+          <img src={src} alt={card.name} className="float w-full" />
         ) : src ? (
-          <img src={src} alt={card.name} className="inlay w-full opacity-45 saturate-50" />
+          <img src={src} alt={card.name} className="float w-full opacity-45 saturate-50" />
         ) : (
-          <div className="niche aspect-[600/838] w-full" />
+          <div className="sunken aspect-[600/838] w-full" />
         )}
       </div>
 
       <div className="flex items-start gap-3 px-4 pt-6">
         <ColorBar colors={card.colors} className="mt-1 h-10 w-[3px]" />
         <div className="min-w-0">
-          <h1 className="t-stat text-2xl">{card.name}</h1>
+          <h1 className="t-numeral text-2xl">{card.name}</h1>
           <p className="t-code pt-2">
             {card.id} · {card.rarity} · {card.category} · <Edition language={language} />
           </p>
@@ -113,7 +113,7 @@ export function CardDetail() {
             <p className="text-[0.94rem] leading-relaxed whitespace-pre-line">{card.effect}</p>
           )}
           {card.trigger && (
-            <p className="text-[0.94rem] leading-relaxed whitespace-pre-line text-carve-dim">
+            <p className="text-[0.94rem] leading-relaxed whitespace-pre-line text-[var(--text-secondary)]">
               <span className="t-code">Trigger</span> {card.trigger}
             </p>
           )}
@@ -121,13 +121,13 @@ export function CardDetail() {
       )}
 
       {card.types.length > 0 && (
-        <p className="px-4 pt-3 text-sm text-carve-dim">{card.types.join(' / ')}</p>
+        <p className="px-4 pt-3 text-sm text-[var(--text-secondary)]">{card.types.join(' / ')}</p>
       )}
 
       {card.printings.length > 0 && (
         <section className="pt-7">
           <p className="t-code px-4 pb-2">Autres tirages</p>
-          <p className="px-4 pb-3 text-sm text-carve-dim">
+          <p className="px-4 pb-3 text-sm text-[var(--text-secondary)]">
             Même illustration et même code imprimé. Choisis celui que tu possèdes — rien
             ne permet de les distinguer automatiquement.
           </p>
@@ -136,7 +136,7 @@ export function CardDetail() {
               <Link
                 key={id}
                 to={`/card/${encodeURIComponent(id)}?language=${language}`}
-                className="t-code niche min-h-10 shrink-0 px-3 leading-10"
+                className="t-code sunken min-h-10 shrink-0 px-3 leading-10"
               >
                 {id}
               </Link>
@@ -145,11 +145,11 @@ export function CardDetail() {
         </section>
       )}
 
-      <section className="mt-8 cut px-4 pt-5">
+      <section className="mt-8 border-b border-[rgba(243,230,203,.12)] px-4 pt-5">
         {owned ? (
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="t-plate">Dans ta collection</p>
+              <p className="t-deck">Dans ta collection</p>
               {owned.condition && (
                 <p className="t-code pt-1">{CONDITION_LABELS[owned.condition]}</p>
               )}
@@ -166,7 +166,7 @@ export function CardDetail() {
               <select
                 value={condition}
                 onChange={(event) => setCondition(event.target.value as Condition)}
-                className="niche mt-2 min-h-12 w-full px-3 text-carve outline-none"
+                className="sunken mt-2 min-h-12 w-full px-3 text-[var(--text-primary)] outline-none"
               >
                 {Object.entries(CONDITION_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -195,9 +195,9 @@ export function CardDetail() {
 
 function Stat({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="bg-stone px-3 py-3.5 text-center">
+    <div className="bg-sea-900 px-3 py-3.5 text-center">
       <dt className="t-code">{label}</dt>
-      <dd className="t-stat pt-1.5 text-xl">{value ?? '—'}</dd>
+      <dd className="t-numeral pt-1.5 text-xl">{value ?? '—'}</dd>
     </div>
   )
 }

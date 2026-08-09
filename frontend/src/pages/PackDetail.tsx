@@ -77,21 +77,21 @@ export function PackDetail() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="cut px-2 pt-4 pb-3">
+      <header className="border-b border-[rgba(243,230,203,.12)] px-2 pt-4 pb-3">
         <div className="flex items-center gap-1">
           <Link
             to="/packs"
             aria-label="Revenir aux extensions"
-            className="flex size-11 items-center justify-center text-carve-dim"
+            className="flex size-11 items-center justify-center text-[var(--text-secondary)]"
           >
             <ChevronLeftIcon className="size-5" />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="t-stat truncate text-xl">{packCode}</h1>
+            <h1 className="t-numeral truncate text-xl">{packCode}</h1>
           </div>
-          <span className="t-stat pr-3 text-lg">
+          <span className="t-numeral pr-3 text-lg">
             {ownedTotal}
-            <span className="text-carve-faint">/{setSize}</span>
+            <span className="text-[var(--text-faint)]">/{setSize}</span>
           </span>
         </div>
         <div className="channel mt-3 ml-2 w-[calc(100%-1rem)]">

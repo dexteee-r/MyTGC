@@ -78,16 +78,16 @@ export function Packs() {
       ) : (
         <ul>
           {visible.map((pack) => (
-            <li key={`${pack.language}-${pack.pack_id}`} className="cut">
+            <li key={`${pack.language}-${pack.pack_id}`} className="border-b border-[rgba(243,230,203,.12)]">
               <Link
                 to={`/packs/${encodeURIComponent(pack.pack_code ?? pack.pack_id)}?language=${pack.language}`}
                 className="block px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="t-plate truncate">{pack.pack_name}</span>
-                  <span className="t-stat shrink-0 text-sm">
+                  <span className="t-deck truncate">{pack.pack_name}</span>
+                  <span className="t-numeral shrink-0 text-sm">
                     {pack.owned_count}
-                    <span className="text-carve-faint">/{pack.card_count}</span>
+                    <span className="text-[var(--text-faint)]">/{pack.card_count}</span>
                   </span>
                 </div>
                 <p className="t-code flex items-center gap-1.5 pt-1.5">

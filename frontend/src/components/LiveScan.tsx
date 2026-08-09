@@ -190,7 +190,7 @@ export function LiveScan({
 
   if (state.kind === 'unsupported' || state.kind === 'denied') {
     return (
-      <div className="niche mx-5 p-4 text-sm text-carve-dim">
+      <div className="sunken mx-5 p-4 text-sm text-[var(--text-secondary)]">
         {state.kind === 'denied'
           ? 'Accès caméra refusé. Autorise-le dans les réglages du navigateur.'
           : state.reason}

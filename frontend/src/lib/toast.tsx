@@ -50,12 +50,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               its top edge — the light has just been struck, and it goes out with the
               message. Squared off: nothing in this interface is a floating pill. */}
           <div
-            className="plate animate-ignite pointer-events-auto relative flex w-full max-w-md items-center gap-3 rounded-[2px] py-2.5 pr-2.5 pl-4"
+            className="deck animate-ignite pointer-events-auto relative flex w-full max-w-md items-center gap-3 rounded-[2px] py-2.5 pr-2.5 pl-4"
             style={{ boxShadow: 'var(--relief), 0 12px 28px rgba(0,0,0,0.65)' }}
           >
             <span
               aria-hidden
-              className="absolute inset-x-0 top-0 h-px bg-ember"
+              className="absolute inset-x-0 top-0 h-px bg-ember-500"
               style={{ boxShadow: '0 0 8px 1px rgba(217,58,32,0.5)' }}
             />
             <span className="min-w-0 flex-1 truncate text-sm">{toast.message}</span>
@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   setToast(null)
                 }}
                 style={{ boxShadow: 'var(--groove)' }}
-                className="shrink-0 rounded-[2px] bg-niche px-3.5 py-2 text-sm font-semibold text-carve-dim"
+                className="shrink-0 rounded-[2px] bg-[var(--surface-recessed)] px-3.5 py-2 text-sm font-semibold text-[var(--text-secondary)]"
               >
                 Annuler
               </button>

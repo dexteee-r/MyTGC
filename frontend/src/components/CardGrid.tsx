@@ -156,7 +156,7 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
           /* Only worth saying when it is more than one. A "1" on every card you own
              is noise on a screen whose whole job is showing what you own. Struck in
              brass, like every other count in the app. */
-          <span className="t-stat absolute right-0 bottom-0 bg-stone/90 px-1.5 py-0.5 text-[0.65rem] text-brass">
+          <span className="t-numeral absolute right-0 bottom-0 bg-sea-900/90 px-1.5 py-0.5 text-[0.65rem] text-sun-500">
             ×{owned.quantity}
           </span>
         )}

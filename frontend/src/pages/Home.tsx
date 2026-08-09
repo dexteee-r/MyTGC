@@ -5,12 +5,9 @@ import {
   Button,
   EmptyState,
   ErrorState,
-  Groove,
-  PageHeader,
   Screen,
   SectionLabel,
   Spinner,
-  Tally,
 } from '../components/ui'
 import { imageUrl, api } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -63,50 +60,49 @@ export function Home() {
 
   return (
     <Screen>
-      <PageHeader
-        title="Classeur"
-        meta={user?.display_name ?? user?.email ?? undefined}
-        action={
-          <Link
-            to="/account"
-            aria-label="Compte"
-            style={{ boxShadow: 'var(--relief)' }}
-            className="t-inscribed flex size-11 items-center justify-center rounded-full bg-stone-lit text-sm text-brass"
-          >
-            {(user?.display_name || user?.email || '?').slice(0, 1).toUpperCase()}
+      {/* The hero: the sun holds the top of the screen and the total sits on the
+          horizon. It carries its own veil, and the page's solid ground starts
+          exactly at its base — otherwise the two gradients cross in the middle of
+          the sun's halo and draw a hard edge across the number. */}
+      <header className="relative flex h-[356px] flex-col justify-end px-5 pb-5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(180deg, transparent 40%, rgba(6,23,29,.34) 62%, rgba(6,23,29,.72) 100%)',
+          }}
+        />
+        <div className="relative">
+          {/* One line, ellipsised: e-mail addresses are long. */}
+          <Link to="/account" className="t-eyebrow block max-w-full truncate">
+            Collection One Piece · {user?.display_name ?? user?.email ?? ''} ›
           </Link>
-        }
-      />
-
-      <div className="grid grid-cols-2 wall gap-px">
-        <div className="bg-stone p-4">
-          <Tally value={stats?.total_quantity ?? 0} label="cartes" />
-        </div>
-        <div className="bg-stone p-4">
-          <Tally value={stats?.distinct_cards ?? 0} label="références" />
-        </div>
-      </div>
-
-      {/* How much of the whole catalogue is carved. The two counts above say how much
-          you hold; neither says how far along you are, which is the question a
-          collector is actually asking. One channel, under both. */}
-      {catalogue > 0 && (
-        <div className="relative px-4 pt-4 pb-5">
-          <div className="channel w-full">
-            <div style={{ width: `${Math.min(100, (distinct / catalogue) * 100)}%` }} />
+          <div className="flex items-end gap-4 pt-2">
+            <p
+              className="t-numeral text-[4.875rem]"
+              style={{ textShadow: '0 4px 30px rgba(0,0,0,.6)' }}
+            >
+              {(stats?.total_quantity ?? 0).toLocaleString('fr')}
+            </p>
+            <div className="pb-2">
+              <p className="text-[13px] font-semibold">cartes rangées</p>
+              <p className="t-code pt-1">
+                {distinct.toLocaleString('fr')} références
+                {catalogue > 0 &&
+                  ` · ${((distinct / catalogue) * 100).toFixed(1).replace('.', ',')} % du catalogue`}
+              </p>
+            </div>
           </div>
-          <p className="t-code pt-2.5">
-            {((distinct / catalogue) * 100).toFixed(1).replace('.', ',')} % du catalogue ·{' '}
-            {catalogue.toLocaleString('fr')} références connues
-          </p>
-          <Groove />
         </div>
-      )}
+      </header>
 
+      {/* Below the water line the ground is solid: the sky has had its say. */}
+      <div className="relative bg-sea-900">
       <SectionLabel
         aside={
           started.length > 0 ? (
-            <Link to="/packs" className="t-code hover:text-carve">
+            <Link to="/packs" className="t-code hover:text-[var(--text-primary)]">
               Toutes
             </Link>
           ) : undefined
@@ -129,16 +125,16 @@ export function Home() {
       ) : (
         <ul>
           {started.map((pack) => (
-            <li key={`${pack.language}-${pack.pack_id}`} className="cut">
+            <li key={`${pack.language}-${pack.pack_id}`} className="border-b border-[rgba(243,230,203,.12)]">
               <Link
                 to={`/packs/${encodeURIComponent(pack.pack_code ?? pack.pack_id)}?language=${pack.language}`}
                 className="block px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="t-plate truncate">{pack.pack_name}</span>
-                  <span className="t-stat shrink-0 text-sm">
+                  <span className="t-deck truncate">{pack.pack_name}</span>
+                  <span className="t-numeral shrink-0 text-sm">
                     {pack.owned_count}
-                    <span className="text-carve-faint">/{pack.card_count}</span>
+                    <span className="text-[var(--text-faint)]">/{pack.card_count}</span>
                   </span>
                 </div>
                 <p className="t-code pt-1.5">
@@ -157,27 +153,37 @@ export function Home() {
       {recent.length > 0 && (
         <>
           <SectionLabel>Rangées en dernier</SectionLabel>
-          <div className="wall mx-3 grid grid-cols-4 gap-px p-px">
+          <div className="no-scrollbar flex gap-2.5 overflow-x-auto px-5 pb-1">
             {recent.map((entry) => (
               <Link
-                key={entry.id}
+                key={`${entry.card_id}-${entry.language}`}
                 to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
                 aria-label={entry.card?.name ?? entry.card_id}
+                className="w-24 shrink-0"
               >
                 {entry.card && imageUrl(entry.card) ? (
                   <img
                     src={imageUrl(entry.card)!}
                     alt=""
-                    className="inlay aspect-[600/838] w-full object-cover"
+                    className="float-lit aspect-[600/838] w-full object-cover"
                   />
                 ) : (
-                  <div className="niche aspect-[600/838] w-full" />
+                  <div className="sunken aspect-[600/838] w-full" />
                 )}
               </Link>
             ))}
           </div>
         </>
       )}
+
+      <div className="px-5 pt-8">
+        <Link to="/scan" className="block">
+          <Button size="lg" full>
+            Scanner une carte
+          </Button>
+        </Link>
+      </div>
+      </div>
     </Screen>
   )
 }

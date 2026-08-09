@@ -7,7 +7,7 @@ import {
   Chip,
   EmptyState,
   ErrorState,
-  Groove,
+  Rule,
   PageHeader,
   Segmented,
   Sheet,
@@ -104,14 +104,14 @@ export function Search() {
           chips used to sit here permanently — they cost a third of the screen on a
           phone, every time, to hold controls that are touched occasionally. */}
       <div className="relative px-4 py-3">
-        <div className="niche flex min-h-11 items-center gap-2.5 px-3">
-          <SearchIcon className="size-4 shrink-0 text-carve-faint" />
+        <div className="sunken flex min-h-11 items-center gap-2.5 px-3">
+          <SearchIcon className="size-4 shrink-0 text-[var(--text-faint)]" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Nom ou code (OP09-093)"
             aria-label="Rechercher une carte"
-            className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-carve-faint"
+            className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-[var(--text-faint)]"
           />
           {query && (
             <button onClick={() => setQuery('')} className="t-code shrink-0 px-1">
@@ -126,13 +126,13 @@ export function Search() {
             aria-haspopup="dialog"
             style={{ boxShadow: applied.length ? 'var(--relief)' : 'var(--groove)' }}
             className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-[2px] px-3 text-sm ${
-              applied.length ? 'bg-stone-lit text-carve' : 'bg-niche text-carve-dim'
+              applied.length ? 'bg-[var(--surface-rail)] text-[var(--text-primary)]' : 'bg-[var(--surface-recessed)] text-[var(--text-secondary)]'
             }`}
           >
             <FilterIcon className="size-4 shrink-0" />
             <span className="shrink-0 font-semibold">Filtres</span>
             {applied.length > 0 && (
-              <span className="t-code min-w-0 flex-1 truncate text-left text-brass">
+              <span className="t-code min-w-0 flex-1 truncate text-left text-sun-500">
                 {applied.join(' · ')}
               </span>
             )}
@@ -143,7 +143,7 @@ export function Search() {
             </button>
           )}
         </div>
-        <Groove />
+        <Rule />
       </div>
 
       {failed ? (
@@ -231,7 +231,7 @@ export function Search() {
 function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section className="pt-4">
-      <h3 className="t-inscribed pb-2.5 text-[0.65rem] text-carve-dim">{label}</h3>
+      <h3 className="t-display pb-2.5 text-[0.65rem] text-[var(--text-secondary)]">{label}</h3>
       <div className="flex flex-wrap gap-2">{children}</div>
     </section>
   )

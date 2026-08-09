@@ -155,9 +155,9 @@ export function Scanner() {
       )}
 
       {!result && !busy && (
-        <p className="px-5 pt-3 text-sm text-carve-dim">
+        <p className="px-5 pt-3 text-sm text-[var(--text-secondary)]">
           Une carte seule, à plat, entière dans le cadre. L'édition{' '}
-          <span className="font-semibold text-carve">
+          <span className="font-semibold text-[var(--text-primary)]">
             <EditionName language={language} />
           </span>{' '}
           est celle qui sera enregistrée — l'illustration est identique dans les deux, elle
@@ -168,7 +168,7 @@ export function Scanner() {
       {busy && (
         <>
           <Spinner />
-          <p className="text-center text-sm text-carve-dim">Identification…</p>
+          <p className="text-center text-sm text-[var(--text-secondary)]">Identification…</p>
         </>
       )}
 
@@ -271,10 +271,10 @@ function Match({
 
   return (
     <section
-      className={`mx-5 mt-2 rounded-[2px] p-3 ${primary ? 'plate' : 'niche'}`}
+      className={`mx-5 mt-2 rounded-[2px] p-3 ${primary ? 'deck' : 'sunken'}`}
     >
       {primary && !confident && (
-        <p className="pb-2 text-xs text-carve-dim">
+        <p className="pb-2 text-xs text-[var(--text-secondary)]">
           Deux cartes se ressemblent ici — vérifie avant d'ajouter.
         </p>
       )}
@@ -293,7 +293,7 @@ function Match({
               <p className={`truncate font-semibold ${primary ? 'text-lg' : ''}`}>
                 {candidate.name}
               </p>
-              <p className="tabular-nums truncate text-sm text-carve-faint">
+              <p className="tabular-nums truncate text-sm text-[var(--text-faint)]">
                 {candidate.card_number} · {card?.rarity ?? ''} ·{' '}
                 <Edition language={candidate.language} />
               </p>
@@ -303,7 +303,7 @@ function Match({
           {candidate.ambiguous_printing && (
             <Link
               to={`/card/${encodeURIComponent(cardId)}?language=${candidate.language}`}
-              className="pt-1 text-xs text-carve-dim underline"
+              className="pt-1 text-xs text-[var(--text-secondary)] underline"
             >
               {candidate.printings.length} tirages identiques — choisir lequel
             </Link>

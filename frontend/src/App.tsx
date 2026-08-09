@@ -1,4 +1,12 @@
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { createContext, useContext, useMemo, useState } from 'react'
+import {
+  BrowserRouter,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom'
+import { Scrim, Sky, type SkyVariant } from './components/Sky'
 import {
   LogPoseIcon,
   NewsIcon,
@@ -25,16 +33,40 @@ import { Wishlist } from './pages/Wishlist'
 
 /* Each tab carries the object from the story that does its job: you point a Log Pose
    at something to read it, a ship's log records what you brought back, a wanted
-   poster is a card you are hunting. Labels stay, so nothing rests on recognising a
-   drawing. */
+   poster is a card you are hunting.
+
+   "Primes" rather than "Recherchées": the long word does not fit six tabs at 390px
+   and was being truncated. The screen keeps its full title, and so does the desktop
+   rail — the constraint was the width of a thumb, not of a screen. */
 const TABS = [
   { to: '/', label: 'Classeur', Icon: StrawHatIcon },
   { to: '/packs', label: 'Extensions', Icon: SeaChartIcon },
   { to: '/scan', label: 'Scanner', Icon: LogPoseIcon },
   { to: '/search', label: 'Chercher', Icon: NewsIcon },
-  { to: '/wishlist', label: 'Recherchées', Icon: WantedIcon },
+  { to: '/wishlist', label: 'Primes', rail: 'Recherchées', Icon: WantedIcon },
   { to: '/collection', label: 'Collection', Icon: ShipLogIcon },
 ]
+
+/* The hour of each screen. The grids run on `deep` because there the decor has to
+   get out of the way — the cards are the subject. */
+function skyFor(path: string): { variant: SkyVariant; quiet: boolean } {
+  if (path.startsWith('/card/')) return { variant: 'deep', quiet: false }
+  if (path.startsWith('/packs/')) return { variant: 'deep', quiet: false }
+  if (path === '/packs') return { variant: 'day', quiet: true }
+  if (path === '/scan') return { variant: 'mist', quiet: true }
+  if (path === '/search') return { variant: 'deep', quiet: false }
+  if (path === '/wishlist') return { variant: 'paper', quiet: false }
+  if (path === '/collection') return { variant: 'dawn', quiet: true }
+  if (path === '/account') return { variant: 'dusk', quiet: false }
+  return { variant: 'dusk', quiet: false }
+}
+
+/* The main gesture of the app is scrolling a grid, so the world behind it moves too.
+   Each scrolling surface reports its offset here rather than the shell owning the
+   scroll: the card grid is virtualised against its own scroll element, and taking
+   that away from it would cost the windowing that makes 9,447 rows possible. */
+const SkyScroll = createContext<(offset: number) => void>(() => {})
+export const useSkyScroll = () => useContext(SkyScroll)
 
 export default function App() {
   return (
@@ -51,29 +83,20 @@ function Gate() {
   const { ready, user } = useAuth()
 
   if (!ready) return <Spinner />
-  if (!user) return <SignIn />
+  if (!user)
+    return (
+      <div className="relative h-full overflow-hidden">
+        <Sky variant="dawn" />
+        <SignIn />
+      </div>
+    )
 
   return (
     <LanguageProvider>
       <CollectionProvider>
         <ToastProvider>
           <BrowserRouter>
-            <div className="mx-auto flex h-full max-w-2xl flex-col">
-              <main className="min-h-0 flex-1">
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/packs" element={<Packs />} />
-                  <Route path="/packs/:packCode" element={<PackDetail />} />
-                  <Route path="/scan" element={<Scanner />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/wishlist" element={<Wishlist />} />
-                  <Route path="/collection" element={<Collection />} />
-                  <Route path="/card/:cardId" element={<CardDetail />} />
-                  <Route path="/account" element={<Account />} />
-                </Routes>
-              </main>
-              <TabBar />
-            </div>
+            <Shell />
           </BrowserRouter>
         </ToastProvider>
       </CollectionProvider>
@@ -81,38 +104,87 @@ function Gate() {
   )
 }
 
-/* Six niches chiselled along the base of the slab, flush to the edge and squared —
-   not the floating pill every app has had since 2021. The one you are in is the
-   plate that has been raised out of the stone and caught the light, with a thread
-   of ember burning in the groove above it. Depth and light carry the state; nothing
-   is painted a brand colour to look selected. */
+function Shell() {
+  const { pathname } = useLocation()
+  const [scrollY, setScrollY] = useState(0)
+  const { variant, quiet } = skyFor(pathname)
+
+  /* A fresh screen starts at the top of its sky; carrying the previous screen's
+     offset would open it with the horizon already scrolled off. */
+  const report = useMemo(() => {
+    setScrollY(0)
+    return (offset: number) => setScrollY(offset)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+
+  return (
+    <SkyScroll.Provider value={report}>
+      <div className="relative h-full overflow-hidden">
+        <Sky variant={variant} scrollY={scrollY} quiet={quiet} showShip={pathname !== '/'} />
+
+        {/* The veil lives here, once, as a sibling of Sky — not inside a screen.
+            Its stops are percentages of the sky's height, and pinned to a box whose
+            height follows the copy they would slide from one screen to the next. It
+            is also what flips the text colour on the pale skies, so a screen cannot
+            forget to. Measured: --text-primary bare on `day` is 1.03:1. */}
+        <Scrim
+          over={variant}
+          strength={variant === 'deep' ? 'soft' : 'full'}
+          className="mx-auto flex h-full max-w-2xl flex-col lg:max-w-none lg:flex-row"
+        >
+          <TabBar />
+          <main key={pathname} className="hz-enter min-h-0 min-w-0 flex-1">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/packs" element={<Packs />} />
+              <Route path="/packs/:packCode" element={<PackDetail />} />
+              <Route path="/scan" element={<Scanner />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/wishlist" element={<Wishlist />} />
+              <Route path="/collection" element={<Collection />} />
+              <Route path="/card/:cardId" element={<CardDetail />} />
+              <Route path="/account" element={<Account />} />
+            </Routes>
+          </main>
+        </Scrim>
+      </div>
+    </SkyScroll.Provider>
+  )
+}
+
+/* A row of lanterns along the deck on a phone; a rail down the side on a wide
+   screen, where the labels get to be words again. The active one is lit by a bar of
+   sun above it — the state is light, not a painted brand colour. */
 function TabBar() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="wall shrink-0 pb-[env(safe-area-inset-bottom)]"
-      style={{ boxShadow: '0 -1px 0 rgba(255,240,214,0.05) inset' }}
+      className="deck order-last shrink-0 border-t border-[var(--surface-rail)] pb-[env(safe-area-inset-bottom)] lg:order-first lg:h-full lg:w-[232px] lg:border-t-0 lg:border-r lg:pb-0"
     >
-      <div className="flex gap-px">
-        {TABS.map(({ to, label, Icon }) => (
-          <NavLink key={to} to={to} end={to === '/'} className="min-w-0 flex-1">
+      <div className="flex lg:h-full lg:flex-col lg:gap-1 lg:p-3">
+        {TABS.map(({ to, label, rail, Icon }) => (
+          <NavLink key={to} to={to} end={to === '/'} className="min-w-0 flex-1 lg:flex-none">
             {({ isActive }) => (
               <span
-                style={{ boxShadow: isActive ? 'var(--relief)' : 'var(--groove)' }}
-                className={`relative flex min-h-14 flex-col items-center justify-center gap-1.5 transition ${
-                  isActive ? 'bg-stone-lit text-carve' : 'bg-niche text-carve-faint'
+                /* The UA default padding on a <button>/<a> ate 12px of 64 and
+                   truncated the labels. Set explicitly, always. */
+                className={`relative flex min-h-[var(--touch)] flex-col items-center justify-center gap-1.5 px-[2px] py-2.5 transition-colors lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-[10px] lg:px-3 ${
+                  isActive
+                    ? 'text-[var(--text-primary)] lg:bg-[rgba(243,230,203,.12)]'
+                    : 'text-[var(--text-faint)] lg:hover:bg-[rgba(243,230,203,.07)]'
                 }`}
               >
                 {isActive && (
                   <span
                     aria-hidden
-                    className="absolute inset-x-0 top-0 h-px bg-ember"
-                    style={{ boxShadow: '0 0 6px 1px rgba(217,58,32,0.55)' }}
+                    className="absolute inset-x-[18%] top-0 h-[2px] bg-sun-500 lg:hidden"
+                    style={{ boxShadow: '0 0 14px 2px rgba(255,200,110,.75)' }}
                   />
                 )}
-                <Icon className="size-[20px]" />
-                <span className="text-[9px] leading-none font-semibold tracking-wide">
-                  {label}
+                <Icon className="size-5 shrink-0" />
+                <span className="max-w-full truncate text-[10px] leading-none font-semibold lg:text-sm">
+                  <span className="lg:hidden">{label}</span>
+                  <span className="hidden lg:inline">{rail ?? label}</span>
                 </span>
               </span>
             )}
