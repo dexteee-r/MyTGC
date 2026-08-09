@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CardGrid } from '../components/CardGrid'
 import { ChevronLeftIcon } from '../components/icons'
-import { EmptyState, ErrorState, Segmented, Spinner } from '../components/ui'
+import { Adrift, EmptyState, Segmented, Sounding } from '../components/ui'
 import { api } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import type { Card, Language } from '../lib/types'
@@ -75,30 +75,28 @@ export function PackDetail() {
       .catch(() => {})
   }
 
+  const packName = cards[0]?.pack_name ?? null
+
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-[rgba(243,230,203,.12)] px-2 pt-4 pb-3">
+      <header className="px-3 pt-4 pb-3">
         <div className="flex items-center gap-1">
           <Link
             to="/packs"
             aria-label="Revenir aux extensions"
-            className="flex size-11 items-center justify-center text-[var(--text-secondary)]"
+            className="flex size-[var(--touch)] shrink-0 items-center justify-center text-[var(--text-secondary)]"
           >
             <ChevronLeftIcon className="size-5" />
           </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="t-numeral truncate text-xl">{packCode}</h1>
-          </div>
-          <span className="t-numeral pr-3 text-lg">
+          <h1 className="t-display min-w-0 flex-1 truncate text-[2.125rem]">{packCode}</h1>
+          <span className="t-numeral shrink-0 pr-2 text-[1.35rem]">
             {ownedTotal}
             <span className="text-[var(--text-faint)]">/{setSize}</span>
           </span>
         </div>
-        <div className="channel mt-3 ml-2 w-[calc(100%-1rem)]">
-          <div
-            
-            style={{ width: setSize ? `${(ownedTotal / setSize) * 100}%` : 0 }}
-          />
+        {packName && <p className="t-eyebrow truncate px-2 pt-2">{packName}</p>}
+        <div className="channel mt-3 w-full">
+          <div style={{ width: setSize ? `${(ownedTotal / setSize) * 100}%` : 0 }} />
         </div>
       </header>
 
@@ -114,9 +112,9 @@ export function PackDetail() {
       />
 
       {failed ? (
-        <div className="pt-8"><ErrorState onRetry={() => setView(view)} /></div>
+        <div className="pt-8"><Adrift onRetry={() => setView(view)} /></div>
       ) : loading ? (
-        <Spinner />
+        <div className="pt-8"><Sounding label={`Sondage de ${packCode}`} /></div>
       ) : cards.length === 0 ? (
         <div className="pt-8">
           <EmptyState title={view === 'owned' ? 'Aucune carte de cette extension' : 'Extension complète'}>
