@@ -32,7 +32,10 @@ export function ColorBar({ colors, className = '' }: { colors: string[]; classNa
   const used = colors.length ? colors : ['Black']
   return (
     <span
-      className={`flex w-[3px] shrink-0 overflow-hidden rounded-[1px] ${className}`}
+      /* No width of its own: a caller that wants a horizontal rule under a card name
+         cannot win against a hardcoded w-[3px], because two Tailwind utilities of the
+         same specificity are settled by stylesheet order and not by class order. */
+      className={`flex shrink-0 overflow-hidden rounded-[1px] ${className}`}
       aria-hidden
     >
       {used.map((color) => (

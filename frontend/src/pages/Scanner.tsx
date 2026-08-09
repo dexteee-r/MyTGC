@@ -388,7 +388,7 @@ function Match({
         )}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-start gap-2">
-            <ColorBar colors={card?.colors ?? []} className="mt-1 h-8" />
+            <ColorBar colors={card?.colors ?? []} className="mt-1 h-8 w-[3px]" />
             <div className="min-w-0">
               <p className={`truncate font-semibold ${primary ? 'text-lg' : ''}`}>
                 {candidate.name}
