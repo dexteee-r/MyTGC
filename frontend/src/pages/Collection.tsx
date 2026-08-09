@@ -1,24 +1,31 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Edition } from '../components/Edition'
 import {
   Button,
-  ColorBar,
   EmptyState,
   PageHeader,
   Screen,
   Segmented,
-  Spinner,
-  Stepper,
+  Sounding,
 } from '../components/ui'
 import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
-import { CONDITION_LABELS } from '../lib/types'
+import type { CollectionEntry } from '../lib/types'
 
 type Sort = 'recent' | 'set' | 'name'
 
+/* ── The plate ──────────────────────────────────────────────────────────────
+   The collection as an object rather than as an inventory. A list row gives one card
+   145px of screen to say a name and a number you already know; three across gives
+   the same screen eight cards you can recognise, which is what looking at a
+   collection is for.
+
+   Whole cards, watermark included. The SAMPLE across the middle is a property of the
+   material, not a defect to crop out, and it is the full portrait silhouette that
+   makes a plate read as a page rather than as a row of tiles.                       */
+
 export function Collection() {
-  const { entries, stats, ready, setQuantity } = useCollection()
+  const { entries, stats, ready } = useCollection()
   const [sort, setSort] = useState<Sort>('recent')
 
   const groups = useMemo(() => {
@@ -39,7 +46,7 @@ export function Collection() {
     return [...buckets].map(([key, items]) => ({ key, items }))
   }, [entries, sort])
 
-  if (!ready) return <Spinner />
+  if (!ready) return <div className="pt-10"><Sounding label="Ouverture du journal" /></div>
 
   return (
     <Screen>
@@ -83,57 +90,54 @@ export function Collection() {
               {group.key && (
                 <p className="t-code border-b border-[rgba(243,230,203,.12)] px-4 py-2.5">{group.key}</p>
               )}
-              <ul>
-                {group.items.map((entry) => {
-                  const src = entry.card ? imageUrl(entry.card) : null
-                  return (
-                    <li
-                      key={entry.id}
-                      className="flex items-center gap-3 border-b border-[rgba(243,230,203,.12)] p-3"
-                    >
-                      <Link
-                        to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
-                        className="flex min-w-0 flex-1 items-center gap-3"
-                      >
-                        {src ? (
-                          <img
-                            src={src}
-                            alt=""
-                            className="h-[68px] w-[49px] shrink-0 rounded-[0.25rem] object-cover"
-                          />
-                        ) : (
-                          <div className="sunken h-[68px] w-[49px] shrink-0" />
-                        )}
-                        <ColorBar
-                          colors={entry.card?.colors ?? []}
-                          className="h-11 w-[3px] shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="t-plate truncate">
-                            {entry.card?.name ?? entry.card_id}
-                          </p>
-                          <p className="t-code pt-1">
-                            {entry.card_id} · <Edition language={entry.language} />
-                          </p>
-                          {entry.condition && (
-                            <p className="truncate pt-0.5 text-xs text-[var(--text-secondary)]">
-                              {CONDITION_LABELS[entry.condition]}
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                      <Stepper
-                        value={entry.quantity}
-                        onChange={(next) => setQuantity(entry.card_id, entry.language, next)}
-                      />
-                    </li>
-                  )
-                })}
+              {/* align-content: start. At 0.8% of the catalogue the last row is
+                  always partial, and a stretched grid would centre three cards in
+                  the middle of an empty band as though something had failed. */}
+              <ul
+                className="grid grid-cols-3 content-start gap-1.5 px-4 pb-2 lg:grid-cols-6"
+              >
+                {group.items.map((entry) => (
+                  <Seated key={`${entry.card_id}-${entry.language}`} entry={entry} />
+                ))}
               </ul>
             </section>
           ))}
         </>
       )}
     </Screen>
+  )
+}
+
+/* One card on the plate. The quantity is only worth saying when it is more than one —
+   a "1" on every card is noise on a screen whose whole job is showing what you hold. */
+function Seated({ entry }: { entry: CollectionEntry }) {
+  const src = entry.card ? imageUrl(entry.card) : null
+  return (
+    <li className="relative">
+      <Link
+        to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
+        aria-label={`${entry.card?.name ?? entry.card_id}, ${entry.quantity} en collection`}
+        className="block"
+      >
+        {src ? (
+          <img
+            src={src}
+            alt=""
+            decoding="async"
+            className="float aspect-[600/838] w-full object-cover"
+          />
+        ) : (
+          <div className="sunken aspect-[600/838] w-full" />
+        )}
+        {entry.quantity > 1 && (
+          <span
+            className="t-numeral absolute right-0 bottom-0 px-1.5 py-0.5 text-[0.7rem]"
+            style={{ background: 'rgba(4,18,26,.86)' }}
+          >
+            ×{entry.quantity}
+          </span>
+        )}
+      </Link>
+    </li>
   )
 }
