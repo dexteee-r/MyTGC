@@ -138,10 +138,16 @@ function Shell() {
         <Scrim
           over={variant}
           strength={variant === 'deep' ? 'soft' : 'full'}
-          className="mx-auto flex h-full max-w-2xl flex-col lg:max-w-none lg:flex-row"
+          /* The strip spans the window and its contents are centred, rather than the
+             strip itself being as narrow as the column: a border that stops halfway
+             across the viewport reads as a layout that ran out. */
+          className="flex h-full flex-col"
         >
           <TabBar />
-          <main key={pathname} className="hz-enter min-h-0 min-w-0 flex-1">
+          <main
+            key={pathname}
+            className="hz-enter mx-auto min-h-0 w-full min-w-0 max-w-2xl flex-1 lg:max-w-5xl"
+          >
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/packs" element={<Packs />} />
@@ -160,23 +166,32 @@ function Shell() {
   )
 }
 
-/* A row of lanterns along the deck on a phone; a rail down the side on a wide
-   screen, where the labels get to be words again. The active one is lit by a bar of
-   sun above it — the state is light, not a painted brand colour. */
+/* A row of lanterns along the deck on a phone, at the bottom where a thumb reaches;
+   a centred strip across the top on a wide screen, where the labels get to be words
+   again and nothing is within reach of a thumb anyway.
+
+   The lit bar follows the edge it hangs from: above the tab at the bottom of a phone,
+   under it at the top of a browser. A glow floating away from its own edge reads as a
+   stray line rather than as a lamp. */
 function TabBar() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="deck order-last shrink-0 border-t border-[var(--surface-rail)] pb-[env(safe-area-inset-bottom)] lg:order-first lg:h-full lg:w-[232px] lg:border-t-0 lg:border-r lg:pb-0"
+      className="deck order-last shrink-0 border-t border-[var(--surface-rail)] pb-[env(safe-area-inset-bottom)] lg:order-first lg:border-t-0 lg:border-b lg:pb-0"
     >
-      <div className="flex lg:h-full lg:flex-col lg:gap-1 lg:p-3">
+      <div className="flex lg:justify-center lg:gap-1 lg:py-2">
         {TABS.map(({ to, label, rail, Icon }) => (
-          <NavLink key={to} to={to} end={to === '/'} className="min-w-0 flex-1 lg:flex-none">
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className="min-w-0 flex-1 lg:flex-none"
+          >
             {({ isActive }) => (
               <span
                 /* The UA default padding on a <button>/<a> ate 12px of 64 and
                    truncated the labels. Set explicitly, always. */
-                className={`relative flex min-h-[var(--touch)] flex-col items-center justify-center gap-1.5 px-[2px] py-2.5 transition-colors lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-[10px] lg:px-3 ${
+                className={`relative flex min-h-[var(--touch)] flex-col items-center justify-center gap-1.5 px-[2px] py-2.5 transition-colors lg:flex-row lg:gap-2.5 lg:rounded-full lg:px-4 ${
                   isActive
                     ? 'text-[var(--text-primary)] lg:bg-[rgba(243,230,203,.12)]'
                     : 'text-[var(--text-faint)] lg:hover:bg-[rgba(243,230,203,.07)]'
@@ -185,7 +200,7 @@ function TabBar() {
                 {isActive && (
                   <span
                     aria-hidden
-                    className="absolute inset-x-[18%] top-0 h-[2px] bg-sun-500 lg:hidden"
+                    className="absolute inset-x-[18%] top-0 h-[2px] bg-sun-500 lg:top-auto lg:-bottom-2 lg:inset-x-3"
                     style={{ boxShadow: '0 0 14px 2px rgba(255,200,110,.75)' }}
                   />
                 )}
