@@ -29,10 +29,18 @@ Une vraie date demanderait une seconde source.
 ## Scan
 
 ### Choisir la technologie de reconnaissance sur mobile
-Recherche faite, voir `RECHERCHE-SCAN.md`. Conclusion : ne pas remplacer
-l'algorithme. Trois chantiers utiles y sont listés, dont « ne pas envoyer les images
-sans carte », qui est le moins cher et le plus rentable. Décision à prendre avant
-d'écrire quoi que ce soit.
+Recherche faite, voir `RECHERCHE-SCAN.md`. Conclusion : ne pas remplacer l'algorithme.
+Le premier des trois chantiers — ne pas envoyer les images sans carte — est fait.
+
+Restent les deux autres :
+
+**Dire pourquoi le scan a raté.** `ScanMiss` gère cinq causes dans l'interface, le
+serveur n'en renvoie qu'une (détecté ou pas). Le pipeline sait plus que ça : netteté du
+contour, variance de luminance, saturation des hautes lumières. Renvoyer `light`, `blur`
+ou `glare` transformerait un échec muet en consigne.
+
+**Détection embarquée.** Le point B de la recherche, pour le scan hors ligne. À faire
+quand celui-ci remontera dans les priorités.
 
 ---
 
@@ -59,6 +67,10 @@ d'écrire quoi que ce soit.
   flèches et Entrée. Aucune requête en plus : ce sont les premières lignes de la
   recherche déjà en cours, montrées dans une autre forme.
 - **Ajout aux recherchées au survol**, souris uniquement.
+- **Barre de navigation en haut** sur la version navigateur, centrée, pleine largeur.
+- **Porte sur les images sans carte** : le scanner en continu n'envoie plus une image
+  quand le cadre est vide. Seuil volontairement bas — sauter une vraie carte coûte plus
+  cher qu'envoyer une image vide.
 
 ---
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Language, ScanResult } from '../lib/types'
 import { ApiError, api } from '../lib/api'
+import { frameHasSubject } from '../lib/frame'
 
 /* Continuous scanning: the camera stays open and frames are sent as they settle,
    so a card is identified by pointing at it rather than by taking a photo.
@@ -41,7 +42,7 @@ export type LiveState =
   | { kind: 'starting' }
   | { kind: 'unsupported'; reason: string }
   | { kind: 'denied' }
-  | { kind: 'running'; hint: 'hold' | 'reading' | 'throttled' }
+  | { kind: 'running'; hint: 'hold' | 'reading' | 'throttled' | 'empty' }
 
 export function LiveScan({
   language,
@@ -150,6 +151,19 @@ export function LiveScan({
       if (!stillSince.current) stillSince.current = now
       if (now - stillSince.current < IDLE_MS || now - lastSent.current < cooldown.current) return
 
+      /* A still view is not the same as a view with a card in it. Most of a scanning
+         session is the lens pointed at a table between two cards, and each of those
+         frames was costing an upload, a detection pass and a hash for a guaranteed
+         "nothing in the frame". The gate is one statistic over the grid already
+         computed above, and it is deliberately conservative: sending an empty frame
+         costs a request, skipping a real card costs the user a scan. */
+      if (!frameHasSubject(current, probe.width, probe.height)) {
+        setState((s) =>
+          s.kind === 'running' && s.hint !== 'empty' ? { kind: 'running', hint: 'empty' } : s,
+        )
+        return
+      }
+
       const width = FRAME_WIDTH
       const height = Math.round((video.videoHeight / video.videoWidth) * width)
       const frame = document.createElement('canvas')
@@ -225,7 +239,9 @@ export function LiveScan({
             ? 'Lecture…'
             : state.hint === 'throttled'
               ? 'Le serveur demande une pause. Reprise dans quelques secondes.'
-              : 'Aligne la carte dans le cadre et garde la main immobile'}
+              : state.hint === 'empty'
+                ? 'Rien dans le cadre — pose une carte devant l’objectif'
+                : 'Aligne la carte dans le cadre et garde la main immobile'}
       </p>
     </div>
   )
