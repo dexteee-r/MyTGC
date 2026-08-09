@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Edition } from '../components/Edition'
+import { Edition, printingLabel } from '../components/Edition'
+import {
+  EMPTY,
+  FilterSheet,
+  appliedLabels,
+  isFiltered,
+  type FilterState,
+} from '../components/Filters'
 import { Adrift, Button, EmptyState, PageHeader, Screen, Sounding } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useToast } from '../lib/toast'
@@ -34,6 +41,41 @@ export function Wishlist() {
   const { show } = useToast()
   const [entries, setEntries] = useState<WishlistEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({
+    language: null,
+    ...EMPTY,
+    sort: 'code',
+    columns: 2,
+  })
+
+  /* Filtered in the browser rather than on the server: the want list is a handful of
+     rows already in hand, and a round trip to narrow six posters would be slower than
+     the tap that asked for it. Owned is dropped from the options — everything here is
+     by definition not owned. */
+  const shown = useMemo(() => {
+    const list = (entries ?? []).filter((entry) => {
+      if (filters.language && entry.language !== filters.language) return false
+      if (filters.rarities.length && !filters.rarities.includes(entry.card?.rarity ?? ''))
+        return false
+      if (
+        filters.colors.length &&
+        !(entry.card?.colors ?? []).some((c) => filters.colors.includes(c))
+      )
+        return false
+      return true
+    })
+    const by = {
+      code: (a: WishlistEntry, b: WishlistEntry) => a.card_id.localeCompare(b.card_id),
+      name: (a: WishlistEntry, b: WishlistEntry) =>
+        (a.card?.name ?? a.card_id).localeCompare(b.card?.name ?? b.card_id),
+      /* No release date exists, so "newest" is the set code descending — the same
+         proxy the catalogue search uses, and the same honesty about it. */
+      recent: (a: WishlistEntry, b: WishlistEntry) =>
+        (b.card?.pack_code ?? '').localeCompare(a.card?.pack_code ?? ''),
+    }[filters.sort]
+    return [...list].sort(by)
+  }, [entries, filters])
 
   const load = useCallback(() => {
     setFailed(false)
@@ -54,6 +96,9 @@ export function Wishlist() {
     await api.updateWishlist(entry.id, change).catch(load)
   }
 
+  const clear = () => setFilters({ ...filters, language: null, ...EMPTY })
+  const applied = appliedLabels(filters)
+
   if (failed) return <Screen><div className="pt-10"><Adrift onRetry={load} /></div></Screen>
   if (!entries) return <Screen><div className="pt-10"><Sounding label="Relevé des primes" /></div></Screen>
 
@@ -63,10 +108,46 @@ export function Wishlist() {
         title="Recherchées"
         meta={
           entries.length
-            ? `${entries.length} carte${entries.length > 1 ? 's' : ''} · avis de recherche`
+            ? `${shown.length} sur ${entries.length} · avis de recherche`
             : 'avis de recherche'
         }
+        action={
+          entries.length > 0 ? (
+            <button
+              onClick={() => setFiltersOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={
+                applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
+              }
+              className="grid size-[46px] shrink-0 place-items-center rounded-full"
+              style={{
+                background: isFiltered(filters)
+                  ? 'var(--gradient-sun)'
+                  : 'rgba(34,28,18,.1)',
+                color: isFiltered(filters) ? 'var(--color-paper-ink)' : 'inherit',
+              }}
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="size-[18px]" aria-hidden>
+                <path
+                  d="M3 5h14M6 10h8M8.5 15h3"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          ) : undefined
+        }
       />
+
+      {applied.length > 0 && (
+        <div className="flex items-center gap-2 px-5 pb-2">
+          <p className="t-code min-w-0 flex-1 truncate">{applied.join(' · ')}</p>
+          <button onClick={clear} className="t-code min-h-[var(--touch)] shrink-0 px-2">
+            Tout effacer
+          </button>
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <div className="pt-4">
@@ -83,7 +164,7 @@ export function Wishlist() {
         </div>
       ) : (
         <ul className="px-4 pt-1">
-          {entries.map((entry) => (
+          {shown.map((entry) => (
             <Poster
               key={`${entry.card_id}-${entry.language}`}
               entry={entry}
@@ -93,6 +174,16 @@ export function Wishlist() {
           ))}
         </ul>
       )}
+      <FilterSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        state={filters}
+        onChange={setFilters}
+        onClear={clear}
+        total={shown.length}
+        columns={false}
+        owned={false}
+      />
     </Screen>
   )
 }
@@ -172,6 +263,9 @@ function Poster({
           </Link>
 
           <div className="min-w-0 flex-1">
+            {/* The full label, variant included: two printings of one card share
+                their artwork exactly, and a poster that does not say which is which
+                sends you hunting for the wrong one. */}
             <p className="t-display truncate text-[1.35rem]">
               {entry.card?.name ?? entry.card_id}
             </p>
@@ -179,7 +273,8 @@ function Poster({
               className="flex items-center gap-1.5 pt-1 font-mono text-[11px] tracking-[.1em] uppercase"
               style={{ color: 'rgba(34,28,18,.6)' }}
             >
-              {entry.card_id} · <Edition language={entry.language} />
+              {printingLabel('', entry.card_id).trim()} ·{' '}
+              <Edition language={entry.language} />
             </p>
 
             {/* The bounty. It is the price you would actually pay, typed in by hand —

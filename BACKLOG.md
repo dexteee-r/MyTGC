@@ -18,58 +18,17 @@ d'extension, recherchées. **Restent : la fiche carte, le compte.**
 
 ## Chercher
 
-### Filtrer par date de sortie
-**Bloqué côté données.** Il n'y a aucune date en base : `cards` ne porte ni date de
-sortie ni date d'extension, et l'import depuis punk-records n'en récupère pas. Il faut
-d'abord vérifier si la source expose une date par extension, l'ajouter au schéma et à
-l'import, puis seulement filtrer. Sans ça il n'y a rien à trier.
+### Suggestions au fil de la frappe
+Reste à faire. Taper un nom montre aujourd'hui une grille filtrée ; la demande était une
+liste de suggestions sous le champ, du style `Ace & Newgate (ST22-001) (V.1)`. Le libellé
+existe déjà (`printingLabel` dans `components/Edition.tsx`) et la recherche par mots
+fonctionne — il manque le composant de liste déroulante et la navigation au clavier.
 
-En attendant, le code d'extension est un proxy correct : `OP-01` est antérieur à
-`OP-15`. Un tri « extension décroissante » donnerait 90 % du bénéfice tout de suite.
-
-### Filtrer sur plusieurs raretés à la fois
-Aujourd'hui `rarity` est une valeur unique côté API comme côté écran. Il faut passer le
-paramètre en liste (`rarity=Rare&rarity=SuperRare`), adapter la requête SQL en `IN`, et
-faire passer les pastilles de « une seule active » à « plusieurs actives ». Même travail
-pour la couleur, tant qu'on y est.
-
-### Trois cartes par ligne
-Aujourd'hui deux. Le nombre de colonnes est calculé dans `CardGrid`. À faire avec
-l'option d'affichage ci-dessous plutôt que comme une valeur en dur — c'est la même
-décision.
-
-### Choisir l'affichage depuis le panneau de filtres
-Deux ou trois par ligne, éventuellement une vue liste. Se range dans la feuille de
-filtres. Le chemin est tracé : `users.default_language` a montré comment une préférence
-persiste côté compte, et le mécanisme `LATE_COLUMNS` fait la migration tout seul.
-Ajouter `users.grid_columns` suit exactement le même patron.
-
-### Ajouter aux recherchées au survol
-Sur navigateur, survoler une carte de la grille fait apparaître un bouton qui la met
-dans les recherchées sans ouvrir sa fiche. Souris uniquement — sur mobile il n'y a pas
-de survol, et la fiche reste le chemin. À câbler dans `CardTile`, avec le même appel
-que le bouton de la fiche carte.
-
-### Recherche par tirage : `Ace & Newgate (ST22-001) (V.1)`
-Il faut que taper un nom propose les tirages, avec leur code et leur version. La donnée
-existe : une carte porte déjà plusieurs `printings`, et `ambiguous_printing` sait dire
-quand ils sont indiscernables. Ce qui manque est l'affichage — une liste de suggestions
-sous le champ plutôt qu'une grille filtrée — et la numérotation `(V.1)` / `(V.2)`, qui
-n'est pas en base et devrait se déduire de l'ordre des tirages d'un même code.
-
-### Recherche par nom de carte
-Partiellement là : `q` cherche déjà dans le nom et dans le code. Ce qui manque est la
-tolérance — accents, casse, et surtout les noms japonais, qui n'ont pas d'espaces et
-que `LIKE '%…%'` ne découpe pas. À regarder : `FTS5`, que SQLite embarque déjà.
-
----
-
-## Recherchées / Primes
-
-### Les mêmes filtres que Chercher
-Rareté, couleur, édition, et l'affichage. La liste est courte aujourd'hui, donc c'est
-surtout utile une fois qu'elle grossit — à faire après les filtres de Chercher, en
-partageant le même composant de feuille plutôt qu'en le dupliquant.
+### Filtrer par date de sortie exacte
+Toujours bloqué, et vérifié cette fois : **aucune date nulle part** dans punk-records —
+ni dans les cartes, ni dans l'index, ni dans le manifeste. Le tri « Plus récentes » livré
+s'appuie sur `pack_id`, qui suit l'ordre de parution (OP-01 = 569101, OP-16 = 569116).
+Une vraie date demanderait une seconde source.
 
 ---
 
@@ -91,6 +50,17 @@ d'écrire quoi que ce soit.
   s'ouvrira dans un Excel français.
 - **Édition par défaut.** Retenue sur le compte (`users.default_language`), plus
   réinitialisée à chaque rechargement.
+- **Filtre d'édition** dans le panneau, avec « Les deux » — le catalogue contient chaque
+  carte deux fois et chercher un nom à travers les deux est le cas normal.
+- **Plusieurs raretés et plusieurs couleurs** à la fois. Paramètre répété côté API,
+  `IN` et `OR` côté SQL.
+- **Tri** par code, par extension la plus récente, ou A → Z.
+- **2 ou 3 cartes par ligne**, retenu sur le compte (`users.grid_columns`).
+- **Recherche par mots** : chaque mot doit apparaître, dans n'importe quel ordre.
+  « newgate ace » trouve « Ace & Newgate ».
+- **Marqueur de version** (V.1, V.2, R.1) sur les tirages alternatifs, lu depuis le
+  suffixe de l'identifiant. Quatre tuiles identiques deviennent distinguables.
+- **Les mêmes filtres sur Recherchées**, via le même composant.
 
 ---
 

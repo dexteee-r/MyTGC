@@ -1,43 +1,50 @@
 import { useEffect, useState } from 'react'
 import { CardGrid } from '../components/CardGrid'
-import { SearchIcon } from '../components/icons'
 import {
-  Button,
-  CARD_COLORS,
-  Chip,
-  Adrift,
-  EmptyState,
-  PageHeader,
-  Segmented,
-  Sheet,
-  Sounding,
-} from '../components/ui'
+  EMPTY,
+  FilterSheet,
+  appliedLabels,
+  isFiltered,
+  type FilterState,
+} from '../components/Filters'
+import { SearchIcon } from '../components/icons'
+import { Adrift, EmptyState, PageHeader, Sounding } from '../components/ui'
 import { api } from '../lib/api'
-import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
+import { useAuth } from '../lib/auth'
+import { useLanguage } from '../lib/language'
 import type { Card } from '../lib/types'
 
 const PAGE = 60
-const RARITIES = ['Leader', 'Common', 'Uncommon', 'Rare', 'SuperRare', 'SecretRare', 'Promo']
 
 export function Search() {
-  const { language, setLanguage } = useLanguage()
+  const { language } = useLanguage()
+  const { user, setUser } = useAuth()
   const [query, setQuery] = useState('')
-  const [color, setColor] = useState<string | null>(null)
-  const [rarity, setRarity] = useState<string | null>(null)
-  const [owned, setOwned] = useState<boolean | null>(null)
   const [cards, setCards] = useState<Card[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const filters = {
-    q: query || undefined,
+  /* Seeded from the account: it opens on the edition set in the log book, and on the
+     number of columns chosen there. Changing the edition here is a change of mind
+     about this search; changing the columns is a taste, and that one is written back. */
+  const [filters, setFilters] = useState<FilterState>({
     language,
-    color: color ?? undefined,
-    rarity: rarity ?? undefined,
-    owned: owned ?? undefined,
-  }
+    ...EMPTY,
+    sort: 'code',
+    columns: user?.grid_columns ?? 2,
+  })
+
+  const params = () => ({
+    q: query || undefined,
+    language: filters.language ?? undefined,
+    rarity: filters.rarities,
+    color: filters.colors,
+    owned: filters.owned ?? undefined,
+    sort: filters.sort,
+    limit: PAGE,
+  })
 
   useEffect(() => {
     // Debounced: a keystroke should not fire a query against 9,447 rows.
@@ -45,7 +52,7 @@ export function Search() {
       setLoading(true)
       setFailed(false)
       api
-        .cards({ ...filters, limit: PAGE })
+        .cards(params())
         .then((page) => {
           setCards(page.items)
           setTotal(page.total)
@@ -55,53 +62,40 @@ export function Search() {
     }, 220)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, language, color, rarity, owned])
+  }, [query, filters])
 
   const loadMore = () => {
     if (cards.length >= total || loading) return
     api
-      .cards({ ...filters, limit: PAGE, offset: cards.length })
+      .cards({ ...params(), offset: cards.length })
       .then((page) =>
         setCards((current) => (current.length >= total ? current : [...current, ...page.items])),
       )
       .catch(() => {})
   }
 
-  const clearFilters = () => {
-    setColor(null)
-    setRarity(null)
-    setOwned(null)
+  const change = (next: FilterState) => {
+    setFilters(next)
+    /* The column count is the one part of this panel that is a lasting preference
+       rather than a question about this search, so it follows the account. Fire and
+       forget: the grid has already reflowed, and a failed write should cost the next
+       reload rather than this tap. */
+    if (next.columns !== filters.columns) {
+      api.updateProfile({ grid_columns: next.columns }).then(setUser).catch(() => {})
+    }
   }
 
-  /* Named so the trigger can say what is on without being opened. Losing that was the
-     risk in moving the chips off the screen: a filter you cannot see is a filter you
-     forget you set, and then the result count looks like a bug. */
-  const applied = [
-    owned === true ? 'Possédées' : owned === false ? 'Manquantes' : null,
-    color,
-    rarity,
-  ].filter(Boolean) as string[]
+  const clear = () => setFilters({ ...filters, language: null, ...EMPTY })
+
+  const applied = appliedLabels(filters)
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
         title="Recherche"
         meta={loading ? 'Recherche…' : `${total.toLocaleString('fr')} carte${total > 1 ? 's' : ''}`}
-        action={
-          <div className="w-36">
-            <Segmented
-              value={language}
-              options={LANGUAGE_OPTIONS}
-              onChange={setLanguage}
-              label="Édition"
-            />
-          </div>
-        }
       />
 
-      {/* The search field and the way into the filters, and nothing else. Two rows of
-          chips used to sit here permanently — they cost a third of the screen on a
-          phone, every time, to hold controls that are touched occasionally. */}
       <div className="flex items-center gap-2.5 px-5 pb-3">
         <div
           className="flex min-h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-full px-4"
@@ -126,20 +120,15 @@ export function Search() {
           )}
         </div>
 
-        {/* A filter that is on says so on the button itself: a dot rather than a
-            second row of text, because the list underneath is already the evidence
-            and the count sits in the header. */}
         <button
           onClick={() => setFiltersOpen(true)}
           aria-haspopup="dialog"
-          aria-label={
-            applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
-          }
+          aria-label={applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'}
           className="relative grid size-[46px] shrink-0 place-items-center rounded-full"
           style={{
-            background: applied.length ? 'var(--gradient-sun)' : 'var(--surface-recessed)',
-            color: applied.length ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
-            boxShadow: applied.length ? 'var(--shadow-action)' : 'none',
+            background: isFiltered(filters) ? 'var(--gradient-sun)' : 'var(--surface-recessed)',
+            color: isFiltered(filters) ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
+            boxShadow: isFiltered(filters) ? 'var(--shadow-action)' : 'none',
           }}
         >
           <FilterIcon className="size-[18px]" />
@@ -149,7 +138,7 @@ export function Search() {
       {applied.length > 0 && (
         <div className="flex items-center gap-2 px-5 pb-3">
           <p className="t-code min-w-0 flex-1 truncate text-sun-500">{applied.join(' · ')}</p>
-          <button onClick={clearFilters} className="t-code min-h-[var(--touch)] shrink-0 px-2">
+          <button onClick={clear} className="t-code min-h-[var(--touch)] shrink-0 px-2">
             Tout effacer
           </button>
         </div>
@@ -172,79 +161,23 @@ export function Search() {
       ) : (
         <CardGrid
           cards={cards}
+          columns={filters.columns}
           onEndReached={loadMore}
           loadingMore={cards.length < total}
           showArt
         />
       )}
 
-      <Sheet
+      <FilterSheet
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
-        title="Filtres"
-        footer={
-          <div className="flex gap-2">
-            <div className="shrink-0">
-              <Button variant="quiet" onClick={clearFilters} disabled={applied.length === 0}>
-                Tout effacer
-              </Button>
-            </div>
-            <Button full onClick={() => setFiltersOpen(false)}>
-              {loading
-                ? 'Recherche…'
-                : `Voir ${total.toLocaleString('fr')} carte${total > 1 ? 's' : ''}`}
-            </Button>
-          </div>
-        }
-      >
-        {/* Filters apply as they are tapped rather than on a Confirm: the count in the
-            footer moves with each one, which is the answer you came for. */}
-        <FilterGroup label="Collection">
-          <Chip active={owned === true} onClick={() => setOwned(owned === true ? null : true)}>
-            Possédées
-          </Chip>
-          <Chip active={owned === false} onClick={() => setOwned(owned === false ? null : false)}>
-            Manquantes
-          </Chip>
-        </FilterGroup>
-
-        <FilterGroup label="Couleur">
-          {CARD_COLORS.map((name) => (
-            <Chip
-              key={name}
-              swatch={name}
-              active={color === name}
-              onClick={() => setColor(color === name ? null : name)}
-            >
-              {name}
-            </Chip>
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label="Rareté">
-          {RARITIES.map((name) => (
-            <Chip
-              key={name}
-              active={rarity === name}
-              onClick={() => setRarity(rarity === name ? null : name)}
-            >
-              {name}
-            </Chip>
-          ))}
-        </FilterGroup>
-      </Sheet>
+        state={filters}
+        onChange={change}
+        onClear={clear}
+        total={total}
+        loading={loading}
+      />
     </div>
-  )
-}
-
-/* Wrapped rather than scrolled sideways: in a sheet there is room to show every option
-   at once, and a horizontal scroller hides the ones at the end. */
-function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <section className="pt-4">
-      <h3 className="t-display pb-2.5 text-[0.65rem] text-[var(--text-secondary)]">{label}</h3>
-      <div className="flex flex-wrap gap-2">{children}</div>
-    </section>
   )
 }
 

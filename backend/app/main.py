@@ -139,7 +139,8 @@ def _profile(row) -> UserProfile:
     # Rows written before the column existed read as NULL rather than as the default.
     return UserProfile(id=row["id"], email=row["email"],
                        display_name=row["display_name"], created_at=row["created_at"],
-                       default_language=row["default_language"] or "en")
+                       default_language=row["default_language"] or "en",
+                       grid_columns=row["grid_columns"] or 2)
 
 
 def _session(conn, response: Response, request: Request, row) -> Session:
@@ -329,34 +330,55 @@ def delete_account(conn: Conn, user: User, response: Response):
 
 # --- catalogue ------------------------------------------------------------------
 
+# There is no release date anywhere in the catalogue: neither the card records, nor
+# the index, nor the manifest of punk-records carries one. pack_id does track release
+# order though -- OP-01 is 569101 and OP-16 is 569116 -- so "newest first" sorts on
+# that and is described as sets rather than dates, which is what it honestly is.
+SORTS = {
+    "code": "language, id",
+    "recent": "pack_id DESC, id",
+    "name": "name COLLATE NOCASE, id",
+}
+
+
 @app.get("/cards", response_model=CardPage)
 def search_cards(
     conn: Conn,
     user: User,
-    q: str | None = Query(None, description="substring of the name or the card id"),
+    q: str | None = Query(None, description="words matched against the name or the card id"),
     language: Language | None = None,
     pack_code: str | None = None,
-    rarity: str | None = None,
+    rarity: list[str] | None = Query(None, description="repeatable; any of them matches"),
     category: str | None = None,
-    color: str | None = Query(None, description="single colour, matched within the JSON array"),
+    color: list[str] | None = Query(None, description="repeatable; any of them matches"),
     owned: bool | None = Query(None, description="restrict to cards in the collection"),
+    sort: str = Query("code", description="code | recent | name"),
     offset: int = Query(0, ge=0),
     limit: int = Query(60, ge=1, le=200),
 ):
     where, params = ["1=1"], []
     if q:
-        where.append("(name LIKE ? OR id LIKE ?)")
-        params += [f"%{q}%", f"%{q}%"]
+        # Every word has to appear, in the name or in the id, in any order: nobody
+        # types "Ace &amp; Newgate" exactly, and a single LIKE over the whole string
+        # fails on "newgate ace" and on the ampersand alike.
+        for word in q.split():
+            where.append("(name LIKE ? OR id LIKE ?)")
+            params += [f"%{word}%", f"%{word}%"]
     for column, value in (("language", language), ("pack_code", pack_code),
-                          ("rarity", rarity), ("category", category)):
+                          ("category", category)):
         if value:
             where.append(f"{column} = ?")
             params.append(value)
+    # Several rarities or several colours read as "any of these", the way a filter
+    # panel reads: ticking Rare and SuperRare should widen the result, not empty it.
+    if rarity:
+        where.append(f"rarity IN ({', '.join('?' * len(rarity))})")
+        params += rarity
     if color:
         # colors is a JSON array; match the quoted element to avoid 'Black' hitting
         # a hypothetical 'Blackish'.
-        where.append("colors LIKE ?")
-        params.append(f'%"{color}"%')
+        where.append("(" + " OR ".join("colors LIKE ?" for _ in color) + ")")
+        params += [f'%"{c}"%' for c in color]
     if owned is not None:
         clause = "EXISTS" if owned else "NOT EXISTS"
         where.append(f"{clause} (SELECT 1 FROM collection c"
@@ -365,10 +387,11 @@ def search_cards(
         params.append(user.id)
 
     clause = " AND ".join(where)
+    order = SORTS.get(sort, SORTS["code"])
     total = conn.execute(f"SELECT COUNT(*) FROM cards WHERE {clause}", params).fetchone()[0]
     rows = conn.execute(
         f"SELECT {CARD_COLUMNS} FROM cards WHERE {clause}"
-        " ORDER BY language, id LIMIT ? OFFSET ?", [*params, limit, offset],
+        f" ORDER BY {order} LIMIT ? OFFSET ?", [*params, limit, offset],
     ).fetchall()
 
     return CardPage(items=[Card.from_row(r) for r in rows],

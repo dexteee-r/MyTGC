@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS users (
     -- indistinguishable by sight, so the choice can never be inferred -- and resetting
     -- it to 'en' on every reload is wrong for anyone whose collection is Japanese.
     default_language TEXT NOT NULL DEFAULT 'en',
+    -- How many cards per row on the grids. A preference, not a viewport question:
+    -- two is readable and three fits more, and which one is right is a taste.
+    grid_columns     INTEGER NOT NULL DEFAULT 2,
     created_at    TEXT NOT NULL,
     last_login_at TEXT
 );

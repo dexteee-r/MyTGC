@@ -36,6 +36,23 @@ export function JapanFlag({ className = '' }: { className?: string }) {
   )
 }
 
+/* A printing's variant, read off its id: OP01-003 is the base card, OP01-003_p1 is
+   the first alternate art, _r1 a reprint. The suffix is the only place this exists —
+   there is no version column — so the label is derived rather than stored. */
+export function variantOf(cardId: string): string | null {
+  const match = /_([a-z])(\d+)$/i.exec(cardId)
+  if (!match) return null
+  const [, kind, index] = match
+  return `${kind.toLowerCase() === 'r' ? 'R' : 'V'}.${index}`
+}
+
+/* The label a search result wears: "Ace & Newgate (ST22-001) (V.1)". */
+export function printingLabel(name: string, cardId: string): string {
+  const variant = variantOf(cardId)
+  const base = cardId.replace(/_[a-z]\d+$/i, '')
+  return `${name} (${base})${variant ? ` (${variant})` : ''}`
+}
+
 const CODE: Record<Language, string> = { en: 'INT', jp: 'JP' }
 const NAME: Record<Language, string> = { en: 'International', jp: 'Japon' }
 

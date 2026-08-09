@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import type { Card } from '../lib/types'
+import { variantOf } from './Edition'
 import { EmptyPocket } from './ui'
 
 /* The glyph wall.
@@ -27,11 +28,15 @@ export function CardGrid({
   onEndReached,
   loadingMore,
   showArt,
+  columns: preferred = 2,
 }: {
   cards: Card[]
   onEndReached?: () => void
   loadingMore?: boolean
   showArt?: boolean
+  /* Two is readable, three fits more, and which is right is a taste rather than a
+     viewport question -- so the caller decides and the account remembers. */
+  columns?: number
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(3)
@@ -42,7 +47,7 @@ export function CardGrid({
     if (!element) return
     const measure = () => {
       const width = element.clientWidth - 24 /* the wall's own 12px margin either side */
-      const count = width >= 620 ? 4 : 2
+      const count = width >= 620 ? preferred * 2 : preferred
       const pocket = (width - GAP * (count - 1)) / count
       setColumns(count)
       setRowHeight(pocket * CARD_ASPECT + GAP)
@@ -51,7 +56,7 @@ export function CardGrid({
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [preferred])
 
   const rows = useMemo(() => {
     const grouped: Card[][] = []
@@ -109,6 +114,7 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
   const { ownedOf } = useCollection()
   const owned = ownedOf(card.id, card.language)
   const src = imageUrl(card)
+  const variant = variantOf(card.id)
   /* Held cards are always shown. Unheld ones are an empty niche by default — on the
      binder screens the gap is the information — but the search screen passes showArt,
      because you search to identify a card, not to audit what you are missing. */
@@ -151,6 +157,17 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
           />
         ) : (
           <EmptyPocket code={card.id} />
+        )}
+        {variant && (
+          /* Two printings of one card share their artwork exactly. Without this the
+             grid shows what looks like the same tile twice and the collector cannot
+             tell which one they are tapping. */
+          <span
+            className="t-code absolute top-0 left-0 px-1.5 py-0.5 text-[0.6rem]"
+            style={{ background: 'rgba(4,18,26,.86)', color: 'var(--color-paper-100)' }}
+          >
+            {variant}
+          </span>
         )}
         {owned && owned.quantity > 1 && (
           /* Only worth saying when it is more than one. A "1" on every card you own

@@ -139,6 +139,8 @@ export interface UserProfile {
      survive a reload — the two printings of a card cannot be told apart by sight, so
      resetting to 'en' every time is simply wrong for a Japanese collection. */
   default_language: Language
+  /* How many cards per row on the grids. A taste, not a viewport question. */
+  grid_columns: number
 }
 
 export type RegistrationMode = 'open' | 'invite' | 'closed'

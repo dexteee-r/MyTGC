@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Edition } from '../components/Edition'
+import { Edition, variantOf } from '../components/Edition'
 import { ChevronLeftIcon } from '../components/icons'
 import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
@@ -98,7 +98,9 @@ export function CardDetail() {
       <div className="px-5 pt-6 text-center">
         <h1 className="t-display text-[2rem]">{card.name}</h1>
         <p className="t-code flex items-center justify-center gap-1.5 pt-2.5">
-          {card.id} · {card.rarity} · <Edition language={language} />
+          {card.id} · {card.rarity}
+          {variantOf(card.id) && <> · {variantOf(card.id)}</>} ·{' '}
+          <Edition language={language} />
         </p>
         <div className="mt-3 flex justify-center">
           <ColorBar colors={card.colors} className="h-[3px] w-16" />

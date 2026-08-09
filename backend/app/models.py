@@ -60,10 +60,12 @@ class UserProfile(BaseModel):
     display_name: str | None = None
     created_at: str | None = None
     default_language: Language = "en"
+    grid_columns: int = 2
 
 
 class ProfileUpdate(BaseModel):
     default_language: Language | None = None
+    grid_columns: int | None = Field(default=None, ge=2, le=6)
     display_name: str | None = Field(default=None, max_length=60)
 
 

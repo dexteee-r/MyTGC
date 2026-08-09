@@ -82,10 +82,15 @@ export interface CardQuery {
   q?: string
   language?: Language
   pack_code?: string
-  rarity?: string
+  /* Repeatable: several rarities or several colours read as "any of these", the way
+     a filter panel reads — ticking two should widen the result, not empty it. */
+  rarity?: string[]
   category?: string
-  color?: string
+  color?: string[]
   owned?: boolean
+  /* There is no release date in the catalogue, so `recent` sorts on pack_id, which
+     does track the order sets came out. */
+  sort?: 'code' | 'recent' | 'name'
   offset?: number
   limit?: number
 }
@@ -96,7 +101,11 @@ export const api = {
   cards(query: CardQuery = {}) {
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined && value !== '') params.set(key, String(value))
+      if (value === undefined || value === '') continue
+      // A list travels as a repeated key -- rarity=Rare&rarity=SuperRare -- which is
+      // what FastAPI reads back as a list. `set` would keep only the last one.
+      if (Array.isArray(value)) value.forEach((v) => params.append(key, String(v)))
+      else params.set(key, String(value))
     }
     return request<CardPage>(`/cards?${params}`)
   },
@@ -156,7 +165,9 @@ export const api = {
   removeFromWishlist: (id: number) =>
     request<void>(`/wishlist/${id}`, { method: 'DELETE' }),
 
-  updateProfile: (body: { default_language?: Language; display_name?: string }) =>
+  updateProfile: (
+    body: { default_language?: Language; grid_columns?: number; display_name?: string },
+  ) =>
     request<UserProfile>('/auth/me', { method: 'PATCH', body: JSON.stringify(body) }),
 
   registrationPolicy: () => request<RegistrationPolicy>('/auth/registration'),

@@ -31,6 +31,9 @@ interface AuthState {
     inviteCode?: string,
   ) => Promise<void>
   signOut: () => Promise<void>
+  /* Set after a profile PATCH: the server answers with the new profile, and dropping
+     it would leave the app showing the old preference until the next reload. */
+  setUser: (user: UserProfile) => void
 }
 
 const Ctx = createContext<AuthState | null>(null)
@@ -116,7 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clear])
 
   return (
-    <Ctx.Provider value={{ ready, user, signIn, signUp, signOut }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ ready, user, signIn, signUp, signOut, setUser }}>
+      {children}
+    </Ctx.Provider>
   )
 }
 
