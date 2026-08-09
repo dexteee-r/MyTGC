@@ -8,6 +8,7 @@ import {
   type FilterState,
 } from '../components/Filters'
 import { SearchIcon } from '../components/icons'
+import { Suggestions } from '../components/Suggestions'
 import { Adrift, EmptyState, PageHeader, Sounding } from '../components/ui'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -25,6 +26,7 @@ export function Search() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [typing, setTyping] = useState(false)
 
   /* Seeded from the account: it opens on the edition set in the log book, and on the
      number of columns chosen there. Changing the edition here is a change of mind
@@ -96,7 +98,7 @@ export function Search() {
         meta={loading ? 'Recherche…' : `${total.toLocaleString('fr')} carte${total > 1 ? 's' : ''}`}
       />
 
-      <div className="flex items-center gap-2.5 px-5 pb-3">
+      <div className="relative flex items-center gap-2.5 px-5 pb-3">
         <div
           className="flex min-h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-full px-4"
           style={{ background: 'var(--surface-recessed)' }}
@@ -104,14 +106,21 @@ export function Search() {
           <SearchIcon className="size-4 shrink-0 text-[var(--text-faint)]" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setTyping(true)
+            }}
+            onFocus={() => setTyping(true)}
             placeholder="Nom ou code (OP09-093)"
             aria-label="Rechercher une carte"
             className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-[var(--text-faint)]"
           />
           {query && (
             <button
-              onClick={() => setQuery('')}
+              onClick={() => {
+                setQuery('')
+                setTyping(false)
+              }}
               aria-label="Effacer la recherche"
               className="-mr-2 flex size-[var(--touch)] shrink-0 items-center justify-center text-lg text-[var(--text-faint)]"
             >
@@ -133,6 +142,10 @@ export function Search() {
         >
           <FilterIcon className="size-[18px]" />
         </button>
+
+        {typing && query.trim().length > 0 && !loading && (
+          <Suggestions cards={cards} query={query} onDismiss={() => setTyping(false)} />
+        )}
       </div>
 
       {applied.length > 0 && (

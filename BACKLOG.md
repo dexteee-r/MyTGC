@@ -18,12 +18,6 @@ d'extension, recherchées. **Restent : la fiche carte, le compte.**
 
 ## Chercher
 
-### Suggestions au fil de la frappe
-Reste à faire. Taper un nom montre aujourd'hui une grille filtrée ; la demande était une
-liste de suggestions sous le champ, du style `Ace & Newgate (ST22-001) (V.1)`. Le libellé
-existe déjà (`printingLabel` dans `components/Edition.tsx`) et la recherche par mots
-fonctionne — il manque le composant de liste déroulante et la navigation au clavier.
-
 ### Filtrer par date de sortie exacte
 Toujours bloqué, et vérifié cette fois : **aucune date nulle part** dans punk-records —
 ni dans les cartes, ni dans l'index, ni dans le manifeste. Le tri « Plus récentes » livré
@@ -61,6 +55,10 @@ d'écrire quoi que ce soit.
 - **Marqueur de version** (V.1, V.2, R.1) sur les tirages alternatifs, lu depuis le
   suffixe de l'identifiant. Quatre tuiles identiques deviennent distinguables.
 - **Les mêmes filtres sur Recherchées**, via le même composant.
+- **Suggestions au fil de la frappe** : `Kid & Killer — EB01-003 (V.2) · INT`, avec les
+  flèches et Entrée. Aucune requête en plus : ce sont les premières lignes de la
+  recherche déjà en cours, montrées dans une autre forme.
+- **Ajout aux recherchées au survol**, souris uniquement.
 
 ---
 

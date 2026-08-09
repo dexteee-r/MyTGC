@@ -5,6 +5,8 @@ import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import type { Card } from '../lib/types'
 import { variantOf } from './Edition'
+import { api } from '../lib/api'
+import { useToast } from '../lib/toast'
 import { EmptyPocket } from './ui'
 
 /* The glyph wall.
@@ -112,6 +114,8 @@ export function CardGrid({
 
 export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
   const { ownedOf } = useCollection()
+  const { show } = useToast()
+  const [wanted, setWanted] = useState(false)
   const owned = ownedOf(card.id, card.language)
   const src = imageUrl(card)
   const variant = variantOf(card.id)
@@ -126,7 +130,7 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
       to={`/card/${encodeURIComponent(card.id)}?language=${card.language}`}
       aria-label={`${card.name}, ${card.id}${owned ? `, ${owned.quantity} en collection` : ', pochette vide'}`}
     >
-      <div className="relative">
+      <div className="group relative">
         {art ? (
           /* Inlaid, not stuck on: the artwork sits below the surface of the stone,
              so the slab casts a line of shadow across its top edge.
@@ -168,6 +172,38 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
           >
             {variant}
           </span>
+        )}
+        {/* Pointer only. A hover state is invisible on a phone, where a control that
+            appears on touch would fire on the tap meant to open the card — the sheet
+            stays the path there. `group-hover` plus a coarse-pointer opt-out is the
+            only honest way to offer this without breaking the primary gesture. */}
+        {!owned && !wanted && (
+          <button
+            onClick={(event) => {
+              event.preventDefault()
+              setWanted(true)
+              api
+                .addToWishlist({ card_id: card.id, language: card.language })
+                .then(() => show(`${card.name} ajoutée aux recherchées`))
+                .catch(() => setWanted(false))
+            }}
+            aria-label={`Ajouter ${card.name} aux recherchées`}
+            className="absolute right-1 bottom-1 hidden size-9 place-items-center rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:hover)]:grid"
+            style={{
+              background: 'var(--gradient-sun)',
+              color: 'var(--color-paper-ink)',
+              boxShadow: 'var(--shadow-action)',
+            }}
+          >
+            <svg viewBox="0 0 20 20" width="15" height="15" fill="none" aria-hidden>
+              <path
+                d="M5 3h10v14l-5-3.6L5 17V3Z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         )}
         {owned && owned.quantity > 1 && (
           /* Only worth saying when it is more than one. A "1" on every card you own
