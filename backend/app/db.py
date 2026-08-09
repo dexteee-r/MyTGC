@@ -22,4 +22,23 @@ def connect(db_path: Path = DB_PATH) -> sqlite3.Connection:
 
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    _add_missing_columns(conn)
     conn.commit()
+
+
+# Columns added after a database already existed. CREATE TABLE IF NOT EXISTS is a
+# no-op on a live table, so a new column in schema.sql reaches a fresh install and
+# nothing else — the deployed database would keep the old shape and every read of
+# the new field would fail. Adding a column is the one migration SQLite does
+# cheaply and without a table rewrite, so it is done here rather than in a tool
+# somebody has to remember to run.
+LATE_COLUMNS = [
+    ("wishlist", "price", "REAL"),
+]
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    for table, column, kind in LATE_COLUMNS:
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")

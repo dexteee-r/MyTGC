@@ -120,6 +120,10 @@ CREATE TABLE IF NOT EXISTS wishlist (
     language        TEXT NOT NULL,
     priority        INTEGER,
     alert_threshold REAL,
+    -- What the card actually costs where the user saw it. Entered by hand: there is
+    -- no price feed, and a number invented to look plausible on a wanted poster
+    -- would read as real data.
+    price           REAL,
     notes           TEXT
 );
 

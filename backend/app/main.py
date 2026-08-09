@@ -639,18 +639,19 @@ def add_to_wishlist(conn: Conn, user: User, entry: WishlistCreate):
     ).fetchone()
     if existing:
         conn.execute(
-            "UPDATE wishlist SET priority = ?, alert_threshold = ?, notes = ?"
-            " WHERE id = ?",
-            (entry.priority, entry.alert_threshold, entry.notes, existing["id"]),
+            "UPDATE wishlist SET priority = ?, alert_threshold = ?, price = ?,"
+            " notes = ? WHERE id = ?",
+            (entry.priority, entry.alert_threshold, entry.price, entry.notes,
+             existing["id"]),
         )
         conn.commit()
         return _wish(conn, existing["id"])
 
     cursor = conn.execute(
         "INSERT INTO wishlist (user_id, card_id, language, priority, alert_threshold,"
-        " notes) VALUES (?, ?, ?, ?, ?, ?)",
+        " price, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (user.id, entry.card_id, entry.language, entry.priority,
-         entry.alert_threshold, entry.notes),
+         entry.alert_threshold, entry.price, entry.notes),
     )
     conn.commit()
     return _wish(conn, cursor.lastrowid)

@@ -147,7 +147,10 @@ export const api = {
     notes?: string | null
   }) => request<WishlistEntry>('/wishlist', { method: 'POST', body: JSON.stringify(body) }),
 
-  updateWishlist: (id: number, body: { priority?: number; notes?: string | null }) =>
+  updateWishlist: (
+    id: number,
+    body: { priority?: number; price?: number | null; notes?: string | null },
+  ) =>
     request<WishlistEntry>(`/wishlist/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   removeFromWishlist: (id: number) =>

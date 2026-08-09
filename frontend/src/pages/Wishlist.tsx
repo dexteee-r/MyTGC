@@ -1,28 +1,43 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Edition } from '../components/Edition'
-import { Button, ColorBar, EmptyState, PageHeader, Screen, Spinner } from '../components/ui'
+import { Adrift, Button, EmptyState, PageHeader, Screen, Sounding } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useToast } from '../lib/toast'
 import type { WishlistEntry } from '../lib/types'
 
-/* The want list: what a collector is hunting, as opposed to what they hold.
+/* ── The hunt ───────────────────────────────────────────────────────────────
+   The only screen made of paper in the whole app.
 
-   Priority is three steps rather than ten. A longer scale only invites agonising
-   over whether something is a 6 or a 7, and the answer never changes what you do
-   when you are standing in a shop. */
+   A card you are hunting IS a wanted poster, so it is drawn as one: cream ground,
+   torn edge, halftone screen, a WANTED banner, the bounty struck large, and a red
+   stamp across the corner carrying how badly you want it. The break in value with
+   every other screen is the point, not an accident — this is the one place the app
+   stops being the sea.
+
+   Everything here is drawn in CSS: the torn edge is a clip-path, the halftone is a
+   repeating radial gradient. No copyrighted image enters the repository.          */
+
 const PRIORITY: Record<number, string> = {
   1: 'Dès que possible',
   2: 'Si ça se présente',
   3: 'Un jour',
 }
 
+/* The torn edge of a poster ripped off a wall. */
+const TORN =
+  'polygon(0 1%, 4% 0, 12% 1.2%, 26% .2%, 44% 1.4%, 62% .3%, 80% 1.3%, 94% .2%, 100% 1.4%, 100% 98.6%, 92% 100%, 76% 98.8%, 58% 99.8%, 40% 98.6%, 22% 99.8%, 8% 98.8%, 0 99.6%)'
+
+const INK = '#221c12'
+
 export function Wishlist() {
   const { show } = useToast()
   const [entries, setEntries] = useState<WishlistEntry[] | null>(null)
+  const [failed, setFailed] = useState(false)
 
   const load = useCallback(() => {
-    api.wishlist().then(setEntries).catch(() => setEntries([]))
+    setFailed(false)
+    api.wishlist().then(setEntries).catch(() => setFailed(true))
   }, [])
   useEffect(load, [load])
 
@@ -32,104 +47,231 @@ export function Wishlist() {
     show(`${entry.card?.name ?? entry.card_id} retirée`)
   }
 
-  const setPriority = async (entry: WishlistEntry, priority: number) => {
+  const patch = async (entry: WishlistEntry, change: Partial<WishlistEntry>) => {
     setEntries((current) =>
-      (current ?? []).map((e) => (e.id === entry.id ? { ...e, priority } : e)),
+      (current ?? []).map((e) => (e.id === entry.id ? { ...e, ...change } : e)),
     )
-    await api.updateWishlist(entry.id, { priority }).catch(load)
+    await api.updateWishlist(entry.id, change).catch(load)
   }
 
-  if (!entries) return <Spinner />
+  if (failed) return <Screen><div className="pt-10"><Adrift onRetry={load} /></div></Screen>
+  if (!entries) return <Screen><div className="pt-10"><Sounding label="Relevé des primes" /></div></Screen>
 
   return (
     <Screen>
       <PageHeader
         title="Recherchées"
-        meta={entries.length ? `${entries.length} carte${entries.length > 1 ? 's' : ''}` : undefined}
+        meta={
+          entries.length
+            ? `${entries.length} carte${entries.length > 1 ? 's' : ''} · avis de recherche`
+            : 'avis de recherche'
+        }
       />
 
       {entries.length === 0 ? (
-        <div className="pt-8">
+        <div className="pt-4">
           <EmptyState
-            title="Aucune carte recherchée"
+            title="Aucun avis affiché"
             action={
               <Link to="/search">
-                <Button size="lg">Parcourir le catalogue</Button>
+                <Button>Parcourir le catalogue</Button>
               </Link>
             }
           >
-            Marque une carte comme recherchée depuis sa fiche pour la retrouver ici.
+            Marque une carte comme recherchée depuis sa fiche et son avis s'affichera ici.
           </EmptyState>
         </div>
       ) : (
-        <ul>
-          {entries.map((entry) => {
-            const src = entry.card ? imageUrl(entry.card) : null
-            return (
-              <li key={entry.id} className="border-b border-[rgba(243,230,203,.12)] p-3">
-                <div className="flex items-start gap-3">
-                  <Link
-                    to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
-                  >
-                    {src ? (
-                      <img
-                        src={src}
-                        alt=""
-                        className="h-[68px] w-[49px] rounded-[0.25rem] object-cover"
-                      />
-                    ) : (
-                      <div className="sunken h-[68px] w-[49px]" />
-                    )}
-                  </Link>
-                  <ColorBar
-                    colors={entry.card?.colors ?? []}
-                    className="h-11 w-[3px] shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="t-deck truncate">{entry.card?.name ?? entry.card_id}</p>
-                    <p className="t-code pt-1">
-                      {entry.card_id} · <Edition language={entry.language} />
-                    </p>
-                    {entry.notes && (
-                      <p className="truncate pt-1 text-xs text-[var(--text-secondary)]">{entry.notes}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => remove(entry)}
-                    aria-label="Retirer de la liste"
-                    className="size-11 shrink-0 text-xl text-[var(--text-faint)]"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="mt-3 flex wall gap-px">
-                  {[1, 2, 3].map((level) => (
-                    <button
-                      key={level}
-                      onClick={() => setPriority(entry, level)}
-                      aria-pressed={entry.priority === level}
-                      /* Raised and lettered in brass, not filled with it. A gold
-                         slab on every row turns the one accent into a colour
-                         scheme, and the list stops having a focal point. */
-                      style={{
-                        boxShadow: entry.priority === level ? 'var(--relief)' : 'var(--groove)',
-                      }}
-                      className={`min-h-9 flex-1 px-2 text-xs transition ${
-                        entry.priority === level
-                          ? 'bg-[var(--surface-rail)] font-semibold text-sun-500'
-                          : 'bg-[var(--surface-recessed)] text-[var(--text-faint)]'
-                      }`}
-                    >
-                      {PRIORITY[level]}
-                    </button>
-                  ))}
-                </div>
-              </li>
-            )
-          })}
+        <ul className="px-4 pt-1">
+          {entries.map((entry) => (
+            <Poster
+              key={`${entry.card_id}-${entry.language}`}
+              entry={entry}
+              onRemove={() => remove(entry)}
+              onPatch={(change) => patch(entry, change)}
+            />
+          ))}
         </ul>
       )}
     </Screen>
+  )
+}
+
+function Poster({
+  entry,
+  onRemove,
+  onPatch,
+}: {
+  entry: WishlistEntry
+  onRemove: () => void
+  onPatch: (change: Partial<WishlistEntry>) => void
+}) {
+  const src = entry.card ? imageUrl(entry.card) : null
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(entry.price != null ? String(entry.price) : '')
+
+  const commit = () => {
+    setEditing(false)
+    const parsed = draft.trim() === '' ? null : Number(draft.replace(',', '.'))
+    const price = parsed != null && Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+    if (price !== entry.price) onPatch({ price })
+  }
+
+  return (
+    <li
+      className="relative mb-4 px-3.5 pt-3.5 pb-3"
+      style={{
+        background: 'var(--color-paper-100)',
+        color: INK,
+        clipPath: TORN,
+        boxShadow: 'var(--shadow-poster)',
+      }}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          opacity: 0.16,
+          backgroundImage: `radial-gradient(rgba(26,23,18,.9) 1px, transparent 1.2px)`,
+          backgroundSize: '4px 4px',
+        }}
+      />
+
+      <div className="relative">
+        <div className="flex items-baseline justify-between gap-3 border-b-2 pb-1" style={{ borderColor: INK }}>
+          <p className="t-display text-[13px] tracking-[.12em] uppercase">Wanted</p>
+          <button
+            onClick={onRemove}
+            aria-label={`Retirer ${entry.card?.name ?? entry.card_id}`}
+            className="-mr-1.5 -mt-1 flex size-[var(--touch)] items-center justify-center text-lg"
+            style={{ color: 'rgba(34,28,18,.55)' }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex gap-3.5 pt-3">
+          <Link
+            to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
+            className="shrink-0"
+          >
+            {src ? (
+              <img
+                src={src}
+                alt=""
+                decoding="async"
+                className="h-[132px] w-[95px] object-cover"
+                style={{ boxShadow: `0 0 0 2px ${INK}` }}
+              />
+            ) : (
+              <div
+                className="h-[132px] w-[95px]"
+                style={{ background: 'rgba(34,28,18,.1)', boxShadow: `0 0 0 2px ${INK}` }}
+              />
+            )}
+          </Link>
+
+          <div className="min-w-0 flex-1">
+            <p className="t-display truncate text-[1.35rem]">
+              {entry.card?.name ?? entry.card_id}
+            </p>
+            <p
+              className="flex items-center gap-1.5 pt-1 font-mono text-[11px] tracking-[.1em] uppercase"
+              style={{ color: 'rgba(34,28,18,.6)' }}
+            >
+              {entry.card_id} · <Edition language={entry.language} />
+            </p>
+
+            {/* The bounty. It is the price you would actually pay, typed in by hand —
+                there is no price feed behind this app, and a plausible-looking
+                number nobody entered would read as real data. Empty is honest, and
+                it is a button so it can stop being empty. */}
+            <div className="pt-3">
+              {editing ? (
+                <input
+                  autoFocus
+                  inputMode="decimal"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onBlur={commit}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commit()
+                    if (event.key === 'Escape') setEditing(false)
+                  }}
+                  aria-label="Prix constaté, en euros"
+                  className="t-display w-full bg-transparent text-[1.6rem] outline-none"
+                  style={{ borderBottom: `2px solid ${INK}`, color: INK }}
+                />
+              ) : (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="t-display flex min-h-[var(--touch)] items-baseline gap-1 text-[1.6rem]"
+                  style={{ color: entry.price == null ? 'rgba(34,28,18,.38)' : INK }}
+                >
+                  {entry.price == null ? (
+                    <span className="text-[1rem] font-medium underline underline-offset-4">
+                      Noter le prix
+                    </span>
+                  ) : (
+                    <>
+                      {entry.price.toLocaleString('fr', {
+                        minimumFractionDigits: Number.isInteger(entry.price) ? 0 : 2,
+                        maximumFractionDigits: 2,
+                      })}
+                      <span className="text-[1rem]">€</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <p
+                className="pt-0.5 font-mono text-[9px] tracking-[.14em] uppercase"
+                style={{ color: 'rgba(34,28,18,.55)' }}
+              >
+                Dead or alive
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* The stamp: struck across the poster, and it is the priority — so the row
+            below is left quiet. Two statements of the same fact twenty pixels apart
+            is noise; the loud one is the stamp, the row is only the control. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-0 bottom-[86px] px-2 py-1 font-mono text-[10px] tracking-[.14em] uppercase"
+          style={{
+            border: `2px solid var(--color-ember-500)`,
+            color: 'var(--color-ember-500)',
+            transform: 'rotate(-11deg)',
+            opacity: 0.82,
+          }}
+        >
+          {PRIORITY[entry.priority]}
+        </span>
+
+        <div className="mt-3.5 flex gap-1.5">
+          {[1, 2, 3].map((level) => {
+            const active = entry.priority === level
+            return (
+              <button
+                key={level}
+                onClick={() => onPatch({ priority: level })}
+                aria-pressed={active}
+                className="min-h-[var(--touch)] flex-1 px-1 text-[11px] transition"
+                style={{
+                  color: active ? INK : 'rgba(34,28,18,.5)',
+                  boxShadow: active
+                    ? `inset 0 -2px 0 var(--color-ember-500)`
+                    : 'inset 0 0 0 1px rgba(34,28,18,.18)',
+                  fontWeight: active ? 700 : 400,
+                }}
+              >
+                {PRIORITY[level]}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </li>
   )
 }

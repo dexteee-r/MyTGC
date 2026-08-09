@@ -194,6 +194,9 @@ class WishlistEntry(BaseModel):
     # scale invites agonising over the difference between a 6 and a 7.
     priority: int = 2
     alert_threshold: float | None = None
+    # What the card costs where it was seen, entered by hand. There is no price feed
+    # behind this, and a plausible-looking number nobody typed would read as one.
+    price: float | None = None
     notes: str | None = None
     card: Card | None = None
 
@@ -203,12 +206,14 @@ class WishlistCreate(BaseModel):
     language: Language
     priority: int = Field(default=2, ge=1, le=3)
     alert_threshold: float | None = Field(default=None, ge=0)
+    price: float | None = Field(default=None, ge=0)
     notes: str | None = Field(default=None, max_length=280)
 
 
 class WishlistUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=1, le=3)
     alert_threshold: float | None = Field(default=None, ge=0)
+    price: float | None = Field(default=None, ge=0)
     notes: str | None = Field(default=None, max_length=280)
 
 

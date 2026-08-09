@@ -61,6 +61,9 @@ export interface WishlistEntry {
   language: Language
   priority: number
   alert_threshold: number | null
+  /* What the card costs where it was seen, typed in by hand. There is no price feed
+     behind the app, and a plausible number nobody entered would read as real data. */
+  price: number | null
   notes: string | null
   card: Card | null
 }
