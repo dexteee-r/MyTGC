@@ -12,6 +12,24 @@ vi.mock('@aparajita/capacitor-secure-storage', () => ({
   SecureStorage: { set: vi.fn(), get: vi.fn(), remove: vi.fn() },
 }))
 
+/* jsdom ships no matchMedia, and the app asks it whether motion should be reduced —
+   the sky, the compass and the scan moment all read the preference live. Reporting
+   "no preference" is what a default browser would say, so the tests exercise the
+   same branch a phone does. */
+if (!window.matchMedia) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList
+}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()

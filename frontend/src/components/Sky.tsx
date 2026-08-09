@@ -342,6 +342,20 @@ const VEIL = {
     color: 'var(--text-primary)',
     vars: undefined,
   },
+  mist: {
+    full: 'linear-gradient(180deg, rgba(238,243,242,.2) 0%, rgba(232,238,238,.55) 30%, rgba(226,233,234,.8) 66%, rgba(222,230,231,.9) 100%)',
+    soft: 'linear-gradient(180deg, rgba(238,243,242,0) 0%, rgba(232,238,238,.3) 40%, rgba(226,233,234,.6) 100%)',
+    color: '#14232a',
+    vars: {
+      '--text-primary': '#14232a',
+      '--text-secondary': 'rgba(20,35,42,.74)',
+      '--text-faint': 'rgba(20,35,42,.6)',
+      '--surface-rail': 'rgba(20,35,42,.14)',
+      '--surface-recessed': 'rgba(20,35,42,.07)',
+      '--surface-raised': 'rgba(255,255,255,.62)',
+      '--accent-numeral': '#7a5a10',
+    } as CSSProperties,
+  },
   light: {
     full: 'linear-gradient(180deg, rgba(243,230,203,.34) 0%, rgba(240,228,200,.72) 26%, rgba(240,228,200,.92) 62%, rgba(240,228,200,.96) 100%)',
     soft: 'linear-gradient(180deg, rgba(243,230,203,0) 0%, rgba(240,228,200,.4) 40%, rgba(240,228,200,.7) 100%)',
@@ -357,12 +371,19 @@ const VEIL = {
       '--text-faint': 'rgba(34,28,18,.6)',
       '--surface-rail': 'rgba(34,28,18,.16)',
       '--surface-recessed': 'rgba(34,28,18,.08)',
+      '--surface-raised': 'rgba(255,250,236,.7)',
       '--accent-numeral': '#8a5a12',
     } as CSSProperties,
   },
 }
 
-const LIGHT_SKIES: SkyVariant[] = ['paper', 'mist']
+/* Mist is pale but it is not paper: a cream veil over a cool grey-white sky turns the
+   scanner into a second want list, and the two screens then read as the same place at
+   different times of day. The veil follows the sky's own temperature. */
+const VEIL_FOR: Partial<Record<SkyVariant, keyof typeof VEIL>> = {
+  paper: 'light',
+  mist: 'mist',
+}
 
 export function Scrim({
   over = 'dusk',
@@ -379,7 +400,7 @@ export function Scrim({
   className?: string
   children: ReactNode
 }) {
-  const veil = VEIL[LIGHT_SKIES.includes(over) ? 'light' : 'dark']
+  const veil = VEIL[VEIL_FOR[over] ?? 'dark']
   return (
     <>
       <div

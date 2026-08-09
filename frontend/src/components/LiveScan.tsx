@@ -204,7 +204,7 @@ export function LiveScan({
   }
 
   return (
-    <div className="relative mx-5 overflow-hidden rounded-none bg-black">
+    <div className="relative mx-5 overflow-hidden rounded-[14px] bg-sea-deep" style={{ boxShadow: 'var(--shadow-float)' }}>
       <video
         ref={videoRef}
         playsInline

@@ -1,24 +1,47 @@
-import { useCallback, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LiveScan } from '../components/LiveScan'
 import { CameraIcon } from '../components/icons'
 import {
+  Adrift,
   Button,
   ColorBar,
   EmptyState,
   PageHeader,
+  ScanMiss,
   Screen,
   Segmented,
-  Spinner,
+  Sounding,
 } from '../components/ui'
+import { Moment, momentLine, type MomentKind } from '../components/Moment'
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
-import type { ScanCandidate, ScanResult } from '../lib/types'
+import type { Language, Pack, ScanCandidate, ScanResult } from '../lib/types'
+import type { ScanFailure } from '../components/ui'
 import { Edition, EditionName } from '../components/Edition'
 
+/* three.js is 146 kB gzipped and it draws one object on one screen. Loaded eagerly it
+   would be the largest thing in the bundle and would be paid for by every cold start,
+   including the ones that never open the scanner. Its own chunk, fetched when the
+   scanner goes idle. */
+const LogPose3D = lazy(() =>
+  import('../components/LogPose3D').then((m) => ({ default: m.LogPose3D })),
+)
+
 type Mode = 'live' | 'photo'
+
+/* Rarities that are worth remarking on. Common, Uncommon and Rare are most of the
+   catalogue; these are the ones a collector stops at. */
+const SCARCE = new Set(['SuperRare', 'SecretRare', 'TreasureRare', 'Special'])
+
+/* The pack list, asked for once per edition. Working out whether a card is the first
+   of its set — or the last one missing — needs the set's totals, and the alternative
+   is a request on every single add during a run through a binder. */
+const packs: Record<string, Promise<Pack[]>> = {}
+const packList = (language: Language) =>
+  (packs[language] ??= api.packs(language).catch(() => []))
 
 /* The core loop of the whole product: a binder in one hand, the phone in the other.
    Every extra tap here is paid once per card, so the result adds to the collection
@@ -44,9 +67,21 @@ export function Scanner() {
   const [result, setResult] = useState<ScanResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [session, setSession] = useState(0)
+  const [moment, setMoment] = useState<{ kind: MomentKind; line: string; at: number } | null>(null)
+  const [missed, setMissed] = useState<ScanFailure | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const capture = () => inputRef.current?.click()
+
+  /* `detected` says the frame held a card, so the two failures are different things
+     and deserve different advice: nothing in the frame, versus a card the catalogue
+     does not know. */
+  const failureOf = (scan: ScanResult): ScanFailure | null =>
+    scan.detected && scan.candidates.length === 0
+      ? 'unknown'
+      : !scan.detected
+        ? 'none'
+        : null
 
   const onLiveResult = useCallback((incoming: ScanResult) => {
     // Freeze on the first hit and let the user confirm. Auto-adding from a live
@@ -58,8 +93,12 @@ export function Scanner() {
     setBusy(true)
     setError(null)
     setResult(null)
+    setMissed(null)
     try {
-      setResult(await api.scan(file, language))
+      const scan = await api.scan(file, language)
+      const failure = failureOf(scan)
+      if (failure) setMissed(failure)
+      else setResult(scan)
     } catch {
       setError("Le serveur n'a pas répondu. Vérifie qu'il tourne, puis reprends.")
     } finally {
@@ -79,17 +118,55 @@ export function Scanner() {
     const before = ownedOf(cardId, candidate.language)
     await add({ id: cardId, language: candidate.language })
     setSession((n) => n + 1)
-    const message = before
-      ? `${candidate.name} · ${before.quantity + 1}e exemplaire`
-      : `${candidate.name} rangée`
-    show(message, () => {
+
+    /* Undo stays available whatever the card did — the moment is a flourish over the
+       top of it, never a replacement for being able to take it back. */
+    show(before ? `${candidate.name} · ${before.quantity + 1}e` : `${candidate.name} rangée`, () => {
       const owned = ownedOf(cardId, candidate.language)
       if (owned) setQuantity(cardId, candidate.language, owned.quantity - 1)
       setSession((n) => Math.max(0, n - 1))
     })
+
+    const kind = await outcomeOf(candidate, before?.quantity)
+    setMoment({
+      kind,
+      line: momentLine(kind, {
+        name: candidate.name,
+        rarity: candidate.card?.rarity ?? candidate.printings[0]?.rarity,
+        packCode: candidate.card?.pack_code ?? candidate.printings[0]?.pack_code,
+        packSize: kind === 'complete' ? await packSize(candidate) : undefined,
+        had: before?.quantity,
+      }),
+      at: Date.now(),
+    })
+
     setResult(null)
     // Live keeps running on its own; photo needs re-arming to save a tap per card.
     if (mode === 'photo') capture()
+  }
+
+  /* Which of the five registers this add earned, most notable first. Completing a
+     set outranks the card being the first of one, which outranks it being rare. */
+  const outcomeOf = async (candidate: ScanCandidate, had?: number): Promise<MomentKind> => {
+    if (had) return 'duplicate'
+    const code = candidate.card?.pack_code ?? candidate.printings[0]?.pack_code
+    const pack = code
+      ? (await packList(candidate.language)).find((p) => p.pack_code === code)
+      : undefined
+    if (pack) {
+      if (pack.owned_count + 1 >= pack.card_count) return 'complete'
+      if (pack.owned_count === 0) return 'first'
+    }
+    const rarity = candidate.card?.rarity ?? candidate.printings[0]?.rarity
+    return rarity && SCARCE.has(rarity) ? 'rare' : 'new'
+  }
+
+  const packSize = async (candidate: ScanCandidate) => {
+    const code = candidate.card?.pack_code ?? candidate.printings[0]?.pack_code
+    const pack = code
+      ? (await packList(candidate.language)).find((p) => p.pack_code === code)
+      : undefined
+    return pack?.card_count
   }
 
   return (
@@ -145,16 +222,21 @@ export function Scanner() {
         />
       )}
 
-      {mode === 'photo' && !result && !busy && (
-        <div className="px-5">
-          <Button variant="primary" size="lg" full onClick={capture}>
-            <CameraIcon className="size-5" />
-            Prendre une photo
-          </Button>
-        </div>
+      {mode === 'photo' && !result && !busy && !missed && (
+        <>
+          <Suspense fallback={<div className="mx-auto size-[190px]" />}>
+            <LogPose3D />
+          </Suspense>
+          <div className="px-5 pt-5">
+            <Button variant="primary" size="lg" full onClick={capture}>
+              <CameraIcon className="size-5" />
+              Prendre une photo
+            </Button>
+          </div>
+        </>
       )}
 
-      {!result && !busy && (
+      {!result && !busy && !missed && (
         <p className="px-5 pt-3 text-sm text-[var(--text-secondary)]">
           Une carte seule, à plat, entière dans le cadre. L'édition{' '}
           <span className="font-semibold text-[var(--text-primary)]">
@@ -165,18 +247,27 @@ export function Scanner() {
         </p>
       )}
 
-      {busy && (
-        <>
-          <Spinner />
-          <p className="text-center text-sm text-[var(--text-secondary)]">Identification…</p>
-        </>
+      {busy && <div className="pt-6"><Sounding label="Lecture de la carte" /></div>}
+
+      {missed && !busy && (
+        <div className="pt-4">
+          <ScanMiss
+            reason={missed}
+            onRetry={() => {
+              setMissed(null)
+              if (mode === 'photo') capture()
+            }}
+            onManual={() => navigate('/search')}
+          />
+        </div>
       )}
 
-      {error && (
-        <div className="px-5 pt-4">
-          <EmptyState title="Scan interrompu" action={<Button variant="quiet" onClick={capture}>Reprendre</Button>}>
-            {error}
-          </EmptyState>
+      {error && !busy && (
+        <div className="pt-4">
+          <Adrift onRetry={capture}>
+            Le serveur n'a pas répondu. Ta collection reste consultable ; c'est la
+            reconnaissance qui attend la liaison.
+          </Adrift>
         </div>
       )}
 
@@ -187,6 +278,15 @@ export function Scanner() {
           onSkip={skipCard}
           onRetry={capture}
           onSearch={() => navigate('/search')}
+        />
+      )}
+
+      {moment && (
+        <Moment
+          kind={moment.kind}
+          line={moment.line}
+          trigger={moment.at}
+          onDone={() => setMoment(null)}
         />
       )}
     </Screen>

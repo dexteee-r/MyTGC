@@ -293,6 +293,33 @@ body {
   }
 }
 
+/* The Log Pose needle: it swings, overshoots, settles back, and starts again. A
+   needle that rotates steadily reads as a loading spinner; one that hunts reads as
+   an instrument trying to find something. */
+@keyframes hz-seek {
+  0% {
+    transform: rotate(-28deg);
+  }
+  45% {
+    transform: rotate(24deg);
+  }
+  60% {
+    transform: rotate(18deg);
+  }
+  100% {
+    transform: rotate(-28deg);
+  }
+}
+
+@keyframes hz-bob {
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: translateY(5px);
+  }
+}
+
 /* The failure states. The water line breaks and the two halves draw apart — a
    dropped connection is not said with a crossed-out cloud. The sounding lead goes
    down looking for the bottom: the wait becomes the picture. */

@@ -50,14 +50,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               its top edge — the light has just been struck, and it goes out with the
               message. Squared off: nothing in this interface is a floating pill. */}
           <div
-            className="deck animate-ignite pointer-events-auto relative flex w-full max-w-md items-center gap-3 rounded-[2px] py-2.5 pr-2.5 pl-4"
-            style={{ boxShadow: 'var(--relief), 0 12px 28px rgba(0,0,0,0.65)' }}
+            className="hz-enter pointer-events-auto relative flex w-full max-w-md items-center gap-3 rounded-full py-2 pr-2 pl-5"
+            style={{
+              background: 'rgba(4,18,26,.86)',
+              color: 'var(--color-paper-100)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: '0 12px 30px rgba(0,0,0,.55), inset 0 0 0 1px rgba(243,230,203,.14)',
+            }}
           >
-            <span
-              aria-hidden
-              className="absolute inset-x-0 top-0 h-px bg-ember-500"
-              style={{ boxShadow: '0 0 8px 1px rgba(217,58,32,0.5)' }}
-            />
             <span className="min-w-0 flex-1 truncate text-sm">{toast.message}</span>
             {toast.undo && (
               <button
@@ -65,8 +66,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   toast.undo?.()
                   setToast(null)
                 }}
-                style={{ boxShadow: 'var(--groove)' }}
-                className="shrink-0 rounded-[2px] bg-[var(--surface-recessed)] px-3.5 py-2 text-sm font-semibold text-[var(--text-secondary)]"
+                className="min-h-[var(--touch)] shrink-0 rounded-full px-4 text-sm font-semibold"
+                style={{ background: 'rgba(243,230,203,.16)', color: 'var(--color-paper-100)' }}
               >
                 Annuler
               </button>
