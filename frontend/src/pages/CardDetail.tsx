@@ -149,7 +149,7 @@ export function CardDetail() {
         {owned ? (
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="t-deck">Dans ta collection</p>
+              <p className="t-plate">Dans ta collection</p>
               {owned.condition && (
                 <p className="t-code pt-1">{CONDITION_LABELS[owned.condition]}</p>
               )}

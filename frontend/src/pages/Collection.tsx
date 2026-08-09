@@ -109,7 +109,7 @@ export function Collection() {
                           className="h-11 w-[3px] shrink-0"
                         />
                         <div className="min-w-0">
-                          <p className="t-deck truncate">
+                          <p className="t-plate truncate">
                             {entry.card?.name ?? entry.card_id}
                           </p>
                           <p className="t-code pt-1">

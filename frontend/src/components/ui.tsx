@@ -76,7 +76,7 @@ export function PageHeader({
     <header className="flex items-end justify-between gap-4 px-5 pt-7 pb-4">
       <div className="min-w-0">
         {meta && <p className="t-eyebrow pb-2">{meta}</p>}
-        <h1 className="t-display truncate text-[2.5rem]">{title}</h1>
+        <h1 className="t-display truncate text-[clamp(1.75rem,8vw,2.5rem)]">{title}</h1>
       </div>
       {action}
     </header>

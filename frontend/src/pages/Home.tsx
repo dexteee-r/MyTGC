@@ -131,7 +131,7 @@ export function Home() {
                 className="block px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="t-deck truncate">{pack.pack_name}</span>
+                  <span className="t-plate truncate">{pack.pack_name}</span>
                   <span className="t-numeral shrink-0 text-sm">
                     {pack.owned_count}
                     <span className="text-[var(--text-faint)]">/{pack.card_count}</span>
