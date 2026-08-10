@@ -3,8 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the sky run under the status bar and the home
+         indicator; every edge that holds content pads itself with env(safe-area-*). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>MyTCG</title>
+
+    <!-- Installed to the home screen rather than shipped through a store. The two
+         reasons this app had to be native both have working equivalents on HTTPS:
+         getUserMedia drives the live scanner, and the refresh token already lives in
+         an httpOnly cookie on the web. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#06171d" />
+
+    <!-- iOS ignores the manifest for both the icon and the launch behaviour, so these
+         are not duplicates of it. The touch icon must be an opaque PNG: Safari fills
+         transparency with black, and the platform applies its own rounding, which is
+         why this one is square and full-bleed while the favicon keeps its corners. -->
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MyTCG" />
+    <!-- black-translucent puts the web view under the clock, which is what lets the
+         horizon reach the top of the screen. It is also why the safe-area padding
+         above is not optional. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   </head>
   <body>
     <div id="root"></div>

@@ -78,6 +78,8 @@ quand celui-ci remontera dans les priorités.
 - **Porte sur les images sans carte** : le scanner en continu n'envoie plus une image
   quand le cadre est vide. Seuil volontairement bas — sauter une vraie carte coûte plus
   cher qu'envoyer une image vide.
+- **Installable depuis Safari** : manifeste, icônes 180/192/512 tirées d'un seul SVG,
+  barre d'état translucide et marges de sécurité. Plein écran, sans barre d'adresse.
 - **Statistiques de collection** sur le carnet de bord : répartition par édition et par
   rareté, en barres. Le serveur les calculait déjà à chaque appel et personne ne les
   affichait.
@@ -93,5 +95,9 @@ quand celui-ci remontera dans les priorités.
 - Prix et valeur totale de la collection (demande une source de prix ; le prix saisi
   à la main sur les recherchées est déjà là)
 - Scan hors ligne
-- Build iOS via CI
+- **Build iOS natif** — bloqué par macOS, et payant pour installer sur un vrai
+  iPhone (99 €/an). L'app s'installe désormais depuis Safari, ce qui couvre les deux
+  seules raisons d'être natif : `getUserMedia` fait tourner le scan, et le jeton de
+  renouvellement est déjà dans un cookie httpOnly côté web. À rouvrir seulement si
+  quelque chose manque à l'usage.
 - Renommer le dépôt et les dossiers `MyTGC` → `MyTCG`

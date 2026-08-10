@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- The app icon, distinct from favicon.svg on one point: it is full-bleed and
+       square. iOS and Android apply their own mask — a squircle here, a circle there —
+       so an icon that rounds its own corners ends up with the page showing through the
+       gap, or with its corners clipped twice. The browser tab keeps the rounded one. -->
+  <title>MyTCG</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123049"/>
+      <stop offset="0.5" stop-color="#8fc0b4"/>
+      <stop offset="0.6" stop-color="#f3dda8"/>
+      <stop offset="0.64" stop-color="#14454f"/>
+      <stop offset="1" stop-color="#04121a"/>
+    </linearGradient>
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff5d6"/>
+      <stop offset="0.55" stop-color="#ffd27a"/>
+      <stop offset="1" stop-color="#c9922a"/>
+    </radialGradient>
+    <linearGradient id="glint" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffd27a" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <!-- The sun on the water line, half of it already gone. -->
+  <circle cx="256" cy="318" r="118" fill="url(#disc)"/>
+  <rect x="0" y="318" width="512" height="194" fill="#0a2833"/>
+  <!-- Its reflection, faded rather than cut off: a flat rectangle ends on a hard edge
+       that reads as a notch punched in the water at icon size. -->
+  <rect x="230" y="318" width="52" height="150" fill="url(#glint)"/>
+  <path d="M0 356 Q128 324 256 356 T512 356 L512 512 L0 512 Z" fill="#08222c"/>
+  <path d="M0 412 Q144 380 272 412 T512 404 L512 512 L0 512 Z" fill="#04121a"/>
+</svg>

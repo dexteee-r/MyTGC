@@ -146,7 +146,7 @@ function Shell() {
           <TabBar />
           <main
             key={pathname}
-            className="hz-enter mx-auto min-h-0 w-full min-w-0 max-w-2xl flex-1 lg:max-w-5xl"
+            className="hz-enter mx-auto min-h-0 w-full min-w-0 max-w-2xl flex-1 pt-[env(safe-area-inset-top)] lg:max-w-5xl lg:pt-0"
           >
             <Routes>
               <Route path="/" element={<Home />} />
@@ -177,7 +177,7 @@ function TabBar() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="deck order-last shrink-0 border-t border-[var(--surface-rail)] pb-[env(safe-area-inset-bottom)] lg:order-first lg:border-t-0 lg:border-b lg:pb-0"
+      className="deck order-last shrink-0 border-t border-[var(--surface-rail)] pb-[env(safe-area-inset-bottom)] lg:order-first lg:border-t-0 lg:border-b lg:pt-[env(safe-area-inset-top)] lg:pb-0"
     >
       <div className="flex lg:justify-center lg:gap-1 lg:py-2">
         {TABS.map(({ to, label, rail, Icon }) => (
