@@ -19,7 +19,7 @@ export const RARITIES = [
   'Promo',
 ]
 
-export type Sort = 'code' | 'recent' | 'name'
+export type Sort = 'code' | 'set' | 'name'
 
 export interface FilterState {
   /* null is both editions. The catalogue holds each card twice and searching a name
@@ -166,7 +166,7 @@ export function FilterSheet({
           value={state.sort}
           options={[
             { value: 'code' as const, label: 'Par code' },
-            { value: 'recent' as const, label: 'Plus récentes' },
+            { value: 'set' as const, label: 'Par extension' },
             { value: 'name' as const, label: 'A → Z' },
           ]}
           onChange={(next) => set('sort', next)}

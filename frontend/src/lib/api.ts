@@ -88,9 +88,9 @@ export interface CardQuery {
   category?: string
   color?: string[]
   owned?: boolean
-  /* There is no release date in the catalogue, so `recent` sorts on pack_id, which
-     does track the order sets came out. */
-  sort?: 'code' | 'recent' | 'name'
+  /* There is no release date in the catalogue and no proxy for one that survives
+     contact with the data, so the third order is by set code rather than by time. */
+  sort?: 'code' | 'set' | 'name'
   offset?: number
   limit?: number
 }

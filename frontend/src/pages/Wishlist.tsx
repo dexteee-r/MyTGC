@@ -69,9 +69,9 @@ export function Wishlist() {
       code: (a: WishlistEntry, b: WishlistEntry) => a.card_id.localeCompare(b.card_id),
       name: (a: WishlistEntry, b: WishlistEntry) =>
         (a.card?.name ?? a.card_id).localeCompare(b.card?.name ?? b.card_id),
-      /* No release date exists, so "newest" is the set code descending — the same
-         proxy the catalogue search uses, and the same honesty about it. */
-      recent: (a: WishlistEntry, b: WishlistEntry) =>
+      /* By set code descending, the same order the catalogue search uses. Not by
+         date: there is none in the data. */
+      set: (a: WishlistEntry, b: WishlistEntry) =>
         (b.card?.pack_code ?? '').localeCompare(a.card?.pack_code ?? ''),
     }[filters.sort]
     return [...list].sort(by)

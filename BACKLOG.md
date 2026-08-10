@@ -18,11 +18,23 @@ d'extension, recherchées. **Restent : la fiche carte, le compte.**
 
 ## Chercher
 
-### Filtrer par date de sortie exacte
-Toujours bloqué, et vérifié cette fois : **aucune date nulle part** dans punk-records —
-ni dans les cartes, ni dans l'index, ni dans le manifeste. Le tri « Plus récentes » livré
-s'appuie sur `pack_id`, qui suit l'ordre de parution (OP-01 = 569101, OP-16 = 569116).
-Une vraie date demanderait une seconde source.
+### Filtrer par date de sortie
+**Pas fait, et pas contournable.** Aucune date nulle part dans punk-records — ni dans
+les cartes, ni dans l'index, ni dans le manifeste, les trois vérifiés.
+
+`pack_id` a été essayé comme approximation et **il ne tient pas** : il suit l'ordre à
+l'intérieur d'une famille (OP-01 = 569101, OP-16 = 569116) mais pas entre familles —
+EB-01 est 569201 et passerait devant toutes les extensions OP, et deux extensions sans
+code du tout siègent au-dessus de tout à 569801 et 569901. Le tri livré s'appelle
+maintenant « Par extension » et trie sur le code, ce qu'il fait réellement.
+
+Deux façons d'avoir la vraie chose, à trancher :
+
+1. **Une table de dates dans le dépôt.** Une soixantaine d'extensions, une date chacune,
+   à sourcer à la main. Les dates passées ne bougent plus ; il faut ajouter une ligne à
+   chaque nouvelle extension. Permet un vrai filtre (« sorties en 2025 ») et un vrai tri.
+2. **Une seconde source de données.** Un site officiel ou une API communautaire qui
+   expose la date par extension, branchée sur l'import. Plus juste, plus fragile.
 
 ---
 

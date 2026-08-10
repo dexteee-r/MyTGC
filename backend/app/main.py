@@ -331,12 +331,20 @@ def delete_account(conn: Conn, user: User, response: Response):
 # --- catalogue ------------------------------------------------------------------
 
 # There is no release date anywhere in the catalogue: neither the card records, nor
-# the index, nor the manifest of punk-records carries one. pack_id does track release
-# order though -- OP-01 is 569101 and OP-16 is 569116 -- so "newest first" sorts on
-# that and is described as sets rather than dates, which is what it honestly is.
+# the index, nor the manifest of punk-records carries one.
+#
+# pack_id was tried as a proxy and it does not hold. It tracks order *within* a
+# family -- OP-01 is 569101 and OP-16 is 569116 -- but not across them: EB-01 is
+# 569201 and would outrank every OP set, and two sets with no code at all sit above
+# everything at 569801 and 569901. A "most recent" sort built on it puts nameless
+# promo buckets first, which is worse than not offering the sort.
+#
+# So this one orders by the set code the user can actually see, descending, with the
+# codeless sets last, and it is labelled for what it does rather than for what would
+# have been nicer. A real chronological sort needs a real date source.
 SORTS = {
     "code": "language, id",
-    "recent": "pack_id DESC, id",
+    "set": "pack_code IS NULL, pack_code DESC, id",
     "name": "name COLLATE NOCASE, id",
 }
 
@@ -352,7 +360,7 @@ def search_cards(
     category: str | None = None,
     color: list[str] | None = Query(None, description="repeatable; any of them matches"),
     owned: bool | None = Query(None, description="restrict to cards in the collection"),
-    sort: str = Query("code", description="code | recent | name"),
+    sort: str = Query("code", description="code | set | name"),
     offset: int = Query(0, ge=0),
     limit: int = Query(60, ge=1, le=200),
 ):
