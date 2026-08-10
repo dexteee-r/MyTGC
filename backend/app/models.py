@@ -184,6 +184,10 @@ class ScanCandidate(BaseModel):
 
 
 class ScanResult(BaseModel):
+    # Why nothing came back, when nothing came back. The interface turns each of
+    # these into an instruction; 'none' means the frame looked fine and the card was
+    # simply not in it, which is the honest answer rather than an invented cause.
+    reason: Literal["light", "blur", "glare", "unknown", "none"] | None = None
     detected: bool
     # Confident means: inside the calibrated distance threshold and clearly ahead of
     # the runner-up. The step-5 gate showed correct answers land at distance 14-50 and

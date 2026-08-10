@@ -73,15 +73,15 @@ export function Scanner() {
 
   const capture = () => inputRef.current?.click()
 
-  /* `detected` says the frame held a card, so the two failures are different things
-     and deserve different advice: nothing in the frame, versus a card the catalogue
-     does not know. */
-  const failureOf = (scan: ScanResult): ScanFailure | null =>
-    scan.detected && scan.candidates.length === 0
-      ? 'unknown'
-      : !scan.detected
-        ? 'none'
-        : null
+  /* The server measures the cause from the frame it already decoded — too dark, a
+     reflection, out of focus — so this takes what it says rather than guessing from
+     the one bit it used to return. The fallback keeps working against an older
+     deployment, which during a rolling update is the version half the requests hit. */
+  const failureOf = (scan: ScanResult): ScanFailure | null => {
+    if (scan.candidates.length > 0) return null
+    if (scan.reason) return scan.reason
+    return scan.detected ? 'unknown' : 'none'
+  }
 
   const onLiveResult = useCallback((incoming: ScanResult) => {
     // Freeze on the first hit and let the user confirm. Auto-adding from a live

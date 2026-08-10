@@ -32,12 +32,7 @@ Une vraie date demanderait une seconde source.
 Recherche faite, voir `RECHERCHE-SCAN.md`. Conclusion : ne pas remplacer l'algorithme.
 Le premier des trois chantiers — ne pas envoyer les images sans carte — est fait.
 
-Restent les deux autres :
-
-**Dire pourquoi le scan a raté.** `ScanMiss` gère cinq causes dans l'interface, le
-serveur n'en renvoie qu'une (détecté ou pas). Le pipeline sait plus que ça : netteté du
-contour, variance de luminance, saturation des hautes lumières. Renvoyer `light`, `blur`
-ou `glare` transformerait un échec muet en consigne.
+Reste le dernier :
 
 **Détection embarquée.** Le point B de la recherche, pour le scan hors ligne. À faire
 quand celui-ci remontera dans les priorités.
@@ -71,6 +66,9 @@ quand celui-ci remontera dans les priorités.
 - **Porte sur les images sans carte** : le scanner en continu n'envoie plus une image
   quand le cadre est vide. Seuil volontairement bas — sauter une vraie carte coûte plus
   cher qu'envoyer une image vide.
+- **Le scan dit pourquoi il a raté** : trop sombre, reflet, flou, ou carte inconnue du
+  catalogue. Mesuré côté serveur sur l'image déjà décodée, et seulement sur le chemin
+  d'échec. Les cinq états de `ScanMiss` sont enfin tous atteignables.
 
 ---
 

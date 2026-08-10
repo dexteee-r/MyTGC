@@ -109,6 +109,10 @@ export interface ScanResult {
   margin: number | null
   candidates: ScanCandidate[]
   message: string | null
+  /* Why nothing came back, when nothing came back. The server measures it from the
+     frame it already decoded; 'none' means the picture was fine and the card simply
+     was not in it, which is more useful than inventing a fault. */
+  reason?: 'light' | 'blur' | 'glare' | 'unknown' | 'none' | null
 }
 
 export const CONDITION_LABELS: Record<Condition, string> = {

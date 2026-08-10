@@ -29,7 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from app import auth, db, detection, hashing, recognition, throttle
+from app import auth, db, detection, diagnosis, hashing, recognition, throttle
 from app.config import BACKEND_DIR, IMAGE_CACHE_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         Invite, InviteCreate,
@@ -485,7 +485,9 @@ async def scan(
     with throttle.scan_slot():
         rectified = detection.detect_and_deskew(image)
     if rectified is None:
+        # Only on the empty path: a scan that worked pays nothing for this.
         return ScanResult(detected=False, confident=False,
+                          reason=diagnosis.diagnose(image),
                           message="Aucune carte détectée. Cadre la carte entière sur "
                                   "un fond uni.")
 
@@ -503,7 +505,10 @@ async def scan(
                 best = result
 
     if best is None or not best.candidates:
-        return ScanResult(detected=True, confident=False,
+        # The frame held a card and the catalogue does not know it: a set too new, a
+        # promo, a foreign printing. Nothing about the photo needs fixing, so this is
+        # never diagnosed as blur or glare.
+        return ScanResult(detected=True, confident=False, reason="unknown",
                           message="Carte détectée mais non reconnue. Réessaie en "
                                   "cadrant mieux, ou passe par la recherche.")
 
@@ -512,7 +517,7 @@ async def scan(
     # merely because the Japanese printing of the same artwork ranked above it.
     kept = [c for c in best.candidates if language is None or c.language == language]
     if not kept:
-        return ScanResult(detected=True, confident=False,
+        return ScanResult(detected=True, confident=False, reason="unknown",
                           message="Aucune correspondance dans cette édition. Vérifie "
                                   "la langue sélectionnée.")
 
