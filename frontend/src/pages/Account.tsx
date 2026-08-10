@@ -5,6 +5,7 @@ import { Button, PageHeader, Screen, Segmented } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useCollection } from '../lib/collection'
+import { Breakdown } from '../components/Breakdown'
 import { downloadCollection } from '../lib/export'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
@@ -108,6 +109,8 @@ export function Account() {
           label="du catalogue"
         />
       </dl>
+
+      {stats && <Breakdown stats={stats} />}
 
       {/* The default edition. It belongs here rather than in a settings screen that
           does not exist, and it is the account's setting now, not the session's. */}

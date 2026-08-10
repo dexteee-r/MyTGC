@@ -57,7 +57,7 @@ function skyFor(path: string): { variant: SkyVariant; quiet: boolean } {
   if (path === '/search') return { variant: 'deep', quiet: false }
   if (path === '/wishlist') return { variant: 'paper', quiet: false }
   if (path === '/collection') return { variant: 'dawn', quiet: true }
-  if (path === '/account') return { variant: 'dusk', quiet: false }
+  if (path === '/account') return { variant: 'dusk', quiet: true }
   return { variant: 'dusk', quiet: false }
 }
 

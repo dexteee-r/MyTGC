@@ -78,6 +78,9 @@ quand celui-ci remontera dans les priorités.
 - **Porte sur les images sans carte** : le scanner en continu n'envoie plus une image
   quand le cadre est vide. Seuil volontairement bas — sauter une vraie carte coûte plus
   cher qu'envoyer une image vide.
+- **Statistiques de collection** sur le carnet de bord : répartition par édition et par
+  rareté, en barres. Le serveur les calculait déjà à chaque appel et personne ne les
+  affichait.
 - **Le scan dit pourquoi il a raté** : trop sombre, reflet, flou, ou carte inconnue du
   catalogue. Mesuré côté serveur sur l'image déjà décodée, et seulement sur le chemin
   d'échec. Les cinq états de `ScanMiss` sont enfin tous atteignables.
@@ -90,6 +93,5 @@ quand celui-ci remontera dans les priorités.
 - Prix et valeur totale de la collection (demande une source de prix ; le prix saisi
   à la main sur les recherchées est déjà là)
 - Scan hors ligne
-- Statistiques de collection
 - Build iOS via CI
 - Renommer le dépôt et les dossiers `MyTGC` → `MyTCG`
