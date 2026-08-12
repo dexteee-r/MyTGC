@@ -104,8 +104,8 @@ export function FilterSheet({
         </div>
       }
     >
-      {/* Filters apply as they are tapped: the count in the footer moves with each
-          one, and that count is the answer the panel was opened for. */}
+      {/* 2. Ajout d'une div globale text-white pour tout le contenu intérieur */}
+      <div className="text-white">
       <Group label="Édition">
         <Segmented
           value={state.language ?? 'all'}

@@ -14,12 +14,17 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useLanguage } from '../lib/language'
 import type { Card } from '../lib/types'
+import { SearchHistoryUI } from '../components/SearchHistoryUI'
+import { useSearchHistory } from '../lib/useSearchHistory'
+
+
 
 const PAGE = 60
 
 export function Search() {
   const { language } = useLanguage()
   const { user, setUser } = useAuth()
+  const { history, addSearch } = useSearchHistory(user?.token || '')
   const [query, setQuery] = useState('')
   const [cards, setCards] = useState<Card[]>([])
   const [total, setTotal] = useState(0)
@@ -104,6 +109,7 @@ export function Search() {
           style={{ background: 'var(--surface-recessed)' }}
         >
           <SearchIcon className="size-4 shrink-0 text-[var(--text-faint)]" />
+          
           <input
             value={query}
             onChange={(event) => {
@@ -111,6 +117,13 @@ export function Search() {
               setTyping(true)
             }}
             onFocus={() => setTyping(true)}
+            onBlur={() => setTimeout(() => setTyping(false), 200)} // Masque quand on clique ailleurs
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && query.trim()) {
+                addSearch(query)
+                setTyping(false)
+              }
+            }}
             placeholder="Nom ou code (OP09-093)"
             aria-label="Rechercher une carte"
             className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-[var(--text-faint)]"
@@ -157,7 +170,18 @@ export function Search() {
         </div>
       )}
 
-      {failed ? (
+      {typing && query.trim().length === 0 ? (
+        <div className="px-5">
+          <SearchHistoryUI 
+            history={history} 
+            onSelectHistory={(q) => {
+              setQuery(q)
+              addSearch(q)
+              setTyping(false)
+            }} 
+          />
+        </div>
+      ) : failed ? (
         <div className="pt-8">
           <Adrift onRetry={() => setQuery((q) => q)} />
         </div>

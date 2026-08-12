@@ -146,3 +146,13 @@ CREATE TABLE IF NOT EXISTS catalogue_meta (
     card_count    INTEGER NOT NULL,
     imported_at   TEXT NOT NULL
 );
+
+
+
+CREATE TABLE IF NOT EXISTS search_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    query TEXT NOT NULL,
+    searched_at TEXT NOT NULL,
+    UNIQUE(user_id, query)
+);
