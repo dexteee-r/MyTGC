@@ -106,90 +106,88 @@ export function FilterSheet({
     >
       {/* 2. Ajout d'une div globale text-white pour tout le contenu intérieur */}
       <div className="text-white">
-      <Group label="Édition">
-        <Segmented
-          value={state.language ?? 'all'}
-          options={[
-            { value: 'all' as const, label: 'Les deux' },
-            { value: 'en' as const, label: <Edition language="en" /> },
-            { value: 'jp' as const, label: <Edition language="jp" /> },
-          ]}
-          onChange={(next) => set('language', next === 'all' ? null : (next as Language))}
-          label="Édition"
-        />
-      </Group>
+        <Group label="Édition">
+          <Segmented
+            value={state.language ?? 'all'}
+            options={[
+              { value: 'all' as const, label: 'Les deux' },
+              { value: 'en' as const, label: <Edition language="en" /> },
+              { value: 'jp' as const, label: <Edition language="jp" /> },
+            ]}
+            onChange={(next) => set('language', next === 'all' ? null : (next as Language))}
+            label="Édition"
+          />
+        </Group>
 
-      {owned && (
-      <Group label="Collection">
-        <Chip
-          active={state.owned === true}
-          onClick={() => set('owned', state.owned === true ? null : true)}
-        >
-          Possédées
-        </Chip>
-        <Chip
-          active={state.owned === false}
-          onClick={() => set('owned', state.owned === false ? null : false)}
-        >
-          Manquantes
-        </Chip>
-      </Group>
-      )}
-
-      <Group label="Couleur">
-        {CARD_COLORS.map((name) => (
+        {owned && (
+        <Group label="Collection">
           <Chip
-            key={name}
-            swatch={name}
-            active={state.colors.includes(name)}
-            onClick={() => set('colors', toggle(state.colors, name))}
+            active={state.owned === true}
+            onClick={() => set('owned', state.owned === true ? null : true)}
           >
-            {name}
+            Possédées
           </Chip>
-        ))}
-      </Group>
-
-      <Group label="Rareté">
-        {RARITIES.map((name) => (
           <Chip
-            key={name}
-            active={state.rarities.includes(name)}
-            onClick={() => set('rarities', toggle(state.rarities, name))}
+            active={state.owned === false}
+            onClick={() => set('owned', state.owned === false ? null : false)}
           >
-            {name}
+            Manquantes
           </Chip>
-        ))}
-      </Group>
+        </Group>
+        )}
 
-      <Group label="Trier">
-        <Segmented
-          value={state.sort}
-          options={[
-            { value: 'code' as const, label: 'Par code' },
-            { value: 'set' as const, label: 'Par extension' },
-            { value: 'name' as const, label: 'A → Z' },
-          ]}
-          onChange={(next) => set('sort', next)}
-          label="Trier"
-        />
-      </Group>
+        <Group label="Couleur">
+          {CARD_COLORS.map((name) => (
+            <Chip
+              key={name}
+              swatch={name}
+              active={state.colors.includes(name)}
+              onClick={() => set('colors', toggle(state.colors, name))}
+            >
+              {name}
+            </Chip>
+          ))}
+        </Group>
 
-      {/* Not a viewport question — two is readable and three fits more, and which
-          one is right is a taste. So it is a preference, and it is set here rather
-          than in a settings screen nobody would go to for it. */}
-      {columns && (
-      <Group label="Affichage">
-        <Segmented
-          value={String(state.columns)}
-          options={[
-            { value: '2', label: '2 par ligne' },
-            { value: '3', label: '3 par ligne' },
-          ]}
-          onChange={(next) => set('columns', Number(next))}
-          label="Cartes par ligne"
-        />
-      </Group>
-      )}
+        <Group label="Rareté">
+          {RARITIES.map((name) => (
+            <Chip
+              key={name}
+              active={state.rarities.includes(name)}
+              onClick={() => set('rarities', toggle(state.rarities, name))}
+            >
+              {name}
+            </Chip>
+          ))}
+        </Group>
+
+        <Group label="Trier">
+          <Segmented
+            value={state.sort}
+            options={[
+              { value: 'code' as const, label: 'Par code' },
+              { value: 'set' as const, label: 'Par extension' },
+              { value: 'name' as const, label: 'A → Z' },
+            ]}
+            onChange={(next) => set('sort', next)}
+            label="Trier"
+          />
+        </Group>
+
+        {columns && (
+        <Group label="Affichage">
+          <Segmented
+            value={String(state.columns)}
+            options={[
+              { value: '2', label: '2 par ligne' },
+              { value: '3', label: '3 par ligne' },
+            ]}
+            onChange={(next) => set('columns', Number(next))}
+            label="Cartes par ligne"
+          />
+        </Group>
+        )}
+      </div>
     </Sheet>
   )
 }

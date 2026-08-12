@@ -362,14 +362,29 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         className="hz-enter relative max-h-[82%] overflow-y-auto rounded-t-[22px] pb-[env(safe-area-inset-bottom)]"
-        style={{ background: 'var(--color-sea-900)', boxShadow: 'var(--shadow-deck)' }}
+        style={{
+          background: 'var(--color-sea-900)',
+          boxShadow: 'var(--shadow-deck)',
+          /* ISOLATION DU THÈME : On force les variables CSS vitales de tes filtres
+             vers les valeurs du thème sombre (ton beige/blanc cassé). Cela protège 
+             la modale des modifications de thème de la page parente. */
+          color: 'rgba(243, 230, 203, 1)',
+          '--text-primary': 'rgba(243, 230, 203, 1)',
+          '--text-secondary': 'rgba(243, 230, 203, 0.55)',
+          '--surface-rail': 'rgba(243, 230, 203, 0.12)',
+          '--surface-recessed': 'rgba(0, 0, 0, 0.25)',
+        } as React.CSSProperties}
       >
         <header
           className="sticky top-0 z-10 flex items-center justify-between gap-4 px-5 pt-5 pb-3"
           style={{ background: 'var(--color-sea-900)' }}
         >
           <h2 className="t-display text-[1.35rem]">{title}</h2>
-          <button onClick={onClose} className="t-code -mr-2 min-h-[var(--touch)] px-2">
+          <button 
+            onClick={onClose} 
+            className="t-code -mr-2 min-h-[var(--touch)] px-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Fermer
           </button>
         </header>

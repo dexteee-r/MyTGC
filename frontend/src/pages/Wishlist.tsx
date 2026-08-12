@@ -102,89 +102,98 @@ export function Wishlist() {
   if (failed) return <Screen><div className="pt-10"><Adrift onRetry={load} /></div></Screen>
   if (!entries) return <Screen><div className="pt-10"><Sounding label="Relevé des primes" /></div></Screen>
 
-  return (
-    <Screen>
-      <PageHeader
-        title="Recherchées"
-        meta={
-          entries.length
-            ? `${shown.length} sur ${entries.length} · avis de recherche`
-            : 'avis de recherche'
-        }
-        action={
-          entries.length > 0 ? (
-            <button
-              onClick={() => setFiltersOpen(true)}
-              aria-haspopup="dialog"
-              aria-label={
-                applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
-              }
-              className="grid size-[46px] shrink-0 place-items-center rounded-full"
-              style={{
-                background: isFiltered(filters)
-                  ? 'var(--gradient-sun)'
-                  : 'rgba(34,28,18,.1)',
-                color: isFiltered(filters) ? 'var(--color-paper-ink)' : 'inherit',
-              }}
-            >
-              <svg viewBox="0 0 20 20" fill="none" className="size-[18px]" aria-hidden>
-                <path
-                  d="M3 5h14M6 10h8M8.5 15h3"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              </svg>
+return (
+    <>
+      <Screen>
+        <PageHeader
+          title="Recherchées"
+          meta={
+            entries.length
+              ? `${shown.length} sur ${entries.length} · avis de recherche`
+              : 'avis de recherche'
+          }
+          action={
+            entries.length > 0 ? (
+              <button
+                onClick={() => setFiltersOpen(true)}
+                aria-haspopup="dialog"
+                aria-label={
+                  applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
+                }
+                className="grid size-[46px] shrink-0 place-items-center rounded-full"
+                style={{
+                  background: isFiltered(filters)
+                    ? 'var(--gradient-sun)'
+                    : 'rgba(34,28,18,.1)',
+                  color: isFiltered(filters) ? 'var(--color-paper-ink)' : 'inherit',
+                }}
+              >
+                <svg viewBox="0 0 20 20" fill="none" className="size-[18px]" aria-hidden>
+                  <path
+                    d="M3 5h14M6 10h8M8.5 15h3"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            ) : undefined
+          }
+        />
+
+        {applied.length > 0 && (
+          <div className="flex items-center gap-2 px-5 pb-2">
+            <p className="t-code min-w-0 flex-1 truncate">{applied.join(' · ')}</p>
+            <button onClick={clear} className="t-code min-h-[var(--touch)] shrink-0 px-2">
+              Tout effacer
             </button>
-          ) : undefined
-        }
-      />
+          </div>
+        )}
 
-      {applied.length > 0 && (
-        <div className="flex items-center gap-2 px-5 pb-2">
-          <p className="t-code min-w-0 flex-1 truncate">{applied.join(' · ')}</p>
-          <button onClick={clear} className="t-code min-h-[var(--touch)] shrink-0 px-2">
-            Tout effacer
-          </button>
-        </div>
-      )}
+        {entries.length === 0 ? (
+          <div className="pt-4">
+            <EmptyState
+              title="Aucun avis affiché"
+              action={
+                <Link to="/search">
+                  <Button>Parcourir le catalogue</Button>
+                </Link>
+              }
+            >
+              Marque une carte comme recherchée depuis sa fiche et son avis s'affichera ici.
+            </EmptyState>
+          </div>
+        ) : (
+          <ul className="px-4 pt-1">
+            {shown.map((entry) => (
+              <Poster
+                key={`${entry.card_id}-${entry.language}`}
+                entry={entry}
+                onRemove={() => remove(entry)}
+                onPatch={(change) => patch(entry, change)}
+              />
+            ))}
+          </ul>
+        )}
+      </Screen>
 
-      {entries.length === 0 ? (
-        <div className="pt-4">
-          <EmptyState
-            title="Aucun avis affiché"
-            action={
-              <Link to="/search">
-                <Button>Parcourir le catalogue</Button>
-              </Link>
-            }
-          >
-            Marque une carte comme recherchée depuis sa fiche et son avis s'affichera ici.
-          </EmptyState>
-        </div>
-      ) : (
-        <ul className="px-4 pt-1">
-          {shown.map((entry) => (
-            <Poster
-              key={`${entry.card_id}-${entry.language}`}
-              entry={entry}
-              onRemove={() => remove(entry)}
-              onPatch={(change) => patch(entry, change)}
-            />
-          ))}
-        </ul>
-      )}
-      <FilterSheet
-        open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        state={filters}
-        onChange={setFilters}
-        onClear={clear}
-        total={shown.length}
-        columns={false}
-        owned={false}
-      />
-    </Screen>
+      {/* 
+        1. Le FilterSheet est sorti du Screen pour éviter les conflits de z-index
+        2. La div text-white force le retour au texte clair pour écraser la couleur INK de la page 
+      */}
+      <div className="text-white">
+        <FilterSheet
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          state={filters}
+          onChange={setFilters}
+          onClear={clear}
+          total={shown.length}
+          columns={false}
+          owned={false}
+        />
+      </div>
+    </>
   )
 }
 
