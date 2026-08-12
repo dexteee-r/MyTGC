@@ -24,7 +24,7 @@ const PAGE = 60
 export function Search() {
   const { language } = useLanguage()
   const { user, setUser } = useAuth()
-  const { history, addSearch } = useSearchHistory(user?.token || '')
+  const { history, addSearch } = useSearchHistory()
   const [query, setQuery] = useState('')
   const [cards, setCards] = useState<Card[]>([])
   const [total, setTotal] = useState(0)

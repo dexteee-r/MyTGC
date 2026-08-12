@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { saveSearchToApi } from './historyApi';
 
-export const useSearchHistory = (token: string) => {
+export const useSearchHistory = () => {
   const [history, setHistory] = useState<string[]>([]);
 
   const addSearch = useCallback((query: string) => {
@@ -13,8 +13,9 @@ export const useSearchHistory = (token: string) => {
       return [trimmedQuery, ...filtered].slice(0, 7);
     });
 
-    saveSearchToApi(trimmedQuery, token);
-  }, [token]);
+    // L'appel se fait désormais sans passer de token
+    saveSearchToApi(trimmedQuery);
+  }, []);
 
   return { history, setHistory, addSearch };
 };
