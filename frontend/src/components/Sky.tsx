@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 
 /* ── The place ──────────────────────────────────────────────────────────────
    The background of every screen. Each screen has its hour, which is what gives the
@@ -77,11 +77,18 @@ export function Sky({
   showWaves = true,
   showShip = true,
   quiet = false,
+  video,
+  poster,
 }: {
   variant?: SkyVariant
   scrollY?: number
   showWaves?: boolean
   showShip?: boolean
+  /* A loop that replaces the drawn sky entirely. Reserved for the sign-in screen:
+     behind a grid the decor is supposed to withdraw, and a video running on a screen
+     where the user spends time is paid for in battery. */
+  video?: string
+  poster?: string
   /* The mode for content screens. On a full screen the sky reads as a place; cut
      down to a band above a grid you stop seeing a sky and start seeing the shapes
      it is made of — a perfect circle, parallel curves, a straight edge. So the
@@ -89,6 +96,18 @@ export function Sky({
   quiet?: boolean
 }) {
   const reduced = usePrefersReducedMotion()
+
+  /* The fallback hangs off local state rather than off the prop: a missing file, a
+     404, a codec the browser will not decode, a refused autoplay — in all four cases
+     the drawn sky has to come back, and only the <video> element knows it failed.
+     Trusting the prop would leave a black rectangle with nothing to catch it. */
+  const [videoOk, setVideoOk] = useState(Boolean(video))
+  useEffect(() => setVideoOk(Boolean(video)), [video])
+  /* CSS cannot pause a video: prefers-reduced-motion does not suspend autoplay, so
+     the decision is made here, and it lands on the drawn sky that is already the
+     fallback for everything else. */
+  const showVideo = videoOk && !reduced
+
   const clouds = useMemo(
     () => [
       { top: '9%', w: 150, dur: 68, delay: -12 },
@@ -115,7 +134,7 @@ export function Sky({
      swell crest is a stray line drawn across the cards rather than a sea. The grids
      run on `deep`, and it is their screens where the decor has to get out of the
      way. */
-  const waves = showWaves && !reduced && variant !== 'deep'
+  const waves = showWaves && !reduced && !showVideo && variant !== 'deep'
   const ship = waves && showShip && !quiet && variant !== 'paper'
 
   return (
@@ -124,10 +143,46 @@ export function Sky({
       className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       style={{ transform: `translateY(${-scrollY * 0.22}px)` }}
     >
-      <div
-        className="absolute inset-0"
-        style={{ background: SKY[variant], transition: 'background 1.2s cubic-bezier(.4,0,.2,1)' }}
-      />
+      {showVideo && (
+        <div className="absolute inset-0 overflow-hidden">
+          <video
+            /* muted set through the ref as well as the attribute: React does not
+               always reflect it onto the DOM on the first render, and a background
+               that makes noise is a bug in any room. */
+            ref={(el) => {
+              if (el) {
+                el.muted = true
+                el.defaultMuted = true
+                el.volume = 0
+              }
+            }}
+            src={video}
+            poster={poster}
+            autoPlay
+            muted
+            loop
+            playsInline
+            onError={() => setVideoOk(false)}
+            className="block size-full object-cover"
+          />
+          {/* Not decoration: a moving image swings through its own value range, and
+              text laid on it disappears the moment the frame brightens. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(6,23,29,.15) 0%, rgba(6,23,29,.35) 55%, rgba(6,23,29,.88) 100%)',
+            }}
+          />
+        </div>
+      )}
+
+      {!showVideo && (
+        <div
+          className="absolute inset-0"
+          style={{ background: SKY[variant], transition: 'background 1.2s cubic-bezier(.4,0,.2,1)' }}
+        />
+      )}
 
       {variant === 'night' &&
         stars.map((star, i) => (
@@ -142,7 +197,7 @@ export function Sky({
           />
         ))}
 
-      {sun && !quiet && (
+      {!showVideo && sun && !quiet && (
         <div
           className="absolute rounded-full"
           style={{
@@ -158,7 +213,7 @@ export function Sky({
         />
       )}
 
-      {variant === 'mist' && (
+      {!showVideo && variant === 'mist' && (
         <>
           <div
             className="absolute"
@@ -189,7 +244,8 @@ export function Sky({
         </>
       )}
 
-      {!quiet &&
+      {!showVideo &&
+        !quiet &&
         variant !== 'paper' &&
         variant !== 'mist' &&
         clouds.map((cloud, i) => (

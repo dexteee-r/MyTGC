@@ -16,6 +16,7 @@ import {
   WantedIcon,
 } from './components/icons'
 import { Spinner } from './components/ui'
+import { API_BASE } from './lib/api'
 import { AuthProvider, useAuth } from './lib/auth'
 import { CollectionProvider } from './lib/collection'
 import { LanguageProvider } from './lib/language'
@@ -86,14 +87,21 @@ function Gate() {
   if (!user)
     return (
       <div className="relative h-full overflow-hidden">
-        <Sky variant="dawn" />
+        {/* The one screen allowed to be purely an image. Served from the API rather
+            than bundled: the clip is copyrighted, so it lives beside the card artwork
+            under backend/data and never enters a public repository. If it is not on
+            the box, Sky falls back to the drawn dawn on its own. */}
+        <Sky variant="dawn" video={`${API_BASE}/media/hero.mp4`} poster={`${API_BASE}/media/hero.jpg`} />
         {/* Sky is positioned at z-index 0, and a positioned element paints above
             static content whatever the DOM order — without a stacking context of its
             own the whole sign-in form ended up underneath the sky. Every screen that
             sits over Sky needs this; the Scrim carries it for the rest of the app. */}
         {/* Same veil as every other screen: the wordmark and the labels sit on the
             brightest band of the sky, which is where bare text measures 1.08:1. */}
-        <Scrim over="dawn" className="h-full">
+        {/* Soft here, and only here: the video carries its own veil, and stacking the
+            full one on top of it buries the ship the screen exists to show. The form
+            sits at the foot, where the video's own gradient is already at .88. */}
+        <Scrim over="dawn" strength="soft" className="h-full">
           <SignIn />
         </Scrim>
       </div>

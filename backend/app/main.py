@@ -30,7 +30,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 
 from app import auth, db, detection, diagnosis, hashing, recognition, throttle
-from app.config import BACKEND_DIR, IMAGE_CACHE_DIR
+from app.config import BACKEND_DIR, IMAGE_CACHE_DIR, MEDIA_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
@@ -456,6 +456,26 @@ def get_image(language: Language, filename: str):
     if not path.is_relative_to(IMAGE_CACHE_DIR.resolve()) or not path.is_file():
         raise HTTPException(404, "image not cached")
     return FileResponse(path, media_type="image/png")
+
+
+# Decor for the sign-in screen. Served rather than bundled for the same reason the
+# card artwork is: it is copyrighted, backend/data is gitignored, and the repository
+# is public. It therefore travels to the box by hand, not through a deploy.
+#
+# No authentication: this is the screen you look at *before* you have an account, so
+# a guard here would mean the login page could never load its own background.
+MEDIA_TYPES = {".mp4": "video/mp4", ".jpg": "image/jpeg", ".webm": "video/webm"}
+
+
+@app.get("/media/{filename}")
+def get_media(filename: str):
+    path = (MEDIA_DIR / filename).resolve()
+    if (not path.is_relative_to(MEDIA_DIR.resolve()) or not path.is_file()
+            or path.suffix.lower() not in MEDIA_TYPES):
+        raise HTTPException(404, "not found")
+    # A range request is what lets a browser seek and loop a video without
+    # re-downloading it; FileResponse handles the header on its own.
+    return FileResponse(path, media_type=MEDIA_TYPES[path.suffix.lower()])
 
 
 # --- scan -----------------------------------------------------------------------
