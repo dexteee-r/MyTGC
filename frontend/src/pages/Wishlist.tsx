@@ -69,10 +69,13 @@ export function Wishlist() {
       code: (a: WishlistEntry, b: WishlistEntry) => a.card_id.localeCompare(b.card_id),
       name: (a: WishlistEntry, b: WishlistEntry) =>
         (a.card?.name ?? a.card_id).localeCompare(b.card?.name ?? b.card_id),
-      /* By set code descending, the same order the catalogue search uses. Not by
-         date: there is none in the data. */
+      /* By set code descending, the same order the catalogue search uses. */
       set: (a: WishlistEntry, b: WishlistEntry) =>
         (b.card?.pack_code ?? '').localeCompare(a.card?.pack_code ?? ''),
+      /* Newest first, and the undated sets last rather than leading: an empty string
+         sorts above every real date, which would put the promos at the top. */
+      date: (a: WishlistEntry, b: WishlistEntry) =>
+        (b.card?.release_date ?? '').localeCompare(a.card?.release_date ?? ''),
     }[filters.sort]
     return [...list].sort(by)
   }, [entries, filters])

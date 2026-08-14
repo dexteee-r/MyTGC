@@ -88,9 +88,9 @@ export interface CardQuery {
   category?: string
   color?: string[]
   owned?: boolean
-  /* There is no release date in the catalogue and no proxy for one that survives
-     contact with the data, so the third order is by set code rather than by time. */
-  sort?: 'code' | 'set' | 'name'
+  /* `set` orders by the printed code, `date` by the real release date -- the two
+     differ, because the set codes of the OP, EB and PRB families interleave in time. */
+  sort?: 'code' | 'set' | 'name' | 'date'
   offset?: number
   limit?: number
 }
