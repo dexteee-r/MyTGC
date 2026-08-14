@@ -2,7 +2,18 @@
 
 from conftest import register
 
-from app import hashing
+from app import db, hashing
+
+
+def snapshot(card_id, language, price, captured_at, source="tcgcsv/tcgplayer"):
+    connection = db.connect()
+    connection.execute(
+        "INSERT INTO price_history (card_id, language, source, price, currency,"
+        " captured_at) VALUES (?, ?, ?, ?, 'EUR', ?)",
+        (card_id, language, source, price, captured_at),
+    )
+    connection.commit()
+    connection.close()
 
 
 def test_adding_a_card_twice_increments_one_holding(client):
@@ -81,6 +92,63 @@ def test_sibling_printings_are_listed_on_the_detail(client):
 def test_an_image_path_cannot_escape_the_cache(client):
     """The filename is user input; '..' would otherwise walk out of the directory."""
     assert client.get("/images/en/../../mytcg.db").status_code == 404
+
+
+# --- what the collection is worth -------------------------------------------------
+
+def test_only_the_latest_snapshot_values_a_card(client):
+    """price_history keeps one row per day so a chart can be drawn later. Summing it
+    raw would multiply the collection by the number of days the importer has run."""
+    account = register(client)
+    client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                headers=account["headers"])
+    for day, price in (("2026-08-12", 5.0), ("2026-08-13", 9.0), ("2026-08-14", 7.0)):
+        snapshot("OP01-001", "en", price, day)
+
+    stats = client.get("/collection/stats", headers=account["headers"]).json()
+    assert stats["market_total"] == 7.0
+    assert stats["market_priced"] == 1
+
+
+def test_the_value_follows_the_number_of_copies(client):
+    account = register(client)
+    entry = client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                        headers=account["headers"]).json()
+    client.patch(f"/collection/{entry['id']}", json={"quantity": 4},
+                 headers=account["headers"])
+    snapshot("OP01-001", "en", 2.5, "2026-08-14")
+
+    stats = client.get("/collection/stats", headers=account["headers"]).json()
+    assert stats["market_total"] == 10.0
+    assert stats["market_priced"] == 4
+
+
+def test_an_uncosted_card_is_left_out_of_the_total_and_counted_as_such(client):
+    """The Japanese printing has no feed and the alternate arts are deliberately
+    unpriced, so a total on its own would read as an appraisal of the whole binder."""
+    account = register(client)
+    for card_id, language in (("OP01-001", "en"), ("OP01-001", "jp"),
+                              ("OP01-002_p1", "en")):
+        client.post("/collection", json={"card_id": card_id, "language": language},
+                    headers=account["headers"])
+    snapshot("OP01-001", "en", 3.0, "2026-08-14")
+
+    stats = client.get("/collection/stats", headers=account["headers"]).json()
+    assert stats["total_quantity"] == 3
+    assert stats["market_total"] == 3.0
+    assert stats["market_priced"] == 1
+
+
+def test_a_price_does_not_leak_between_editions(client):
+    """EN and JP share card numbers; pricing one off the other's row would be wrong."""
+    account = register(client)
+    client.post("/collection", json={"card_id": "OP01-001", "language": "jp"},
+                headers=account["headers"])
+    snapshot("OP01-001", "en", 12.0, "2026-08-14")
+
+    stats = client.get("/collection/stats", headers=account["headers"]).json()
+    assert stats["market_total"] == 0
+    assert stats["market_priced"] == 0
 
 
 # --- hash storage ---------------------------------------------------------------

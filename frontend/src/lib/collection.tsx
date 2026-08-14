@@ -24,6 +24,7 @@ interface Owned {
   entryId: number
   quantity: number
   condition: Condition | null
+  acquisitionPrice: number | null
 }
 
 interface CollectionState {
@@ -34,6 +35,7 @@ interface CollectionState {
   ownedCountOfNumber: (cardNumber: string, language: Language) => number
   add: (card: Pick<Card, 'id' | 'language'>, condition?: Condition | null) => Promise<void>
   setQuantity: (cardId: string, language: Language, quantity: number) => Promise<void>
+  setPrice: (cardId: string, language: Language, price: number | null) => Promise<void>
   reload: () => Promise<void>
 }
 
@@ -63,6 +65,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         entryId: entry.id,
         quantity: entry.quantity,
         condition: entry.condition,
+        acquisitionPrice: entry.acquisition_price,
       })
       const key = `${entry.language}:${entry.card_id.split('_')[0]}`
       byNumber.set(key, (byNumber.get(key) ?? 0) + entry.quantity)
@@ -141,6 +144,26 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     [entries, index, reload],
   )
 
+  const setPrice = useCallback(
+    async (cardId: string, language: Language, price: number | null) => {
+      const key = `${language}:${cardId}`
+      const existing = index.byCard.get(key)
+      if (!existing) return
+
+      const previous = entries
+      setEntries((current) =>
+        current.map((e) => (e.id === existing.entryId ? { ...e, acquisition_price: price } : e)),
+      )
+      try {
+        await api.updateCollection(existing.entryId, { acquisition_price: price })
+        await reload()
+      } catch {
+        setEntries(previous)
+      }
+    },
+    [entries, index, reload],
+  )
+
   const value: CollectionState = {
     ready,
     entries,
@@ -149,6 +172,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     ownedCountOfNumber,
     add,
     setQuantity,
+    setPrice,
     reload,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

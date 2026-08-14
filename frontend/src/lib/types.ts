@@ -24,6 +24,7 @@ export interface Card {
   types: string[]
   effect: string | null
   trigger: string | null
+  release_date: string | null
   image_url: string | null
   printings: string[]
 }
@@ -74,6 +75,9 @@ export interface CollectionStats {
   by_language: Record<string, number>
   by_rarity: Record<string, number>
   acquisition_total: number
+  market_total: number
+  market_priced: number
+  market_currency: string
 }
 
 export interface Health {

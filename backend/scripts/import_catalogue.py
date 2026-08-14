@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import db
 from app.config import DB_PATH, LANGUAGES, PUNK_RECORDS_DIR
+from app.release_dates import RELEASE_DATES
 
 # The report prints Japanese pack names. A Windows console defaults to cp1252 and
 # raises UnicodeEncodeError on them, so force UTF-8 rather than relying on the
@@ -258,30 +259,33 @@ def to_row(card: dict, lang: str, packs: dict[str, dict]) -> tuple:
         card.get("effect"),
         card.get("trigger"),
         card.get("img_full_url"),
+        RELEASE_DATES.get(card["pack_id"]),
     )
 
 
 INSERT_SQL = """
 INSERT INTO cards (
     id, language, name, pack_id, pack_code, pack_name, rarity, category,
-    colors, cost, power, counter, attributes, types, effect, trigger, img_url
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    colors, cost, power, counter, attributes, types, effect, trigger, img_url,
+    release_date
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (id, language) DO UPDATE SET
-    name       = excluded.name,
-    pack_id    = excluded.pack_id,
-    pack_code  = excluded.pack_code,
-    pack_name  = excluded.pack_name,
-    rarity     = excluded.rarity,
-    category   = excluded.category,
-    colors     = excluded.colors,
-    cost       = excluded.cost,
-    power      = excluded.power,
-    counter    = excluded.counter,
-    attributes = excluded.attributes,
-    types      = excluded.types,
-    effect     = excluded.effect,
-    trigger    = excluded.trigger,
-    img_url    = excluded.img_url
+    name         = excluded.name,
+    pack_id      = excluded.pack_id,
+    pack_code    = excluded.pack_code,
+    pack_name    = excluded.pack_name,
+    rarity       = excluded.rarity,
+    category     = excluded.category,
+    colors       = excluded.colors,
+    cost         = excluded.cost,
+    power        = excluded.power,
+    counter      = excluded.counter,
+    attributes   = excluded.attributes,
+    types        = excluded.types,
+    effect       = excluded.effect,
+    trigger      = excluded.trigger,
+    img_url      = excluded.img_url,
+    release_date = excluded.release_date
 """
 # image_path and the three phash columns are deliberately absent from the UPDATE:
 # re-running the import must not discard the work of build step 3.

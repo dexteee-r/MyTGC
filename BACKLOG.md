@@ -16,28 +16,6 @@ d'extension, recherchées. **Restent : la fiche carte, le compte.**
 
 ---
 
-## Chercher
-
-### Filtrer par date de sortie
-**Pas fait, et pas contournable.** Aucune date nulle part dans punk-records — ni dans
-les cartes, ni dans l'index, ni dans le manifeste, les trois vérifiés.
-
-`pack_id` a été essayé comme approximation et **il ne tient pas** : il suit l'ordre à
-l'intérieur d'une famille (OP-01 = 569101, OP-16 = 569116) mais pas entre familles —
-EB-01 est 569201 et passerait devant toutes les extensions OP, et deux extensions sans
-code du tout siègent au-dessus de tout à 569801 et 569901. Le tri livré s'appelle
-maintenant « Par extension » et trie sur le code, ce qu'il fait réellement.
-
-Deux façons d'avoir la vraie chose, à trancher :
-
-1. **Une table de dates dans le dépôt.** Une soixantaine d'extensions, une date chacune,
-   à sourcer à la main. Les dates passées ne bougent plus ; il faut ajouter une ligne à
-   chaque nouvelle extension. Permet un vrai filtre (« sorties en 2025 ») et un vrai tri.
-2. **Une seconde source de données.** Un site officiel ou une API communautaire qui
-   expose la date par extension, branchée sur l'import. Plus juste, plus fragile.
-
----
-
 ## Scan
 
 ### Choisir la technologie de reconnaissance sur mobile
@@ -86,14 +64,32 @@ quand celui-ci remontera dans les priorités.
 - **Le scan dit pourquoi il a raté** : trop sombre, reflet, flou, ou carte inconnue du
   catalogue. Mesuré côté serveur sur l'image déjà décodée, et seulement sur le chemin
   d'échec. Les cinq états de `ScanMiss` sont enfin tous atteignables.
+- **Filtrer/trier par date de sortie.** `backend/app/release_dates.py` — 115 dates
+  (EN + JP, 58 extensions chacune), sourcées à la main sur les archives produits
+  officielles de Bandai. Codée en dur par `pack_id`, pas par `pack_code` : EN et JP ne
+  sortent pas une extension à la même date. Colonne `cards.release_date`, tri
+  « Plus récentes » sur Chercher et Recherchées. À faire à chaque nouvelle extension :
+  ajouter sa ligne, sinon elle atterrit avec les extensions sans code.
+- **Valeur estimée de la collection.** Cardmarket et TCGplayer refusent tous les deux
+  les nouvelles demandes d'API — ce n'est pas une question de profil, Cardmarket écrit
+  noir sur blanc « we are not accepting applications ». Les prix viennent donc de
+  tcgcsv.com (miroir quotidien de TCGplayer, sans clé), convertis en euros au taux BCE
+  du jour. `import_prices.py`, à lancer sur le serveur, une fois par jour.
+  Ce sont des prix **américains**, pas Cardmarket, et l'écran le dit. Les tirages
+  alternatifs ne sont cotés que si les deux sources sont d'accord sur leur nombre :
+  un alt art vaut ~30× la carte normale, un mauvais appariement fausserait tout.
+  ~92 % des cartes de base sont cotées.
+- **Prix d'achat sur la fiche carte** + **total dépensé** sur le carnet de bord. Le
+  backend (colonne, endpoints, `acquisition_total` dans `/collection/stats`) existait
+  déjà sans UI dessus. Ajoutés : le champ sur la fiche carte (même geste que le prix des
+  recherchées, saisi à la main), et le total sur le compte, affiché seulement s'il y a
+  quelque chose à montrer.
 
 ---
 
 ## Déjà connu, plus ancien
 
 - Réinitialisation de mot de passe (demande un SMTP)
-- Prix et valeur totale de la collection (demande une source de prix ; le prix saisi
-  à la main sur les recherchées est déjà là)
 - Scan hors ligne
 - **Build iOS natif** — bloqué par macOS, et payant pour installer sur un vrai
   iPhone (99 €/an). L'app s'installe désormais depuis Safari, ce qui couvre les deux

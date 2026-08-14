@@ -40,7 +40,7 @@ from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
-                " colors, cost, power, counter, attributes, types, image_path")
+                " colors, cost, power, counter, attributes, types, image_path, release_date")
 
 
 def running_commit() -> str | None:
@@ -330,22 +330,15 @@ def delete_account(conn: Conn, user: User, response: Response):
 
 # --- catalogue ------------------------------------------------------------------
 
-# There is no release date anywhere in the catalogue: neither the card records, nor
-# the index, nor the manifest of punk-records carries one.
-#
-# pack_id was tried as a proxy and it does not hold. It tracks order *within* a
-# family -- OP-01 is 569101 and OP-16 is 569116 -- but not across them: EB-01 is
-# 569201 and would outrank every OP set, and two sets with no code at all sit above
-# everything at 569801 and 569901. A "most recent" sort built on it puts nameless
-# promo buckets first, which is worse than not offering the sort.
-#
-# So this one orders by the set code the user can actually see, descending, with the
-# codeless sets last, and it is labelled for what it does rather than for what would
-# have been nicer. A real chronological sort needs a real date source.
+# pack_id was tried as a "most recent" proxy before release_date existed and it did
+# not hold: it tracks order *within* a family, not across them. "set" is kept for
+# people who think in set codes; "date" is the real chronological sort, backed by
+# app/release_dates.py.
 SORTS = {
     "code": "language, id",
     "set": "pack_code IS NULL, pack_code DESC, id",
     "name": "name COLLATE NOCASE, id",
+    "date": "release_date IS NULL, release_date DESC, id",
 }
 
 
@@ -360,7 +353,7 @@ def search_cards(
     category: str | None = None,
     color: list[str] | None = Query(None, description="repeatable; any of them matches"),
     owned: bool | None = Query(None, description="restrict to cards in the collection"),
-    sort: str = Query("code", description="code | set | name"),
+    sort: str = Query("code", description="code | set | name | date"),
     offset: int = Query(0, ge=0),
     limit: int = Query(60, ge=1, le=200),
 ):
@@ -810,10 +803,27 @@ def collection_stats(conn: Conn, user: User):
             " JOIN cards c ON c.id = col.card_id AND c.language = col.language"
             " WHERE col.user_id = ? GROUP BY c.rarity", (user.id,))
     }
+    # The latest reading per card, not every reading: price_history keeps a row per
+    # snapshot so a chart can be drawn later, and summing it raw would multiply the
+    # collection by the number of days the importer has run.
+    value = conn.execute(
+        """SELECT COALESCE(SUM(latest.price * col.quantity), 0) AS worth,
+                  COALESCE(SUM(col.quantity), 0) AS priced
+             FROM collection col
+             JOIN (SELECT card_id, language, price,
+                          ROW_NUMBER() OVER (PARTITION BY card_id, language
+                                             ORDER BY captured_at DESC, id DESC) AS rank
+                     FROM price_history) latest
+               ON latest.card_id = col.card_id AND latest.language = col.language
+              AND latest.rank = 1
+            WHERE col.user_id = ?""", (user.id,)
+    ).fetchone()
+
     return CollectionStats(
         distinct_cards=row["distinct_cards"], total_quantity=row["total"],
         by_language=by_language, by_rarity=by_rarity,
         acquisition_total=round(row["spent"], 2),
+        market_total=round(value["worth"], 2), market_priced=value["priced"],
     )
 
 

@@ -53,7 +53,7 @@ def fresh_database():
     connection = db.connect()
     db.init_schema(connection)
     for table in ("refresh_tokens", "invites", "collection", "wishlist", "users",
-                  "cards"):
+                  "cards", "price_history"):
         connection.execute(f"DELETE FROM {table}")
     connection.executemany(
         "INSERT INTO cards (id, language, name, pack_id, pack_code, pack_name,"

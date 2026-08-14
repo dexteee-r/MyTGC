@@ -36,6 +36,7 @@ LATE_COLUMNS = [
     ("wishlist", "price", "REAL"),
     ("users", "default_language", "TEXT NOT NULL DEFAULT 'en'"),
     ("users", "grid_columns", "INTEGER NOT NULL DEFAULT 2"),
+    ("cards", "release_date", "TEXT"),
 ]
 
 

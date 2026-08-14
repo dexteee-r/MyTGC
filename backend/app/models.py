@@ -96,6 +96,7 @@ class Card(BaseModel):
     types: list[str] = []
     effect: str | None = None
     trigger: str | None = None
+    release_date: str | None = None
     image_url: str | None = None
     # Other printings of the same card number. Populated on the detail endpoint only:
     # identical artwork and printed code, so the UI must let the user choose.
@@ -118,6 +119,7 @@ class Card(BaseModel):
             attributes=parse("attributes"), types=parse("types"),
             effect=row["effect"] if "effect" in keys else None,
             trigger=row["trigger"] if "trigger" in keys else None,
+            release_date=row["release_date"] if "release_date" in keys else None,
             image_url=f"/images/{row['language']}/{row['id']}.png"
             if row["image_path"] else None,
         )
@@ -239,3 +241,10 @@ class CollectionStats(BaseModel):
     by_language: dict[str, int]
     by_rarity: dict[str, int]
     acquisition_total: float
+    # What the priced part of the collection is worth, and how much of the collection
+    # that is. The total alone would read as the whole answer; it never is, because
+    # the Japanese printing has no price feed and the alternate arts are deliberately
+    # left uncosted. The counts are what let the screen say so.
+    market_total: float
+    market_priced: int
+    market_currency: str = "EUR"

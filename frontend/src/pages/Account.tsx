@@ -110,6 +110,24 @@ export function Account() {
         />
       </dl>
 
+      {stats && (stats.market_priced > 0 || stats.acquisition_total > 0) && (
+        <section className="pt-8">
+          <p className="t-eyebrow px-5 pb-2.5">Valeur</p>
+          <dl className="grid grid-cols-2 gap-px" style={{ background: 'var(--surface-rail)' }}>
+            <Quarter value={money(stats.market_total)} label="valeur estimée" />
+            <Quarter value={money(stats.acquisition_total)} label="prix payé" />
+          </dl>
+          {/* Where the number comes from, in the place where it could mislead. The
+              feed is the American market and it does not cover everything, so the
+              screen says both rather than letting a total pass for an appraisal. */}
+          <p className="px-5 pt-3 text-sm text-[var(--text-secondary)]">
+            {stats.market_priced === 0
+              ? "Aucune carte de ta collection n'est cotée pour l'instant."
+              : `Cotées : ${stats.market_priced} carte${stats.market_priced > 1 ? 's' : ''} sur ${stats.total_quantity}. Prix du marché américain (TCGplayer), convertis en euros au taux du jour — pas des prix Cardmarket.`}
+          </p>
+        </section>
+      )}
+
       {stats && <Breakdown stats={stats} />}
 
       {/* The default edition. It belongs here rather than in a settings screen that
@@ -213,6 +231,15 @@ export function Account() {
       </section>
     </Screen>
   )
+}
+
+/* Cents only when there are cents: a collection worth 40 € should not read 40,00 €
+   next to a count, and one worth 12,50 € must not round to 13. */
+function money(amount: number): string {
+  return `${amount.toLocaleString('fr', {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })} €`
 }
 
 function Quarter({ value, label }: { value: number | string; label: string }) {

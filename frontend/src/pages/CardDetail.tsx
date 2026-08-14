@@ -19,13 +19,15 @@ export function CardDetail() {
   const [params] = useSearchParams()
   const language = (params.get('language') ?? 'en') as Language
   const navigate = useNavigate()
-  const { ownedOf, add, setQuantity } = useCollection()
+  const { ownedOf, add, setQuantity, setPrice } = useCollection()
   const { show } = useToast()
 
   const [card, setCard] = useState<Card | null>(null)
   const [failed, setFailed] = useState(false)
   const [condition, setCondition] = useState<Condition>('near_mint')
   const [wanted, setWanted] = useState<WishlistEntry | null>(null)
+  const [editingPrice, setEditingPrice] = useState(false)
+  const [priceDraft, setPriceDraft] = useState('')
 
   const load = useCallback(() => {
     setFailed(false)
@@ -51,6 +53,14 @@ export function CardDetail() {
       const now = ownedOf(card.id, language)
       if (now) setQuantity(card.id, language, now.quantity - 1)
     })
+  }
+
+  const commitPrice = () => {
+    setEditingPrice(false)
+    if (!card) return
+    const parsed = priceDraft.trim() === '' ? null : Number(priceDraft.replace(',', '.'))
+    const price = parsed != null && Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+    setPrice(card.id, language, price)
   }
 
   const toggleWanted = async () => {
@@ -156,6 +166,42 @@ export function CardDetail() {
             {owned.condition && (
               <p className="t-code pt-3 text-center">{CONDITION_LABELS[owned.condition]}</p>
             )}
+
+            {/* Typed in by hand, like the wishlist's bounty: there is no price feed
+                behind this app, so a number here means someone actually paid it. */}
+            <div className="mt-4 flex justify-center">
+              {editingPrice ? (
+                <input
+                  autoFocus
+                  inputMode="decimal"
+                  value={priceDraft}
+                  onChange={(event) => setPriceDraft(event.target.value)}
+                  onBlur={commitPrice}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') commitPrice()
+                    if (event.key === 'Escape') setEditingPrice(false)
+                  }}
+                  aria-label="Prix d'achat, en euros"
+                  className="t-code w-28 rounded-full px-4 py-2 text-center outline-none"
+                  style={{ background: 'var(--surface-recessed)' }}
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setPriceDraft(owned.acquisitionPrice != null ? String(owned.acquisitionPrice) : '')
+                    setEditingPrice(true)
+                  }}
+                  className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
+                >
+                  {owned.acquisitionPrice == null
+                    ? "Noter le prix d'achat"
+                    : `Payée ${owned.acquisitionPrice.toLocaleString('fr', {
+                        minimumFractionDigits: Number.isInteger(owned.acquisitionPrice) ? 0 : 2,
+                        maximumFractionDigits: 2,
+                      })} €`}
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <>

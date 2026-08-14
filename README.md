@@ -15,6 +15,7 @@ backend/
     schema.sql      cards / collection / price_history / wishlist / catalogue_meta
   scripts/
     import_catalogue.py   build steps 1-2: import punk-records, audit, backfill
+    import_prices.py      daily price snapshot into price_history, in euros
   data/             gitignored: punk-records clone, SQLite db, image cache
 ```
 
@@ -58,6 +59,37 @@ disagreement between the two locales on a shared card number.
 - Roughly a third of the catalogue is alternate art, carrying a `_p1` / `_r1` suffix on the id.
   Those share their printed card code with the base card, so OCR cannot separate them —
   only the pHash step can.
+
+## Prices
+
+```bash
+py backend/scripts/import_prices.py            # --dry-run to see coverage first
+```
+
+Writes one snapshot per card per day into `price_history`, in euros. Re-running it the
+same day replaces that day's reading rather than stacking a second one, so it is safe on
+a timer — daily is the right cadence, since the upstream mirror refreshes once a day
+around 20:00 UTC. It runs where the database is, which in production means on the server
+and not in CI: `backend/data/` is gitignored and never travels with a deploy.
+
+**The source is not the one this app should have used.** Cardmarket is the market a
+European collector actually buys on, and its API is closed — help.cardmarket.com states
+"we are not accepting applications for access to the Cardmarket API", so it is not a
+matter of qualifying. TCGplayer stopped taking new applications in late 2024. Prices
+therefore come from [tcgcsv.com](https://tcgcsv.com), a keyless daily mirror of
+TCGplayer's own catalogue, converted from dollars at the day's ECB reference rate.
+
+That has consequences the UI states rather than hides:
+
+- The figures are the **American** market. A converted US price is not a Cardmarket price.
+- Only the English printing is covered; there is no free feed for the Japanese one.
+- Alternate arts are priced only when both sources agree on how many printings of a
+  number exist. Neither side numbers them the same way, and an alternate art runs
+  ~30× the plain card, so a confident wrong figure would corrupt the total far worse
+  than a visible gap. Currently ~92% of plain cards carry a price.
+
+`/collection/stats` returns `market_total` alongside `market_priced`, and the account
+screen shows both — a total without its coverage would read as an appraisal.
 
 ## Build step 3 — images and pHashes
 
