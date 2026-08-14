@@ -34,9 +34,9 @@ from app.config import BACKEND_DIR, IMAGE_CACHE_DIR, MEDIA_DIR
 from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
-                        LoginRequest, Pack, ProfileUpdate, RefreshRequest,
-                        RegisterRequest,
-                        ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
+                        HistoryCreate, LoginRequest, Pack, ProfileUpdate,
+                        RefreshRequest,
+                        RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
@@ -670,6 +670,47 @@ def delete_from_collection(conn: Conn, user: User, entry_id: int):
     conn.commit()
     if cursor.rowcount == 0:
         raise HTTPException(404, "entry not found")
+
+
+# --- search history -------------------------------------------------------------
+
+HISTORY_KEPT = 8
+
+
+@app.get("/search-history", response_model=list[str])
+def list_history(conn: Conn, user: User):
+    rows = conn.execute(
+        "SELECT query FROM search_history WHERE user_id = ?"
+        " ORDER BY searched_at DESC LIMIT ?", (user.id, HISTORY_KEPT),
+    ).fetchall()
+    return [r["query"] for r in rows]
+
+
+@app.post("/search-history", response_model=list[str], status_code=201)
+def add_history(conn: Conn, user: User, entry: HistoryCreate):
+    query = entry.query.strip()
+    if not query:
+        return list_history(conn, user)
+    conn.execute(
+        "INSERT INTO search_history (user_id, query, searched_at) VALUES (?, ?, ?)"
+        " ON CONFLICT (user_id, query) DO UPDATE SET searched_at = excluded.searched_at",
+        (user.id, query, auth.now().isoformat()),
+    )
+    # Trimmed here rather than by a job: the list is short and this is the only place
+    # it grows.
+    conn.execute(
+        "DELETE FROM search_history WHERE user_id = ? AND id NOT IN ("
+        " SELECT id FROM search_history WHERE user_id = ?"
+        " ORDER BY searched_at DESC LIMIT ?)", (user.id, user.id, HISTORY_KEPT),
+    )
+    conn.commit()
+    return list_history(conn, user)
+
+
+@app.delete("/search-history", status_code=204)
+def clear_history(conn: Conn, user: User):
+    conn.execute("DELETE FROM search_history WHERE user_id = ?", (user.id,))
+    conn.commit()
 
 
 # --- wishlist -------------------------------------------------------------------

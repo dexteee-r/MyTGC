@@ -170,6 +170,13 @@ export const api = {
   ) =>
     request<UserProfile>('/auth/me', { method: 'PATCH', body: JSON.stringify(body) }),
 
+  searchHistory: () => request<string[]>('/search-history'),
+
+  addSearchHistory: (query: string) =>
+    request<string[]>('/search-history', { method: 'POST', body: JSON.stringify({ query }) }),
+
+  clearSearchHistory: () => request<void>('/search-history', { method: 'DELETE' }),
+
   registrationPolicy: () => request<RegistrationPolicy>('/auth/registration'),
 
   register: (body: {

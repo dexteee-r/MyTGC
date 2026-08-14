@@ -213,6 +213,10 @@ class WishlistEntry(BaseModel):
     card: Card | None = None
 
 
+class HistoryCreate(BaseModel):
+    query: str = Field(max_length=80)
+
+
 class WishlistCreate(BaseModel):
     card_id: str
     language: Language
