@@ -10,9 +10,7 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 
 ## En cours
 
-**La refonte « L'Horizon », écran par écran.** Livrée dans `../renfonte-ui/livraison/`.
-Faits et validés : connexion, classeur, extensions, scanner, chercher, collection, mur
-d'extension, recherchées. **Restent : la fiche carte, le compte.**
+**Rien.** La refonte « L'Horizon » est passée sur les dix écrans.
 
 ---
 
@@ -70,6 +68,17 @@ quand celui-ci remontera dans les priorités.
   sortent pas une extension à la même date. Colonne `cards.release_date`, tri
   « Plus récentes » sur Chercher et Recherchées. À faire à chaque nouvelle extension :
   ajouter sa ligne, sinon elle atterrit avec les extensions sans code.
+- **Refonte « L'Horizon » : la fiche carte et le compte**, les deux derniers écrans.
+  Fiche carte : le compteur de quantité devient le seul contrôle en grand et reste
+  affiché même à zéro — ajouter une carte était un menu déroulant plus un bouton,
+  c'est-à-dire le geste le plus fréquent rendu le plus lourd. Le sélecteur d'état
+  descend sous le compteur et n'apparaît qu'une fois la carte possédée ; il est
+  désormais modifiable après coup, sinon le retirer du bouton d'ajout aurait fait
+  perdre la fonction. Halo réservé aux Secret Rare, ligne « Couleur », retour en
+  toutes lettres.
+  Compte : titré « Carnet de bord » avec l'e-mail au-dessus, ligne d'explication sous
+  l'édition par défaut, export en rangée. Les deux autres rangées de la maquette
+  (mentions légales, aide) restent dehors tant qu'elles ne mènent nulle part.
 - **Valeur estimée de la collection.** Cardmarket et TCGplayer refusent tous les deux
   les nouvelles demandes d'API — ce n'est pas une question de profil, Cardmarket écrit
   noir sur blanc « we are not accepting applications ». Les prix viennent donc de

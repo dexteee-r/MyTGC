@@ -19,7 +19,7 @@ export function CardDetail() {
   const [params] = useSearchParams()
   const language = (params.get('language') ?? 'en') as Language
   const navigate = useNavigate()
-  const { ownedOf, add, setQuantity, setPrice } = useCollection()
+  const { ownedOf, add, setQuantity, setPrice, setCondition: saveCondition } = useCollection()
   const { show } = useToast()
 
   const [card, setCard] = useState<Card | null>(null)
@@ -47,12 +47,22 @@ export function CardDetail() {
   const owned = ownedOf(card.id, language)
   const src = imageUrl(card)
 
-  const addCard = async () => {
-    await add({ id: card.id, language }, condition)
-    show(`${card.name} rangée`, () => {
-      const now = ownedOf(card.id, language)
-      if (now) setQuantity(card.id, language, now.quantity - 1)
-    })
+  /* One control for the whole holding, whether or not there is one yet. Going from
+     nothing to one copy is the same gesture as going from one to two — it was a
+     dropdown and a submit button, which made the commonest action on the screen the
+     heaviest. The condition picker moves under it and only appears once something is
+     held, because there is nothing to describe the state of until then. */
+  const setCount = async (next: number) => {
+    if (next < 0) return
+    if (!owned) {
+      await add({ id: card.id, language }, condition)
+      show(`${card.name} rangée`, () => {
+        const now = ownedOf(card.id, language)
+        if (now) setQuantity(card.id, language, now.quantity - 1)
+      })
+      return
+    }
+    setQuantity(card.id, language, next)
   }
 
   const commitPrice = () => {
@@ -78,21 +88,25 @@ export function CardDetail() {
 
   return (
     <Screen>
-      <header className="flex items-center gap-1 px-2 pt-4">
+      {/* The set name used to sit here. It is a fact about the card, not a place to
+          go back to, and it now reads in the list at the foot with the others. */}
+      <header className="px-3 pt-4">
         <button
           onClick={() => navigate(-1)}
-          aria-label="Revenir"
-          className="flex size-11 items-center justify-center text-[var(--text-secondary)]"
+          className="t-code flex min-h-[var(--touch)] items-center gap-2 px-2 text-[var(--text-secondary)]"
         >
-          <ChevronLeftIcon className="size-5" />
+          <ChevronLeftIcon className="size-4" />
+          Retour
         </button>
-        <p className="t-code truncate">{card.pack_name}</p>
       </header>
 
       {/* You came here to look at the card, so the card is the screen. Whole, at the
           width it can carry, watermark included — cropping it would be lying about
           what the material is. Held it is lit; not held it sits back in the water. */}
-      <div className="mx-auto mt-2 w-[min(72%,260px)]">
+      <div className="relative isolate mx-auto mt-2 w-[min(72%,260px)]">
+        {/* The rarest card in the game gets a light of its own, and only here — on
+            a grid of 9,447 tiles it would be noise. */}
+        {card.rarity === 'SecretRare' && <span aria-hidden className="rare-halo" />}
         {src ? (
           <img
             src={src}
@@ -153,22 +167,41 @@ export function CardDetail() {
       )}
 
       <section className="px-5 pt-7">
-        {owned ? (
-          <>
-            <p className="t-eyebrow pb-3 text-center">Dans ta collection</p>
-            <div className="flex justify-center">
-              <Stepper
-                big
-                value={owned.quantity}
-                onChange={(next) => setQuantity(card.id, language, next)}
-              />
-            </div>
-            {owned.condition && (
-              <p className="t-code pt-3 text-center">{CONDITION_LABELS[owned.condition]}</p>
-            )}
+        {/* The one control in large type. It is the gesture a collector repeats more
+            than any other, and it reads the same at nought as at nine. */}
+        <div className="flex justify-center">
+          <Stepper
+            big
+            value={owned?.quantity ?? 0}
+            unit={(owned?.quantity ?? 0) > 1 ? 'exemplaires' : 'exemplaire'}
+            onChange={setCount}
+          />
+        </div>
 
-            {/* Typed in by hand, like the wishlist's bounty: there is no price feed
-                behind this app, so a number here means someone actually paid it. */}
+        {owned && (
+          <>
+            <label className="mt-6 block">
+              <span className="t-eyebrow">État</span>
+              <select
+                value={owned.condition ?? condition}
+                onChange={(event) => {
+                  const next = event.target.value as Condition
+                  setCondition(next)
+                  saveCondition(card.id, language, next)
+                }}
+                className="mt-2 min-h-[var(--touch)] w-full rounded-full px-4 text-[var(--text-primary)] outline-none"
+                style={{ background: 'var(--surface-recessed)' }}
+              >
+                {Object.entries(CONDITION_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Typed in by hand, like the wishlist's bounty: the feed prices the
+                market, not what you paid, so a number here means someone paid it. */}
             <div className="mt-4 flex justify-center">
               {editingPrice ? (
                 <input
@@ -203,34 +236,13 @@ export function CardDetail() {
               )}
             </div>
           </>
-        ) : (
-          <>
-            <label className="block">
-              <span className="t-eyebrow">État</span>
-              <select
-                value={condition}
-                onChange={(event) => setCondition(event.target.value as Condition)}
-                className="mt-2 min-h-[var(--touch)] w-full rounded-full px-4 text-[var(--text-primary)] outline-none"
-                style={{ background: 'var(--surface-recessed)' }}
-              >
-                {Object.entries(CONDITION_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="mt-4">
-              <Button size="lg" full onClick={addCard}>
-                Ranger dans la collection
-              </Button>
-            </div>
-          </>
         )}
 
-        <div className="mt-4">
-          <Button variant="quiet" full onClick={toggleWanted}>
-            {wanted ? 'Retirer des recherchées' : 'Marquer comme recherchée'}
+        {/* Lit while it is on the list: this is a state as much as a button, and the
+            poster screen it feeds is the loudest surface in the app. */}
+        <div className="mt-6">
+          <Button variant={wanted ? 'primary' : 'quiet'} full onClick={toggleWanted}>
+            {wanted ? 'Retirer des recherchées' : 'Mettre dans les recherchées'}
           </Button>
         </div>
       </section>
@@ -239,6 +251,7 @@ export function CardDetail() {
           an Event, a Stage — so an absent value shows a dash and never a zero. */}
       <dl className="mt-8 px-5">
         <Fact label="Extension" value={card.pack_name ?? card.pack_code} />
+        <Fact label="Couleur" value={card.colors.join(' / ')} />
         <Fact label="Catégorie" value={card.category} />
         <Fact label="Coût" value={card.cost} />
         <Fact label="Puissance" value={card.power} />

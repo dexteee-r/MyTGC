@@ -206,32 +206,45 @@ export function Stepper({
   onChange,
   disabled,
   big,
+  unit,
 }: {
   value: number
   onChange: (next: number) => void
   disabled?: boolean
   big?: boolean
+  /* Named under the figure on the big one. "3" alone is a number; "3 exemplaires"
+     is a holding, and this control is the whole point of the card screen. */
+  unit?: string
 }) {
   const round = big ? 'size-[52px] text-2xl' : 'size-[var(--touch)] text-lg'
+  /* Big: an outlined ring on the sky rather than a filled key. The figure between
+     them is what should carry the weight, and two solid discs out-shout it. */
+  const skin = big
+    ? { boxShadow: 'inset 0 0 0 1px currentColor' }
+    : { background: 'var(--surface-rail)' }
+
   return (
-    <div className={`flex items-center ${big ? 'gap-5' : 'gap-2'}`}>
+    <div className={`flex items-center ${big ? 'gap-6' : 'gap-2'}`}>
       <button
         onClick={() => onChange(value - 1)}
-        disabled={disabled}
+        disabled={disabled || value <= 0}
         aria-label="Retirer un exemplaire"
-        style={{ background: 'var(--surface-rail)' }}
+        style={skin}
         className={`${round} rounded-full text-[var(--text-primary)] disabled:opacity-35`}
       >
         −
       </button>
-      <span className={`t-numeral text-center ${big ? 'w-16 text-[2.75rem]' : 'w-8 text-xl'}`}>
-        {value}
+      <span className={`text-center ${big ? 'min-w-16' : 'w-8'}`}>
+        <span className={`t-numeral block ${big ? 'text-[2.75rem] leading-none' : 'text-xl'}`}>
+          {value}
+        </span>
+        {big && unit && <span className="t-code block pt-1.5">{unit}</span>}
       </span>
       <button
         onClick={() => onChange(value + 1)}
         disabled={disabled}
         aria-label="Ajouter un exemplaire"
-        style={{ background: 'var(--surface-rail)' }}
+        style={skin}
         className={`${round} rounded-full text-[var(--text-primary)] disabled:opacity-35`}
       >
         +

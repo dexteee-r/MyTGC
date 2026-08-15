@@ -187,6 +187,40 @@ body {
   box-shadow: var(--shadow-float-lit);
 }
 
+/* The one card that gets to glow. Reserved for a Secret Rare on its own screen:
+   if every rarity had a treatment, none of them would read as rare. It sits behind
+   the artwork on a negative z-index, so the parent needs a stacking context.
+   Holds still for anyone who asked their system not to animate. */
+.rare-halo {
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0.85;
+  filter: blur(12px);
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 214, 128, 0.55),
+    rgba(120, 220, 205, 0.45),
+    rgba(255, 150, 110, 0.5),
+    rgba(255, 214, 128, 0.55)
+  );
+  animation: rare-halo-spin 6s linear infinite;
+}
+
+@keyframes rare-halo-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rare-halo {
+    animation: none;
+  }
+}
+
 /* A progress channel cut into the deck, filled with sunlight. Used for how full a
    set is — the one measurement in the app that is worth a bar. */
 .channel {

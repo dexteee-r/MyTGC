@@ -36,6 +36,7 @@ interface CollectionState {
   add: (card: Pick<Card, 'id' | 'language'>, condition?: Condition | null) => Promise<void>
   setQuantity: (cardId: string, language: Language, quantity: number) => Promise<void>
   setPrice: (cardId: string, language: Language, price: number | null) => Promise<void>
+  setCondition: (cardId: string, language: Language, condition: Condition) => Promise<void>
   reload: () => Promise<void>
 }
 
@@ -164,6 +165,28 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     [entries, index, reload],
   )
 
+  /* The card screen sets this after the fact now: its condition picker used to sit
+     on the add button, and the add button is gone. Without this the state of a
+     holding could never be corrected once it was filed. */
+  const setCondition = useCallback(
+    async (cardId: string, language: Language, condition: Condition) => {
+      const existing = index.byCard.get(`${language}:${cardId}`)
+      if (!existing) return
+
+      const previous = entries
+      setEntries((current) =>
+        current.map((e) => (e.id === existing.entryId ? { ...e, condition } : e)),
+      )
+      try {
+        await api.updateCollection(existing.entryId, { condition })
+        await reload()
+      } catch {
+        setEntries(previous)
+      }
+    },
+    [entries, index, reload],
+  )
+
   const value: CollectionState = {
     ready,
     entries,
@@ -173,6 +196,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     add,
     setQuantity,
     setPrice,
+    setCondition,
     reload,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

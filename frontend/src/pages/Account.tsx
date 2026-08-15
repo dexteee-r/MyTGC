@@ -18,10 +18,10 @@ const MIN_PASSWORD = 10
    is aboard, and how far along the chart it goes — and the machinery of the account
    sits under them where it belongs.
 
-   The handoff also sketches links for export, legal notices and help. None of those
-   exist, and a link that goes nowhere is worse than an absence, so they are left out
-   until they are real. Same for a default edition: the choice lives in memory today
-   and making it stick needs a server-side preference, which is in the backlog.      */
+   The handoff sketches a list of three rows: export, legal notices, help. Export is
+   real and is here; the other two still lead nowhere and stay out until they do not.
+   Everything below the fold — password, sign-out, deletion — is machinery the
+   handoff never drew, so it follows the same rails rather than inventing its own.  */
 
 export function Account() {
   const { user, signOut } = useAuth()
@@ -96,7 +96,9 @@ export function Account() {
         </button>
       </header>
 
-      <PageHeader title={user?.display_name || 'Compte'} meta={user?.email} />
+      {/* A log book, not a settings page — so it is titled as one, and the account it
+          belongs to is the line above rather than the heading. */}
+      <PageHeader title="Carnet de bord" meta={user?.email} />
 
       {/* Four quarters. A 1px rail between them rather than four cards: it is one
           reading of one collection, not four separate facts. */}
@@ -140,25 +142,33 @@ export function Account() {
           onChange={setLanguage}
           label="Édition par défaut"
         />
+        {/* The setting names itself but does not explain itself: which edition is
+            "default" only means something once you know what reads it. */}
+        <p className="pt-2.5 text-sm text-[var(--text-secondary)]">
+          Détermine l'édition proposée après un scan et à l'ouverture d'une recherche.
+          Tu peux en changer à tout moment.
+        </p>
       </section>
 
-      {/* A log book you can take away. The collection is already in the client, so
-          this costs a string and no backend — which is why it exists instead of
-          being a link that goes nowhere. */}
-      <section className="px-5 pt-8">
-        <p className="t-eyebrow pb-2.5">Ta collection, ailleurs</p>
-        <Button
-          variant="quiet"
-          full
+      {/* A log book you can take away. The handoff draws this as a row in a list of
+          three, with legal notices and help beside it; those two still lead nowhere,
+          and a row that does nothing is worse than a row that is absent. So the list
+          is here, in its style, holding the one entry that is real. */}
+      <div className="mt-8 border-t border-[rgba(243,230,203,.12)]">
+        <button
           disabled={entries.length === 0}
           onClick={() => {
             downloadCollection(entries)
             show(`${entries.length} lignes exportées`)
           }}
+          className="flex min-h-[var(--touch)] w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm font-medium disabled:opacity-40"
         >
-          Exporter en CSV
-        </Button>
-      </section>
+          Exporter ma collection
+          <span aria-hidden className="text-[var(--text-faint)]">
+            ›
+          </span>
+        </button>
+      </div>
 
       <form onSubmit={changePassword} className="px-5 pt-8">
         <p className="t-eyebrow">Mot de passe</p>
