@@ -10,6 +10,7 @@ import {
 } from '../components/ui'
 import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
+import { money } from '../lib/money'
 import type { CollectionEntry } from '../lib/types'
 
 type Sort = 'recent' | 'set' | 'name'
@@ -74,6 +75,31 @@ export function Collection() {
         </div>
       ) : (
         <>
+          {/* What the shelf is worth, on the shelf itself. The log book carries the
+              same figure beside what it cost and with the full caveat; here it is the
+              headline only. The coverage line shows when part of the binder has no
+              price — a total presented as if it covered everything is an appraisal,
+              and this one never covers the Japanese cards. */}
+          {stats && (
+            <div className="flex items-baseline justify-between gap-4 px-5 pb-4">
+              <div className="min-w-0">
+                <p className="t-code">Valeur estimée</p>
+                {stats.market_priced > 0 && stats.market_priced < stats.total_quantity && (
+                  <p className="t-code pt-1 text-[var(--text-faint)]">
+                    {stats.market_priced} sur {stats.total_quantity} cotées
+                  </p>
+                )}
+              </div>
+              {stats.market_priced > 0 ? (
+                <p className="t-numeral shrink-0 text-[1.4rem] leading-none">
+                  {money(stats.market_total)}
+                </p>
+              ) : (
+                <p className="t-code shrink-0 text-[var(--text-faint)]">aucune carte cotée</p>
+              )}
+            </div>
+          )}
+
           <Segmented
             value={sort}
             options={[
