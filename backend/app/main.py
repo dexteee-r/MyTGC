@@ -331,6 +331,13 @@ def change_password(conn: Conn, user: User, body: ChangePasswordRequest):
 @app.delete("/auth/me", status_code=204)
 def delete_account(conn: Conn, user: User, response: Response):
     # Collection, wishlist and sessions cascade from the account row.
+    #
+    # search_history does not: it was added later, without a foreign key, so nothing
+    # cascades to it and the queries outlived the account that typed them. SQLite
+    # cannot add a constraint to an existing table without rewriting it, and the
+    # deployed database predates the fix — so it is deleted by hand here, which works
+    # on the databases that already exist. schema.sql carries the key for fresh ones.
+    conn.execute("DELETE FROM search_history WHERE user_id = ?", (user.id,))
     conn.execute("DELETE FROM users WHERE id = ?", (user.id,))
     conn.commit()
     auth.clear_refresh_cookie(response)

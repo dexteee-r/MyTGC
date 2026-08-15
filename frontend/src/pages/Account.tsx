@@ -151,24 +151,21 @@ export function Account() {
         </p>
       </section>
 
-      {/* A log book you can take away. The handoff draws this as a row in a list of
-          three, with legal notices and help beside it; those two still lead nowhere,
-          and a row that does nothing is worse than a row that is absent. So the list
-          is here, in its style, holding the one entry that is real. */}
+      {/* A log book you can take away. The handoff draws this as a list of three:
+          export, legal notices, help. Two of them are real now. Help still leads
+          nowhere and stays out — a row that does nothing is worse than a row that is
+          absent. */}
       <div className="mt-8 border-t border-[rgba(243,230,203,.12)]">
-        <button
+        <Row
           disabled={entries.length === 0}
           onClick={() => {
             downloadCollection(entries)
             show(`${entries.length} lignes exportées`)
           }}
-          className="flex min-h-[var(--touch)] w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm font-medium disabled:opacity-40"
         >
           Exporter ma collection
-          <span aria-hidden className="text-[var(--text-faint)]">
-            ›
-          </span>
-        </button>
+        </Row>
+        <Row onClick={() => navigate('/legal')}>Mentions légales</Row>
       </div>
 
       <form onSubmit={changePassword} className="px-5 pt-8">
@@ -241,6 +238,31 @@ export function Account() {
         </div>
       </section>
     </Screen>
+  )
+}
+
+/* One row of the list, so the second one cannot drift from the first. The chevron is
+   decorative — the label already says where it goes. */
+function Row({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="flex min-h-[var(--touch)] w-full items-center justify-between gap-3 border-b border-[rgba(243,230,203,.12)] px-5 py-4 text-left text-sm font-medium last:border-b-0 disabled:opacity-40"
+    >
+      {children}
+      <span aria-hidden className="text-[var(--text-faint)]">
+        ›
+      </span>
+    </button>
   )
 }
 

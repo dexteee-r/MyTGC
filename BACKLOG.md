@@ -29,6 +29,18 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Mentions légales.** La rangée que la maquette dessinait et qui ne menait nulle
+  part mène maintenant à `/legal`, joignable **sans compte** : l'écran de connexion est
+  la seule page que le public voit, et une mention légale qui exige un compte n'en est
+  pas une. Le routeur enveloppe donc les deux états.
+  Rien n'y est copié d'un modèle : ce que le schéma garde vraiment, le fait que le scan
+  décode l'image en mémoire sans jamais l'écrire, le vrai nom du cookie et ses vrais
+  attributs, et les 30 jours de rétention des sauvegardes — parce que la suppression
+  est immédiate en base et pas dans les sauvegardes, et le taire aurait été faux.
+  En l'écrivant j'ai trouvé un défaut : `search_history` n'avait pas de clé étrangère,
+  donc supprimer un compte laissait ses recherches derrière. Corrigé avant d'écrire la
+  phrase qui prétendait le contraire, avec un test qui compte les lignes des quatre
+  tables avant et après.
 - **Le vrai logo.** Le soleil qui se lève sur la mer, cinq cartes en éventail pour
   rayons — un classeur qui se remplit est un soleil qui monte. Dessiné par le designer
   d'après `renfonte-ui/BRIEF-LOGO.md`, posé en `icon.svg` (512, plein bord) et

@@ -191,3 +191,44 @@ def test_deleting_an_account_takes_its_collection_with_it(client):
     connection.close()
     assert remaining == 0
     assert client.get("/auth/me", headers=account["headers"]).status_code == 401
+
+
+# Every table that holds something a person accumulated, checked in one place. The
+# collection cascades from the users row; search_history has no foreign key to cascade
+# from, so it has to be deleted by hand and this is what says so out loud. The legal
+# page tells people deletion is total — it has to actually be.
+def test_deleting_an_account_leaves_nothing_of_them_behind(client):
+    from app import db
+
+    account = register(client)
+    headers = account["headers"]
+    user_id = account["user"]["id"]
+
+    client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                headers=headers)
+    client.post("/wishlist", json={"card_id": "OP01-002", "language": "en"},
+                headers=headers)
+    client.post("/search-history", json={"query": "newgate"}, headers=headers)
+
+    connection = db.connect()
+    before = {
+        table: connection.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        for table in ("collection", "wishlist", "search_history", "refresh_tokens")
+    }
+    connection.close()
+    # Guard against the test passing because nothing was ever written.
+    assert all(count > 0 for count in before.values()), before
+
+    assert client.delete("/auth/me", headers=headers).status_code == 204
+
+    connection = db.connect()
+    after = {
+        table: connection.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        for table in before
+    }
+    connection.close()
+    assert after == {table: 0 for table in before}, after

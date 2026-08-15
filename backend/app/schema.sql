@@ -150,9 +150,13 @@ CREATE TABLE IF NOT EXISTS catalogue_meta (
 
 
 
+-- The foreign key reached this table late. Databases created before it keep the old
+-- shape -- CREATE TABLE IF NOT EXISTS is a no-op on a live table, and SQLite cannot
+-- add a constraint without rewriting it -- so DELETE /auth/me clears this table by
+-- hand as well. The key is here so fresh installs cascade like every other table.
 CREATE TABLE IF NOT EXISTS search_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     query TEXT NOT NULL,
     searched_at TEXT NOT NULL,
     UNIQUE(user_id, query)

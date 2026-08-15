@@ -442,6 +442,35 @@ tags that cannot carry an Authorization header, and card art is Bandai's, not pe
 Ownership checks are scoped by `user_id`, not only by row id, so no signed-in account can
 reach another's holdings by guessing a number.
 
+### Deleting an account
+
+`DELETE /auth/me` drops the `users` row and lets collection, wishlist, invites and
+refresh tokens cascade — `PRAGMA foreign_keys = ON` is set per connection in `db.py`,
+without which none of them would.
+
+`search_history` is the exception and had to be found: it was added later without a
+foreign key, so nothing cascaded to it and a deleted account left its queries behind.
+SQLite cannot add a constraint to an existing table without rewriting it and the
+deployed database predates the fix, so the endpoint deletes that table by hand;
+`schema.sql` carries the key so fresh installs behave like every other table.
+`test_deleting_an_account_leaves_nothing_of_them_behind` counts rows in all four tables
+before and after, and asserts they were non-zero first so it cannot pass by writing
+nothing.
+
+This matters beyond tidiness: `/legal` tells people deletion is total.
+
+## Legal notice
+
+`/legal` is reachable **signed out** — the router wraps both states, and the sign-in
+screen carries a link to it. A notice that needs an account is not a notice, and the
+sign-in screen is the only page the public ever sees.
+
+Its claims are checked against the code, not copied from a template: what the schema
+stores, that `/scan` decodes an upload in memory and never writes it anywhere, the
+actual cookie name and flags, and the 30-day backup retention that means deletion is
+immediate in the database but not in the backups. If one of those stops being true it
+is a bug in the page or in the code, not a detail.
+
 ## Design
 
 **The app is a binder.** Not as decoration: it is the object a collector actually

@@ -25,6 +25,7 @@ import { Account } from './pages/Account'
 import { CardDetail } from './pages/CardDetail'
 import { Collection } from './pages/Collection'
 import { Home } from './pages/Home'
+import { Legal } from './pages/Legal'
 import { PackDetail } from './pages/PackDetail'
 import { Packs } from './pages/Packs'
 import { Scanner } from './pages/Scanner'
@@ -59,6 +60,7 @@ function skyFor(path: string): { variant: SkyVariant; quiet: boolean } {
   if (path === '/wishlist') return { variant: 'paper', quiet: false }
   if (path === '/collection') return { variant: 'dawn', quiet: true }
   if (path === '/account') return { variant: 'dusk', quiet: true }
+  if (path === '/legal') return { variant: 'dusk', quiet: true }
   return { variant: 'dusk', quiet: false }
 }
 
@@ -72,7 +74,12 @@ export const useSkyScroll = () => useContext(SkyScroll)
 export default function App() {
   return (
     <AuthProvider>
-      <Gate />
+      {/* The router wraps both states, not just the signed-in one. The sign-in screen
+          is the only page the public ever reaches, so the legal notice has to be
+          readable from it — one that needs an account to open is not a notice. */}
+      <BrowserRouter>
+        <Gate />
+      </BrowserRouter>
     </AuthProvider>
   )
 }
@@ -86,34 +93,56 @@ function Gate() {
   if (!ready) return <Spinner />
   if (!user)
     return (
-      <div className="relative h-full overflow-hidden">
-        {/* The one screen allowed to be purely an image. Served from the API rather
-            than bundled: the clip is copyrighted, so it lives beside the card artwork
-            under backend/data and never enters a public repository. If it is not on
-            the box, Sky falls back to the drawn dawn on its own. */}
-        <Sky variant="dawn" video={`${API_BASE}/media/hero.mp4`} poster={`${API_BASE}/media/hero.jpg`} />
-        {/* Sky is positioned at z-index 0, and a positioned element paints above
-            static content whatever the DOM order — without a stacking context of its
-            own the whole sign-in form ended up underneath the sky. Every screen that
-            sits over Sky needs this; the Scrim carries it for the rest of the app. */}
-        {/* Same veil as every other screen: the wordmark and the labels sit on the
-            brightest band of the sky, which is where bare text measures 1.08:1. */}
-        {/* Soft here, and only here: the video carries its own veil, and stacking the
-            full one on top of it buries the ship the screen exists to show. The form
-            sits at the foot, where the video's own gradient is already at .88. */}
-        <Scrim over="dawn" strength="soft" className="h-full">
-          <SignIn />
-        </Scrim>
-      </div>
+      <Routes>
+        {/* The notice is a wall of body copy, so it takes the drawn dawn and the full
+            veil rather than the video and the soft one. The soft veil exists to keep
+            the ship visible; it leaves small text at a contrast this page cannot
+            spend. */}
+        <Route
+          path="/legal"
+          element={
+            <div className="relative h-full overflow-hidden">
+              <Sky variant="dawn" quiet />
+              <Scrim over="dawn" strength="full" className="h-full">
+                <div className="mx-auto h-full w-full max-w-2xl">
+                  <Legal />
+                </div>
+              </Scrim>
+            </div>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <div className="relative h-full overflow-hidden">
+              {/* The one screen allowed to be purely an image. Served from the API rather
+                  than bundled: the clip is copyrighted, so it lives beside the card artwork
+                  under backend/data and never enters a public repository. If it is not on
+                  the box, Sky falls back to the drawn dawn on its own. */}
+              <Sky variant="dawn" video={`${API_BASE}/media/hero.mp4`} poster={`${API_BASE}/media/hero.jpg`} />
+              {/* Sky is positioned at z-index 0, and a positioned element paints above
+                  static content whatever the DOM order — without a stacking context of its
+                  own the whole sign-in form ended up underneath the sky. Every screen that
+                  sits over Sky needs this; the Scrim carries it for the rest of the app. */}
+              {/* Same veil as every other screen: the wordmark and the labels sit on the
+                  brightest band of the sky, which is where bare text measures 1.08:1. */}
+              {/* Soft here, and only here: the video carries its own veil, and stacking the
+                  full one on top of it buries the ship the screen exists to show. The form
+                  sits at the foot, where the video's own gradient is already at .88. */}
+              <Scrim over="dawn" strength="soft" className="h-full">
+                <SignIn />
+              </Scrim>
+            </div>
+          }
+        />
+      </Routes>
     )
 
   return (
     <LanguageProvider>
       <CollectionProvider>
         <ToastProvider>
-          <BrowserRouter>
-            <Shell />
-          </BrowserRouter>
+          <Shell />
         </ToastProvider>
       </CollectionProvider>
     </LanguageProvider>
@@ -166,6 +195,7 @@ function Shell() {
               <Route path="/collection" element={<Collection />} />
               <Route path="/card/:cardId" element={<CardDetail />} />
               <Route path="/account" element={<Account />} />
+              <Route path="/legal" element={<Legal />} />
             </Routes>
           </main>
         </Scrim>

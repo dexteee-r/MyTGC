@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '../components/ui'
 import { ApiError, api } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -161,6 +162,12 @@ export function SignIn() {
           {mode === 'in' ? 'Pas encore de compte ? En créer un' : "J'ai déjà un compte"}
         </button>
       )}
+
+      {/* The only page the public reaches, so the notice hangs off it. Faint and at
+          the foot: it has to be findable, not prominent. */}
+      <Link to="/legal" className="pt-5 text-xs text-[var(--text-faint)] underline">
+        Mentions légales
+      </Link>
     </div>
   )
 }
