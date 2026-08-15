@@ -100,7 +100,7 @@ export function Wishlist() {
   }
 
   const clear = () => setFilters({ ...filters, language: null, ...EMPTY })
-  const applied = appliedLabels(filters)
+  const applied = appliedLabels(filters, null)
 
   if (failed) return <Screen><div className="pt-10"><Adrift onRetry={load} /></div></Screen>
   if (!entries) return <Screen><div className="pt-10"><Sounding label="Relevé des primes" /></div></Screen>
@@ -125,10 +125,10 @@ return (
                 }
                 className="grid size-[46px] shrink-0 place-items-center rounded-full"
                 style={{
-                  background: isFiltered(filters)
+                  background: isFiltered(filters, null)
                     ? 'var(--gradient-sun)'
                     : 'rgba(34,28,18,.1)',
-                  color: isFiltered(filters) ? 'var(--color-paper-ink)' : 'inherit',
+                  color: isFiltered(filters, null) ? 'var(--color-paper-ink)' : 'inherit',
                 }}
               >
                 <svg viewBox="0 0 20 20" fill="none" className="size-[18px]" aria-hidden>

@@ -25,12 +25,24 @@ import { EmptyPocket } from './ui'
 const CARD_ASPECT = 838 / 600
 const GAP = 2
 
+/* A deliberate hand on the surface, as opposed to the scroll events the restore
+   itself provokes -- listening for `scroll` would cancel the restore with its own
+   first frame. */
+const TOUCHED = ['wheel', 'touchstart', 'keydown'] as const
+
+/* When to re-assert the restored position, in ms. The measure pass lands within a
+   frame or two; the later ones cover a slow first paint. Half a second is long enough
+   to win that race and short enough not to fight a reader who has started scrolling. */
+const ATTEMPTS = [0, 60, 160, 320, 500]
+
 export function CardGrid({
   cards,
   onEndReached,
   loadingMore,
   showArt,
   columns: preferred = 2,
+  initialScroll = 0,
+  onScroll,
 }: {
   cards: Card[]
   onEndReached?: () => void
@@ -39,6 +51,11 @@ export function CardGrid({
   /* Two is readable, three fits more, and which is right is a taste rather than a
      viewport question -- so the caller decides and the account remembers. */
   columns?: number
+  /* Where to open. The grid owns its scroll element -- it has to, the windowing is
+     measured against it -- so restoring a position after a trip to a card sheet has
+     to come through here rather than being done to it from outside. */
+  initialScroll?: number
+  onScroll?: (top: number) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(3)
@@ -77,6 +94,51 @@ export function CardGrid({
     virtualizer.measure()
   }, [rowHeight, virtualizer])
 
+  /* Putting the reader back where they were is a race against the grid's own first
+     layout. The row height is only known once measured, so the wall is re-laid at
+     least twice after mount, and each re-lay clamps a scrollTop that was set against
+     the previous height. Setting it once did hold -- for exactly one commit, then the
+     measured height landed and it went back to nought.
+
+     So it is re-asserted over the first frames rather than once, and dropped as soon
+     as the reader touches the surface: a hand on the glass is the one signal that
+     they no longer want to be carried back. */
+  const restored = useRef(false)
+  useEffect(() => {
+    const element = scrollRef.current
+    if (!element || restored.current || !initialScroll) return
+
+    const timers: number[] = []
+    /* Tidying up is not the same as having finished, and conflating the two cost an
+       afternoon: returning `done` as the cleanup meant StrictMode's throwaway first
+       mount declared the job complete, so the real mount bailed on `restored` and the
+       reader always landed at the top. The cleanup only cancels; only the last attempt
+       or a hand on the surface may say it is done. */
+    const stop = () => {
+      for (const timer of timers) clearTimeout(timer)
+      for (const event of TOUCHED) element.removeEventListener(event, done)
+    }
+    const done = () => {
+      restored.current = true
+      stop()
+    }
+    const place = () => {
+      // Nothing to aim at yet: the wall is still shorter than where we are going.
+      if (element.scrollHeight - element.clientHeight >= initialScroll) {
+        element.scrollTop = initialScroll
+      }
+    }
+
+    place()
+    // Timers rather than animation frames: a tab that is not compositing never runs
+    // an animation frame, and this has to survive being restored in the background.
+    for (const delay of ATTEMPTS) timers.push(setTimeout(place, delay))
+    timers.push(setTimeout(done, ATTEMPTS[ATTEMPTS.length - 1] + 1))
+    for (const event of TOUCHED) element.addEventListener(event, done, { passive: true })
+
+    return stop
+  }, [initialScroll])
+
   const items = virtualizer.getVirtualItems()
   const last = items.at(-1)
   useEffect(() => {
@@ -84,7 +146,11 @@ export function CardGrid({
   }, [last, rows.length, onEndReached])
 
   return (
-    <div ref={scrollRef} className="no-scrollbar h-full overflow-y-auto px-3 pb-28">
+    <div
+      ref={scrollRef}
+      onScroll={onScroll ? (event) => onScroll(event.currentTarget.scrollTop) : undefined}
+      className="no-scrollbar h-full overflow-y-auto px-3 pb-28"
+    >
       {/* The wall itself: the groove colour shows between the glyphs, and the whole
           surface is sunk a hair below the slab around it. */}
       <div

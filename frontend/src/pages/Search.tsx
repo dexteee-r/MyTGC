@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CardGrid } from '../components/CardGrid'
 import {
   EMPTY,
@@ -21,14 +21,31 @@ import { useSearchHistory } from '../lib/useSearchHistory'
 
 const PAGE = 60
 
+/* Where the search was left. Opening a card unmounts this screen — it is a route, and
+   the grid is virtualised against its own scroll element — so without this, coming
+   back re-ran the query, dropped every page loaded past the first, and reopened at the
+   top with the filters cleared. Hunting a card means going in and out of sheets, so
+   that is the common path, not an edge case.
+
+   A module variable rather than storage: this is where you were a moment ago, not
+   something to remember about you. It dies with the tab, and the contract keeps
+   anything worth persisting on the account instead. */
+let left: {
+  query: string
+  filters: FilterState
+  cards: Card[]
+  total: number
+  scroll: number
+} | null = null
+
 export function Search() {
   const { language } = useLanguage()
   const { user, setUser } = useAuth()
   const { history, addSearch } = useSearchHistory()
-  const [query, setQuery] = useState('')
-  const [cards, setCards] = useState<Card[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState(left?.query ?? '')
+  const [cards, setCards] = useState<Card[]>(left?.cards ?? [])
+  const [total, setTotal] = useState(left?.total ?? 0)
+  const [loading, setLoading] = useState(!left)
   const [failed, setFailed] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [typing, setTyping] = useState(false)
@@ -36,11 +53,23 @@ export function Search() {
   /* Seeded from the account: it opens on the edition set in the log book, and on the
      number of columns chosen there. Changing the edition here is a change of mind
      about this search; changing the columns is a taste, and that one is written back. */
-  const [filters, setFilters] = useState<FilterState>({
-    language,
-    ...EMPTY,
-    sort: 'code',
-    columns: user?.grid_columns ?? 2,
+  const [filters, setFilters] = useState<FilterState>(
+    left?.filters ?? {
+      language,
+      ...EMPTY,
+      sort: 'code',
+      columns: user?.grid_columns ?? 2,
+    },
+  )
+  const scroll = useRef(left?.scroll ?? 0)
+
+  /* The first render after a return already holds the answer; refetching it would
+     throw away every page past the first and put the reader back at the top, which is
+     the bug this exists to fix. Cleared immediately, so changing a filter still runs. */
+  const returning = useRef(Boolean(left))
+
+  useEffect(() => () => {
+    left = { query, filters, cards, total, scroll: scroll.current }
   })
 
   const params = () => ({
@@ -54,6 +83,10 @@ export function Search() {
   })
 
   useEffect(() => {
+    if (returning.current) {
+      returning.current = false
+      return
+    }
     // Debounced: a keystroke should not fire a query against 9,447 rows.
     const timer = setTimeout(() => {
       setLoading(true)
@@ -92,9 +125,13 @@ export function Search() {
     }
   }
 
-  const clear = () => setFilters({ ...filters, language: null, ...EMPTY })
+  /* Back to the baseline, which includes the edition set on the account — not to both
+     editions. Clearing filters is "show me the usual", and the usual is one edition;
+     the catalogue holds every card twice, so falling back to both silently doubled the
+     results and paired every card with a printing you cannot read. */
+  const clear = () => setFilters({ ...filters, language, ...EMPTY })
 
-  const applied = appliedLabels(filters)
+  const applied = appliedLabels(filters, language)
 
   return (
     <div className="flex h-full flex-col">
@@ -148,9 +185,9 @@ export function Search() {
           aria-label={applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'}
           className="relative grid size-[46px] shrink-0 place-items-center rounded-full"
           style={{
-            background: isFiltered(filters) ? 'var(--gradient-sun)' : 'var(--surface-recessed)',
-            color: isFiltered(filters) ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
-            boxShadow: isFiltered(filters) ? 'var(--shadow-action)' : 'none',
+            background: isFiltered(filters, language) ? 'var(--gradient-sun)' : 'var(--surface-recessed)',
+            color: isFiltered(filters, language) ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
+            boxShadow: isFiltered(filters, language) ? 'var(--shadow-action)' : 'none',
           }}
         >
           <FilterIcon className="size-[18px]" />
@@ -201,6 +238,10 @@ export function Search() {
           columns={filters.columns}
           onEndReached={loadMore}
           loadingMore={cards.length < total}
+          initialScroll={scroll.current}
+          onScroll={(top) => {
+            scroll.current = top
+          }}
           showArt
         />
       )}

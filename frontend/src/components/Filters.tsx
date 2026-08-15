@@ -42,17 +42,24 @@ export const EMPTY: Omit<FilterState, 'sort' | 'columns' | 'language'> = {
    see is a filter you forget you set, and then a small result count reads as a bug.
    Sort and columns are deliberately absent: they change the order and the size of
    the answer, never which cards are in it. */
-export function appliedLabels(state: FilterState): string[] {
+export function appliedLabels(state: FilterState, baseline?: Language | null): string[] {
+  /* The edition the account opens on is the baseline, not a filter: listing it would
+     leave a chip that "Tout effacer" can never remove, since clearing returns to it.
+     Any other edition -- including both at once -- is a choice, and says so. */
+  const edition = state.language === baseline
+    ? null
+    : state.language === 'en' ? 'INT' : state.language === 'jp' ? 'JP' : 'Les deux'
+
   return [
-    state.language === 'en' ? 'INT' : state.language === 'jp' ? 'JP' : null,
+    edition,
     state.owned === true ? 'Possédées' : state.owned === false ? 'Manquantes' : null,
     ...state.colors,
     ...state.rarities,
   ].filter(Boolean) as string[]
 }
 
-export function isFiltered(state: FilterState): boolean {
-  return appliedLabels(state).length > 0
+export function isFiltered(state: FilterState, baseline?: Language | null): boolean {
+  return appliedLabels(state, baseline).length > 0
 }
 
 const toggle = (list: string[], value: string) =>
