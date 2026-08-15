@@ -1,0 +1,29 @@
+# Line endings are decided here rather than by whoever last opened a file on Windows.
+#
+# This is not tidiness. The deployment runs on Linux, and a CRLF file that is *sourced*
+# by a shell carries the \r into the value: an env file written on Windows produced
+# MYTCG_DATA_DIR=/var/lib/mytcg\r, and the price job died on
+# `PermissionError: '/var/lib/mytcg\r'`. systemd strips it, a shell does not, so the
+# same file works under one and fails under the other. Normalising in the repository is
+# what stops that landmine being re-laid.
+
+* text=auto eol=lf
+
+# Windows keeps its own endings: cmd.exe needs CRLF in a batch file, and PowerShell
+# here-strings are parsed line by line.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Declared rather than sniffed, so a stray byte never gets a file line-ended.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.woff  binary
+*.woff2 binary
+*.mp4  binary
+*.zip  binary
+*.jar  binary
+*.keystore binary

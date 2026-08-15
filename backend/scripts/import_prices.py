@@ -42,6 +42,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import db
+from app.config import DB_PATH
 
 for stream in (sys.stdout, sys.stderr):
     if hasattr(stream, "reconfigure"):
@@ -205,12 +206,12 @@ def main() -> int:
                         help="report coverage without writing anything")
     args = parser.parse_args()
 
-    rate = usd_to_eur()
-    print(f"Taux BCE du jour : 1 USD = {rate} EUR")
-
-    by_number = collect()
-    print(f"{len(by_number)} numéros de carte cotés")
-
+    # The database is read before the network, so the commonest failure costs a second
+    # rather than a minute of someone else's bandwidth. That failure is silent by
+    # nature: run without the service's environment and this opens a different, empty
+    # database, prices nothing, and exits cheerfully. An empty catalogue is therefore
+    # an error, and it names the likely cause -- the timer must carry MYTCG_DATA_DIR,
+    # exactly as the API does.
     conn = db.connect()
     db.init_schema(conn)
 
@@ -219,6 +220,27 @@ def main() -> int:
         ours[row["id"].split("_")[0]].append(row["id"])
     for ids in ours.values():
         ids.sort(key=lambda i: ("_" in i, i))
+
+    if not ours:
+        print(f"Aucune carte anglaise dans {DB_PATH}.", file=sys.stderr)
+        print("Ce n'est pas la base servie par l'API. Vérifie MYTCG_DATA_DIR et"
+              " MYTCG_DB_PATH dans l'environnement du job.", file=sys.stderr)
+        conn.close()
+        return 1
+    print(f"Catalogue : {sum(len(v) for v in ours.values())} cartes anglaises")
+
+    rate = usd_to_eur()
+    print(f"Taux BCE du jour : 1 USD = {rate} EUR")
+
+    by_number = collect()
+    print(f"{len(by_number)} numéros de carte cotés")
+
+    # An empty feed is a broken source, not a market where nothing has a price. Writing
+    # it through would delete the day's rows and put nothing back.
+    if not by_number:
+        print("La source n'a renvoyé aucun prix. Rien n'a été écrit.", file=sys.stderr)
+        conn.close()
+        return 1
 
     today = date.today().isoformat()
     rows, unpriced, ambiguous = pair(ours, by_number, rate, today)
