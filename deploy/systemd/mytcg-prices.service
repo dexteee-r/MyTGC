@@ -14,10 +14,25 @@ Group=mytcg
 EnvironmentFile=/etc/mytcg/mytcg.env
 WorkingDirectory=/srv/mytcg/app
 ExecStart=/srv/mytcg/app/.venv/bin/python backend/scripts/import_prices.py
-# Reaches tcgcsv.com and api.frankfurter.dev, and takes about a minute.
+# Reaches tcgcsv.com and api.frankfurter.dev, and takes about a minute — a measured run
+# is 58 s, so this is margin, not an estimate.
 TimeoutStartSec=10min
+
+# --- hardening ---------------------------------------------------------------
+# The same set the API carries, and for the same reason: this job talks to the open
+# internet and writes to the database. It was first written against the backup unit,
+# which is a local job that touches neither, and came out seven directives short.
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# ProtectSystem=strict makes everything read-only; this is the exception.
 ReadWritePaths=/var/lib/mytcg
