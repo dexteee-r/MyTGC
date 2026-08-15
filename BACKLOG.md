@@ -83,7 +83,8 @@ quand celui-ci remontera dans les priorités.
   les nouvelles demandes d'API — ce n'est pas une question de profil, Cardmarket écrit
   noir sur blanc « we are not accepting applications ». Les prix viennent donc de
   tcgcsv.com (miroir quotidien de TCGplayer, sans clé), convertis en euros au taux BCE
-  du jour. `import_prices.py`, à lancer sur le serveur, une fois par jour.
+  du jour. `import_prices.py`, à lancer sur le serveur, tous les 3 jours (cron dans le
+  README). Rien ne casse s'il ne tourne pas : les prix restent figés au dernier relevé.
   Ce sont des prix **américains**, pas Cardmarket, et l'écran le dit. Les tirages
   alternatifs ne sont cotés que si les deux sources sont d'accord sur leur nombre :
   un alt art vaut ~30× la carte normale, un mauvais appariement fausserait tout.

@@ -3,6 +3,11 @@
 Usage:
     py backend/scripts/import_prices.py [--dry-run]
 
+Runs every three days on the server. Nothing depends on it having run: without it the
+prices stay frozen at the last snapshot, which is a staleness problem and not an outage.
+Running it twice in a day is harmless and pointless -- the upstream mirror refreshes
+once, around 20:00 UTC.
+
 Why this source and not the one that was asked for:
 
 Cardmarket is the market a European collector actually buys on, and its API is the

@@ -15,7 +15,7 @@ backend/
     schema.sql      cards / collection / price_history / wishlist / catalogue_meta
   scripts/
     import_catalogue.py   build steps 1-2: import punk-records, audit, backfill
-    import_prices.py      daily price snapshot into price_history, in euros
+    import_prices.py      price snapshot into price_history, in euros
   data/             gitignored: punk-records clone, SQLite db, image cache
 ```
 
@@ -67,10 +67,21 @@ py backend/scripts/import_prices.py            # --dry-run to see coverage first
 ```
 
 Writes one snapshot per card per day into `price_history`, in euros. Re-running it the
-same day replaces that day's reading rather than stacking a second one, so it is safe on
-a timer — daily is the right cadence, since the upstream mirror refreshes once a day
-around 20:00 UTC. It runs where the database is, which in production means on the server
-and not in CI: `backend/data/` is gitignored and never travels with a deploy.
+same day replaces that day's reading rather than stacking a second one, so it is safe to
+run on a timer, and safe to run twice by accident.
+
+**Every three days**, which is the chosen cadence:
+
+```cron
+0 21 */3 * * cd /srv/mytcg && .venv/bin/python backend/scripts/import_prices.py
+```
+
+Nothing breaks if it does not run — the prices simply stay frozen at the last snapshot,
+and the card sheet keeps showing that figure. So the cadence is a question of how stale a
+price may be, not of keeping the app alive. Running it more than once a day is pointless:
+the upstream mirror only refreshes once, around 20:00 UTC, which is why the job is set
+after that. It runs where the database is, which in production means on the server and
+not in CI: `backend/data/` is gitignored and never travels with a deploy.
 
 **The source is not the one this app should have used.** Cardmarket is the market a
 European collector actually buys on, and its API is closed — help.cardmarket.com states
