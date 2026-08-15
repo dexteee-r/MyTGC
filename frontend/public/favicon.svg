@@ -1,35 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- The app's own mark: the sun on the horizon over deep water. Drawn rather than
-       lettered — two initials are unreadable at 16px, a sun over a sea is not. The
-       colours are the interface's own: sea #06171d, sun #ffd27a, gold #c9922a. -->
+  <!-- The tab icon: icon.svg reduced by eight, with two changes that compensate for the
+       size rather than redesign the mark.
+
+       The horizon is 3.75 units here, not the 2 a straight reduction would give. At
+       16px a half-pixel stroke does not resolve as gold — it comes out grey-olive and
+       reads as a smudge under the sun. Thickened, it is a bar again.
+
+       And one of the two reflections is gone: at this size they merge into one blob.
+
+       The five cards survive the reduction untouched. That was checked by rasterising
+       at 16 and 32px before anything was changed, not assumed. -->
   <title>MyTCG</title>
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#123049"/>
-      <stop offset="0.52" stop-color="#8fc0b4"/>
-      <stop offset="0.62" stop-color="#f3dda8"/>
-      <stop offset="0.66" stop-color="#14454f"/>
-      <stop offset="1" stop-color="#04121a"/>
-    </linearGradient>
-    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+    <linearGradient id="cardLight" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff5d6"/>
-      <stop offset="0.55" stop-color="#ffd27a"/>
+      <stop offset="0.6" stop-color="#f0c04a"/>
       <stop offset="1" stop-color="#c9922a"/>
-    </radialGradient>
+    </linearGradient>
     <clipPath id="frame">
       <rect x="0" y="0" width="64" height="64" rx="14"/>
     </clipPath>
   </defs>
 
   <g clip-path="url(#frame)">
-    <rect width="64" height="64" fill="url(#sky)"/>
-    <!-- The sun sits on the water line, half of it already gone. -->
-    <circle cx="32" cy="40" r="15" fill="url(#disc)"/>
-    <rect x="0" y="40" width="64" height="24" fill="#0a2833"/>
-    <!-- Its reflection, and two swells. Three shapes is all that survives 16px. -->
-    <rect x="28" y="40" width="8" height="16" fill="#ffd27a" opacity="0.5"/>
-    <path d="M0 45 Q16 41 32 45 T64 45 L64 64 L0 64 Z" fill="#08222c"/>
-    <path d="M0 52 Q18 48 34 52 T64 51 L64 64 L0 64 Z" fill="#04121a"/>
+    <rect width="64" height="64" fill="#06171d"/>
+    <g transform="translate(32, 40)">
+      <path d="M -17.5 3 Q 0 8 17.5 3 Q 0 5.25 -17.5 3 Z" fill="#0c2c36"/>
+      <g fill="url(#cardLight)">
+        <rect x="-4" y="-23.75" width="8" height="13.75" rx="0.75" transform="rotate(-68)"/>
+        <rect x="-4" y="-25" width="8" height="13.75" rx="0.75" transform="rotate(-34)"/>
+        <rect x="-4" y="-26.25" width="8" height="13.75" rx="0.75"/>
+        <rect x="-4" y="-25" width="8" height="13.75" rx="0.75" transform="rotate(34)"/>
+        <rect x="-4" y="-23.75" width="8" height="13.75" rx="0.75" transform="rotate(68)"/>
+      </g>
+      <path d="M -11.25 0 A 11.25 11.25 0 0 1 11.25 0 Z" fill="#f0c04a"/>
+      <line x1="-24" y1="0" x2="24" y2="0" stroke="#ffd27a" stroke-width="3.75"
+            stroke-linecap="round"/>
+    </g>
   </g>
   <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none"
         stroke="rgba(243,230,203,0.16)"/>

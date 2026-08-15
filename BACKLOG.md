@@ -29,6 +29,14 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Le vrai logo.** Le soleil qui se lève sur la mer, cinq cartes en éventail pour
+  rayons — un classeur qui se remplit est un soleil qui monte. Dessiné par le designer
+  d'après `renfonte-ui/BRIEF-LOGO.md`, posé en `icon.svg` (512, plein bord) et
+  `favicon.svg` (64, coins arrondis). Le favicon n'est pas le grand réduit : à 16 px le
+  trait d'horizon tombe à un demi-pixel et sort gris-olive, il est épaissi et un des
+  deux reflets saute. Les cinq cartes, elles, passent la réduction sans retouche —
+  vérifié en rastérisant à 16 et 32 px, pas supposé. Les trois PNG sont désormais
+  générés par `frontend/scripts/make_icons.py` au lieu d'être faits à la main.
 - **Favicon.** L'éclair violet du scaffold Vite est remplacé par la marque de l'app :
   le soleil sur l'horizon, dessiné, lisible à 16 px.
 - **Export CSV.** Sur l'écran Compte. Point-virgule et BOM UTF-8, parce que le fichier

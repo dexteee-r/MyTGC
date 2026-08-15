@@ -1,35 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- The app icon, distinct from favicon.svg on one point: it is full-bleed and
-       square. iOS and Android apply their own mask — a squircle here, a circle there —
-       so an icon that rounds its own corners ends up with the page showing through the
-       gap, or with its corners clipped twice. The browser tab keeps the rounded one. -->
+  <!-- The app icon. Full-bleed and square, unlike favicon.svg: iOS and Android apply
+       their own mask — a squircle here, a circle there — so an icon that rounds its own
+       corners ends up with the page showing through the gap, or clipped twice. The
+       browser tab keeps the rounded one.
+
+       Drawn by the designer. The horizon stops at ±192 rather than ±200 so nothing
+       lands in the 10% of each edge the mask eats. -->
   <title>MyTCG</title>
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#123049"/>
-      <stop offset="0.5" stop-color="#8fc0b4"/>
-      <stop offset="0.6" stop-color="#f3dda8"/>
-      <stop offset="0.64" stop-color="#14454f"/>
-      <stop offset="1" stop-color="#04121a"/>
-    </linearGradient>
-    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+    <linearGradient id="cardLight" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff5d6"/>
-      <stop offset="0.55" stop-color="#ffd27a"/>
+      <stop offset="0.6" stop-color="#f0c04a"/>
       <stop offset="1" stop-color="#c9922a"/>
-    </radialGradient>
-    <linearGradient id="glint" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffd27a" stop-opacity="0.5"/>
-      <stop offset="1" stop-color="#ffd27a" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
-  <rect width="512" height="512" fill="url(#sky)"/>
-  <!-- The sun on the water line, half of it already gone. -->
-  <circle cx="256" cy="318" r="118" fill="url(#disc)"/>
-  <rect x="0" y="318" width="512" height="194" fill="#0a2833"/>
-  <!-- Its reflection, faded rather than cut off: a flat rectangle ends on a hard edge
-       that reads as a notch punched in the water at icon size. -->
-  <rect x="230" y="318" width="52" height="150" fill="url(#glint)"/>
-  <path d="M0 356 Q128 324 256 356 T512 356 L512 512 L0 512 Z" fill="#08222c"/>
-  <path d="M0 412 Q144 380 272 412 T512 404 L512 512 L0 512 Z" fill="#04121a"/>
+  <rect width="512" height="512" fill="#06171d"/>
+
+  <g transform="translate(256, 320)">
+    <!-- The reflection, under the water line. -->
+    <path d="M -140 20 Q 0 60 140 20 Q 0 40 -140 20 Z" fill="#0c2c36"/>
+    <path d="M -90 50 Q 0 80 90 50 Q 0 65 -90 50 Z" fill="#08222c"/>
+
+    <!-- The fan: a binder filling up is a sun coming up, not a progress bar. The cards
+         overlap near their base — 64 wide is more than 34° apart at that radius — and
+         the disc is drawn after them, so the join never shows. -->
+    <g fill="url(#cardLight)">
+      <rect x="-32" y="-190" width="64" height="110" rx="6" transform="rotate(-68)"/>
+      <rect x="-32" y="-200" width="64" height="110" rx="6" transform="rotate(-34)"/>
+      <rect x="-32" y="-210" width="64" height="110" rx="6"/>
+      <rect x="-32" y="-200" width="64" height="110" rx="6" transform="rotate(34)"/>
+      <rect x="-32" y="-190" width="64" height="110" rx="6" transform="rotate(68)"/>
+    </g>
+
+    <path d="M -90 0 A 90 90 0 0 1 90 0 Z" fill="#f0c04a"/>
+    <line x1="-192" y1="0" x2="192" y2="0" stroke="#ffd27a" stroke-width="16"
+          stroke-linecap="round"/>
+  </g>
 </svg>

@@ -469,6 +469,37 @@ already reads.
 The grid is three across because a binder page is three across; wide screens get six,
 which is two pages open side by side rather than an arbitrary number that fits.
 
+### The mark, and regenerating the icons
+
+The logo is a sun rising out of the sea with five cards fanned out as its rays — a
+binder filling up is a sun coming up, not a progress bar. It ships in two hand-editable
+files: `public/icon.svg` (512, full-bleed, square, for the OS mask) and
+`public/favicon.svg` (64, rounded corners, for the tab).
+
+The favicon is not the icon scaled down. At 16px a 16-unit stroke on the 512 grid
+resolves to half a pixel and the horizon comes out grey-olive, reading as a smudge
+under the sun; it is 3.75 units here, and one of the two reflections is dropped because
+at that size they merge. The five cards survive the reduction untouched — that was
+checked by rasterising at 16 and 32px, not assumed.
+
+The three PNGs the manifest and iOS need are generated:
+
+```
+python scripts/make_icons.py           # writes icon-180/192/512.png
+python scripts/make_icons.py --check   # only verifies it still matches icon.svg
+```
+
+It draws the geometry in Pillow rather than rasterising the SVG. The rasterisers
+(sharp, resvg, cairosvg) are all native modules, and as a devDependency `npm ci` would
+build them on the autodeploy box too, where a compile failure would break a deployment
+for three images that change once a year. The cost is that the geometry exists twice,
+so `--check` re-reads `icon.svg` and refuses to run if the numbers have drifted.
+
+The output was verified against a browser's own SVG rasteriser: row and column
+luminance profiles at 64px differ by 0.84 and 0.44 out of 255. Perturbing the disc
+radius, the horizon weight or the card angles moves those to 2.8, 4.8 and 5.9, so the
+comparison discriminates rather than passing on anything.
+
 ### What was cut
 
 The previous pass was a dark dashboard with a One Piece coat of paint: near-black plus
