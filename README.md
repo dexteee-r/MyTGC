@@ -88,8 +88,12 @@ That has consequences the UI states rather than hides:
   ~30× the plain card, so a confident wrong figure would corrupt the total far worse
   than a visible gap. Currently ~92% of plain cards carry a price.
 
-`/collection/stats` returns `market_total` alongside `market_priced`, and the account
-screen shows both — a total without its coverage would read as an appraisal.
+Every card carries its latest reading as `market_price`, so the card sheet, the want
+list and a scan result all show it without a second round trip. `/collection/stats`
+returns `market_total` alongside `market_priced`, and the account screen shows both — a
+total without its coverage would read as an appraisal. Where a card has no reading the
+sheet says which of the two reasons applies rather than showing nothing, because an
+empty space there reads as a broken feature.
 
 ## Build step 3 — images and pHashes
 

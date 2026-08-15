@@ -25,6 +25,7 @@ export interface Card {
   effect: string | null
   trigger: string | null
   release_date: string | null
+  market_price: number | null
   image_url: string | null
   printings: string[]
 }

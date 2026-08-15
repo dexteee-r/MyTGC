@@ -40,7 +40,15 @@ from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
-                " colors, cost, power, counter, attributes, types, image_path, release_date")
+                " colors, cost, power, counter, attributes, types, image_path, release_date,"
+                # The latest snapshot, carried on the card itself so every screen that
+                # already shows a card -- the sheet, the want list, a scan result --
+                # gets the figure without a second round trip. Correlated rather than
+                # joined: price_history holds one row per card per day, and a join
+                # would return the card once per day it has been priced.
+                " (SELECT price FROM price_history h WHERE h.card_id = cards.id"
+                "  AND h.language = cards.language"
+                "  ORDER BY h.captured_at DESC, h.id DESC LIMIT 1) AS market_price")
 
 
 def running_commit() -> str | None:

@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useCollection } from '../lib/collection'
 import { Breakdown } from '../components/Breakdown'
 import { downloadCollection } from '../lib/export'
+import { money } from '../lib/money'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
 import type { Health, Pack } from '../lib/types'
@@ -241,15 +242,6 @@ export function Account() {
       </section>
     </Screen>
   )
-}
-
-/* Cents only when there are cents: a collection worth 40 € should not read 40,00 €
-   next to a count, and one worth 12,50 € must not round to 13. */
-function money(amount: number): string {
-  return `${amount.toLocaleString('fr', {
-    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-    maximumFractionDigits: 2,
-  })} €`
 }
 
 function Quarter({ value, label }: { value: number | string; label: string }) {

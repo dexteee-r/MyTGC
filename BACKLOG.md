@@ -88,6 +88,10 @@ quand celui-ci remontera dans les priorités.
   alternatifs ne sont cotés que si les deux sources sont d'accord sur leur nombre :
   un alt art vaut ~30× la carte normale, un mauvais appariement fausserait tout.
   ~92 % des cartes de base sont cotées.
+  **Cote affichée carte par carte**, sous le nom sur la fiche. Le premier jet ne
+  sortait que le total sur le compte : le prix existait en base et ne se voyait nulle
+  part. Quand il n'y a pas de cote, la fiche dit laquelle des deux raisons s'applique
+  — un blanc se lit comme une fonction cassée, c'est exactement ce qui s'est passé.
 - **Prix d'achat sur la fiche carte** + **total dépensé** sur le carnet de bord. Le
   backend (colonne, endpoints, `acquisition_total` dans `/collection/stats`) existait
   déjà sans UI dessus. Ajoutés : le champ sur la fiche carte (même geste que le prix des

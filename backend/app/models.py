@@ -97,6 +97,9 @@ class Card(BaseModel):
     effect: str | None = None
     trigger: str | None = None
     release_date: str | None = None
+    # What one copy is going for, in euros. Null on the Japanese printing and on the
+    # alternate arts the importer refuses to guess at -- see scripts/import_prices.py.
+    market_price: float | None = None
     image_url: str | None = None
     # Other printings of the same card number. Populated on the detail endpoint only:
     # identical artwork and printed code, so the UI must let the user choose.
@@ -120,6 +123,7 @@ class Card(BaseModel):
             effect=row["effect"] if "effect" in keys else None,
             trigger=row["trigger"] if "trigger" in keys else None,
             release_date=row["release_date"] if "release_date" in keys else None,
+            market_price=row["market_price"] if "market_price" in keys else None,
             image_url=f"/images/{row['language']}/{row['id']}.png"
             if row["image_path"] else None,
         )

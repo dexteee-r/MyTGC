@@ -5,6 +5,7 @@ import { ChevronLeftIcon } from '../components/icons'
 import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
+import { money } from '../lib/money'
 import { useToast } from '../lib/toast'
 import {
   CONDITION_LABELS,
@@ -128,6 +129,27 @@ export function CardDetail() {
         </p>
         <div className="mt-3 flex justify-center">
           <ColorBar colors={card.colors} className="h-[3px] w-16" />
+        </div>
+
+        {/* What it goes for, directly under what it is — the second thing you want to
+            know about a card, so it is not buried in the list at the foot. When there
+            is no figure the screen says why: silence here reads as a broken feature,
+            which is exactly how it was read. */}
+        <div className="pt-5">
+          {card.market_price != null ? (
+            <>
+              <p className="t-numeral text-[1.5rem] leading-none">
+                {money(card.market_price)}
+              </p>
+              <p className="t-code pt-1.5 text-[var(--text-faint)]">
+                cote indicative · marché US
+              </p>
+            </>
+          ) : (
+            <p className="t-code text-[var(--text-faint)]">
+              {language === 'jp' ? 'Pas de cote en édition japonaise' : 'Tirage non coté'}
+            </p>
+          )}
         </div>
       </div>
 

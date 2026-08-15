@@ -32,6 +32,7 @@ const card: Card = {
   effect: null,
   trigger: null,
   release_date: "2022-12-02",
+  market_price: 4.75,
   image_url: "/images/en/OP01-001.png",
   printings: [],
 };
