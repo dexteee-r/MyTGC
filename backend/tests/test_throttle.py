@@ -82,8 +82,8 @@ def test_the_scan_limit_is_published_so_the_camera_can_pace_itself(client):
 
 
 def test_the_forwarded_address_is_used_behind_a_proxy(client):
-    """Behind Nginx and the tunnel every request arrives from localhost, so without
-    this the limit would apply to the whole world as one key."""
+    """Behind Nginx and the proxy in front of it every request arrives from localhost,
+    so without this the limit would apply to the whole world as one key."""
 
     class FakeRequest:
         headers = {"x-forwarded-for": "203.0.113.9, 10.0.0.1"}

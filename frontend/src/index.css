@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Self-hosted rather than fetched from a font CDN: the app runs behind a tunnel on a
-   box at home, and a third-party request is one more thing that can be slow or down.
+/* Self-hosted rather than fetched from a font CDN: the app runs on a box at home,
+   and a third-party request is one more thing that can be slow or down.
    The handoff's prototype loads Google Fonts for convenience; production keeps
    @fontsource. Same three families either way — no dependency changes. */
 @import "@fontsource-variable/space-grotesk/wght.css";

@@ -15,7 +15,7 @@ import type {
 } from './types'
 
 /* In dev, Vite proxies /api to the local uvicorn. In a Capacitor build there is no
-   proxy, so VITE_API_BASE must point at the tunnelled backend. */
+   proxy, so VITE_API_BASE must point at the deployed backend by absolute URL. */
 export const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
 export function imageUrl(card: Pick<Card, 'image_url'>): string | null {
