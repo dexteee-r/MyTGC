@@ -8,8 +8,24 @@ User=mytcg
 Group=mytcg
 EnvironmentFile=/etc/mytcg/mytcg.env
 ExecStart=/srv/mytcg/app/deploy/scripts/backup.sh
+# --- hardening ---------------------------------------------------------------
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+
+# Tighter than the API's, on purpose. Omitting this directive does not mean "no
+# network", it means every family is allowed — the job simply never happens to open a
+# socket. Naming AF_UNIX alone denies AF_INET and AF_INET6 outright: this one copies a
+# local file and gzips it, so a connection out is a sign something is wrong, not a
+# feature to leave available. AF_UNIX stays because the journal needs it.
+RestrictAddressFamilies=AF_UNIX
+
+# ProtectSystem=strict makes everything read-only; these two are the exceptions.
 ReadWritePaths=/var/lib/mytcg /var/backups/mytcg

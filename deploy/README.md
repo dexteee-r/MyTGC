@@ -78,6 +78,45 @@ night the box spent powered off is caught up rather than silently skipped.
 
 The image cache is not backed up — `download_images.py` rebuilds it.
 
+The unit denies the network outright with `RestrictAddressFamilies=AF_UNIX`, which is
+tighter than the API's. Leaving the directive out does not mean "no network": it means
+every family is permitted and the job merely happens not to open a socket. Naming
+AF_UNIX alone makes a connection out impossible rather than unlikely.
+
+After changing anything in that unit, a start is not a test — a backup that produces a
+corrupt file at 04:15 looks exactly like one that worked:
+
+```bash
+sudo systemctl start mytcg-backup.service
+latest=$(ls -t /var/backups/mytcg/*.db.gz | head -1)
+gzip -t "$latest" && echo "gzip ok"
+gunzip -c "$latest" > /tmp/check.db
+sqlite3 /tmp/check.db 'PRAGMA integrity_check;'   # must print: ok
+rm /tmp/check.db
+```
+
+## Installing and changing units
+
+Unit files are copied to `/etc/systemd/system/` **by hand**. `deploy.sh` deliberately
+does not do it: autodeploy pulls from a public repository, so a script that wrote into
+`/etc/systemd/system` would let a commit set `User=root` or drop `NoNewPrivileges`. A
+bad commit today runs as `mytcg`; the rules about what `mytcg` may do stay out of a
+commit's reach.
+
+The price of that is drift, and it has already bitten — seven hardening directives sat
+in the repository for a day while the loaded unit had none, with every deploy reporting
+success. So `deploy.sh` compares the two and says so at the end of its output. It warns
+rather than fails: a unit waiting to be installed should not block an application fix.
+
+```bash
+sudo cp /srv/mytcg/app/deploy/systemd/* /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+Then confirm with `systemctl show <unit> -p <Directive>` rather than by reading the
+file. Reading the file tells you what should be loaded; `systemctl show` tells you what
+is.
+
 ## Prices
 
 `mytcg-prices.timer` runs `backend/scripts/import_prices.py` every three days at 21:00

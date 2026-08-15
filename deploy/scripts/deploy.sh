@@ -50,3 +50,40 @@ sleep 3
 curl -fsS http://127.0.0.1:8000/health && echo
 
 echo "==> Done"
+
+# --- unit drift ----------------------------------------------------------------
+# Unit files are installed by hand and never by this script. That boundary is worth
+# more than the convenience: autodeploy pulls from a PUBLIC repository, and a script
+# that copied into /etc/systemd/system would make a commit able to set User=root, drop
+# NoNewPrivileges, or add an ExecStartPre. Today a bad commit runs as mytcg; the rules
+# governing what mytcg may do stay out of a commit's reach. Widening that to save a cp
+# is a poor trade.
+#
+# The cost is that deploy/systemd/ can drift from what is loaded without anything
+# saying so — which already happened: seven hardening directives sat in the repository
+# for a day while the running unit had none of them, and the deploy reported success
+# throughout. So the drift is checked here, and printed last, where the tail of a
+# deploy is actually read.
+#
+# Reported, not fatal: a unit waiting to be installed is not a reason to block an
+# unrelated application fix from shipping.
+drifted=()
+for unit in "$APP_DIR"/deploy/systemd/*; do
+    installed="/etc/systemd/system/$(basename "$unit")"
+    if [ ! -e "$installed" ]; then
+        drifted+=("$(basename "$unit") — not installed")
+    elif ! cmp -s "$unit" "$installed"; then
+        drifted+=("$(basename "$unit") — differs from the installed copy")
+    fi
+done
+
+if [ ${#drifted[@]} -gt 0 ]; then
+    echo
+    echo "!!! systemd units out of sync !!!"
+    printf '    %s\n' "${drifted[@]}"
+    echo
+    echo "    The repository moved, the machine did not. To apply:"
+    echo "      sudo cp $APP_DIR/deploy/systemd/* /etc/systemd/system/"
+    echo "      sudo systemctl daemon-reload"
+    echo "    Then confirm with systemctl show, not by reading the file."
+fi
