@@ -1,0 +1,17 @@
+[Unit]
+Description=MyTCG automatic deployment (pull-based)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mytcg
+Group=mytcg
+EnvironmentFile=/etc/mytcg/mytcg.env
+ExecStart=/srv/mytcg/app/deploy/scripts/autodeploy.sh
+
+# Exits non-zero when CI is red, which surfaces in `systemctl status` and the
+# journal rather than being swallowed.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only

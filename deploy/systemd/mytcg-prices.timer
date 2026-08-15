@@ -1,0 +1,19 @@
+[Unit]
+Description=Refresh MyTCG card prices every three days
+
+[Timer]
+# 21:00 UTC, an hour after the upstream mirror publishes its daily file. The container
+# runs on UTC; read as local time this would fall an hour *before* the refresh and read
+# the previous day's prices every time.
+#
+# The step restarts on the 1st of each month, so one interval per month can be shorter
+# than three days. That is harmless: a run replaces that day's rows rather than adding
+# to them.
+OnCalendar=*-*-01/3 21:00:00
+# Catch up after the box was off. Without this a missed slot means stale prices for
+# another three days, which is the failure this timer exists to prevent.
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

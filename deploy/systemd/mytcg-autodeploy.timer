@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a new MyTCG release
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+# Not Persistent: a missed check just means the next one picks the change up.
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

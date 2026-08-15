@@ -1,0 +1,23 @@
+[Unit]
+Description=MyTCG price snapshot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mytcg
+Group=mytcg
+# The same file the API reads, parsed by the same thing that parses it for the API.
+# This is the whole reason the job is a unit and not a crontab line: the env file has
+# carried CRLF, systemd strips the \r and a shell does not, so a cron entry sourcing
+# it died on `PermissionError: '/var/lib/mytcg\r'`. One parser, one source of truth.
+EnvironmentFile=/etc/mytcg/mytcg.env
+WorkingDirectory=/srv/mytcg/app
+ExecStart=/srv/mytcg/app/.venv/bin/python backend/scripts/import_prices.py
+# Reaches tcgcsv.com and api.frankfurter.dev, and takes about a minute.
+TimeoutStartSec=10min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/mytcg

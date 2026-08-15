@@ -43,6 +43,11 @@ frontend/node_modules/
 .env.production
 backend/data/*.bak
 
-# Deployment config lives one level up, outside the repo: it is infrastructure
-# for one host (hostnames, paths, secrets layout), not application code.
-deploy/
+# deploy/ used to be ignored, on the reasoning that it was infrastructure for one
+# host rather than application code. It is tracked now: a timer that existed only on
+# the box was lost the moment anyone looked away, and nothing there changes because
+# the machine changed — the Nginx policy follows the frontend's CSP, the units follow
+# this repository's layout, and mytcg.env.example follows config.py.
+#
+# The one file that really is the machine's stays out, and always did: the real
+# /etc/mytcg/mytcg.env holds the signing key and lives only on the host.
