@@ -4,13 +4,18 @@
 # The host asks GitHub whether main has moved, rather than GitHub reaching in. That
 # is deliberate and not merely convenient:
 #
-#   * the LXC has no inbound access at all — the Cloudflare Tunnel is outbound, and
-#     nothing here changes that
 #   * no deployment credentials are stored at GitHub, so a compromised repository
 #     account cannot execute anything on the host
 #   * the repository is PUBLIC. A self-hosted Actions runner would let anyone open a
 #     pull request from a fork and run their code here. GitHub warns about exactly
 #     this, and it is why that route is not taken
+#   * nothing has to accept an inbound connection for a deploy to happen, so the
+#     deployment path stays independent of however the site is published
+#
+# A fourth reason used to head this list — "the LXC has no inbound access at all, the
+# Cloudflare Tunnel is outbound". That stopped being true: the site is now published
+# through a reverse proxy reached by a port forward, so the network does take inbound
+# connections. The three reasons above never depended on it.
 #
 # A new commit is only deployed once its CI run is green. Auto-deploying whatever
 # lands on main is how a red build reaches production at 3am.

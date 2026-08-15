@@ -70,11 +70,11 @@ Writes one snapshot per card per day into `price_history`, in euros. Re-running 
 same day replaces that day's reading rather than stacking a second one, so it is safe to
 run on a timer, and safe to run twice by accident.
 
-**Every three days**, which is the chosen cadence:
-
-```cron
-0 21 */3 * * cd /srv/mytcg && .venv/bin/python backend/scripts/import_prices.py
-```
+**Every three days**, which is the chosen cadence. In production it is a systemd timer,
+`deploy/systemd/mytcg-prices.timer`, and deliberately not a crontab line: the job needs
+`MYTCG_DATA_DIR` out of `/etc/mytcg/mytcg.env`, that file has carried CRLF, and a shell
+sourcing it keeps the `\r` where systemd strips it — a cron entry died on
+`PermissionError: '/var/lib/mytcg\r'`.
 
 Nothing breaks if it does not run — the prices simply stay frozen at the last snapshot,
 and the card sheet keeps showing that figure. So the cadence is a question of how stale a
@@ -378,7 +378,7 @@ Counters live in the process. That is the right size for a self-hosted single in
 they reset on restart, which is not an attack vector, and a shared store would mean running
 Redis for a household of one.
 
-Behind Nginx and the tunnel every request arrives from localhost, so the address comes from
+Behind Nginx and the proxy in front every request arrives from localhost, so the address comes from
 `X-Forwarded-For` — first entry only, and only because the proxy in front is ours.
 
 ## Configuration
@@ -386,7 +386,7 @@ Behind Nginx and the tunnel every request arrives from localhost, so the address
 | Variable | Purpose |
 |---|---|
 | `MYTCG_SECRET_KEY` | Signs access tokens. **Required in production** — without it a key is generated per boot and every session dies on restart. |
-| `MYTCG_ORIGINS` | Comma-separated extra CORS origins, e.g. the tunnel host. Credentials are allowed, so a wildcard is neither legal nor wise. |
+| `MYTCG_ORIGINS` | Comma-separated extra CORS origins, e.g. the public host. Credentials are allowed, so a wildcard is neither legal nor wise. |
 | `MYTCG_DATA_DIR` | Where the database, image cache and punk-records clone live. In production this belongs outside the checkout: it is 2.5 GB and must survive a redeploy. |
 | `MYTCG_DB_PATH` | Overrides just the database path. |
 
@@ -435,7 +435,7 @@ revoking everything.
 ### What is protected
 
 Everything user-scoped, plus the catalogue queries and `/scan`: the instance is exposed
-through a tunnel, so an unauthenticated visitor should not be able to browse it or spend its
+to the internet, so an unauthenticated visitor should not be able to browse it or spend its
 CPU. `/health`, `/auth/*` and `/images/*` stay public — images are referenced from `<img>`
 tags that cannot carry an Authorization header, and card art is Bandai's, not personal data.
 
@@ -545,12 +545,12 @@ JDK is 1.8, which Gradle 8 rejects; Android Studio's bundled JBR 21 is used inst
 
 There is no Vite proxy in a native build, so `VITE_API_BASE` must be an absolute URL the
 phone can reach — `http://10.0.2.2:8000` from the emulator, the machine's LAN IP from a real
-device, or the Cloudflare Tunnel host. Whatever is used must also be in the CORS allow list
+device, or the public host. Whatever is used must also be in the CORS allow list
 in `backend/app/main.py`.
 
 Android 9+ blocks cleartext HTTP, so `app/src/debug/` carries a network security config that
 permits it for `10.0.2.2`, `localhost` and `127.0.0.1` only. Release builds do not include
-that source set and stay HTTPS-only, which is what the tunnel serves. Add your LAN IP to
+that source set and stay HTTPS-only, which is what the public host serves. Add your LAN IP to
 that file to test from a physical phone.
 
 ### Two scan modes

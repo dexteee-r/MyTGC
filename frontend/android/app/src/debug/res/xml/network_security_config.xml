@@ -2,7 +2,7 @@
 <!--
   Debug builds only. Android 9+ blocks cleartext HTTP, but during development the API
   runs as plain http on the developer machine. Release builds do not include this file
-  and stay HTTPS-only, which is what the Cloudflare Tunnel serves.
+  and stay HTTPS-only, which is what the deployed instance serves.
 
   10.0.2.2 is how the Android emulator reaches the host. Add your machine's LAN IP
   here to test from a physical phone on the same network.

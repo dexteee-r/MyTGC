@@ -19,9 +19,12 @@ Target: a Proxmox LXC running Debian/Ubuntu, published at `mytcg.elmzn.be`. TLS
 terminates at a reverse proxy in front — an openresty instance, on another host — and
 this Nginx listens on plain HTTP, port 80, on every interface.
 
-It used to be a Cloudflare Tunnel running on the same box, which is why several notes
-below still reason about "the tunnel", and why the bind was loopback-only. That is no
-longer what serves the site.
+It used to be a Cloudflare Tunnel running on the same box, which is why the bind was
+loopback-only. Nothing of Cloudflare is left: the record is a plain CNAME to the home
+address, and the site answers `Server: openresty` with no `cf-ray`. The tunnel was
+outbound, so nothing had to accept a connection; publishing through a port forward
+means the network now does. Worth knowing when reading anything below that assumes the
+host is unreachable from outside.
 
 ## Layout on the host
 
@@ -131,10 +134,11 @@ Automatic. `mytcg-autodeploy.timer` checks every five minutes whether `main` has
 and deploys it — **but only once that commit's CI run is green**. Auto-deploying
 whatever lands on main is how a red build reaches production at 3am.
 
-Pull, not push, and not only for convenience: the LXC has no inbound access, no
-deployment credentials are stored at GitHub, and the repository is public — a
-self-hosted Actions runner would let anyone open a pull request from a fork and run
-their code on the host.
+Pull, not push, and not only for convenience: no deployment credentials are stored at
+GitHub, and the repository is public — a self-hosted Actions runner would let anyone
+open a pull request from a fork and run their code on the host. Nothing has to accept
+an inbound connection for a deploy to happen either, which keeps the deployment path
+independent of however the site is published.
 
 By hand, when you want it now:
 

@@ -118,10 +118,10 @@ def scan_slot():
 def client_address(request: Request) -> str:
     """The address to rate-limit on.
 
-    Behind Nginx and a Cloudflare Tunnel every request arrives from localhost, so
-    the direct peer is useless and the forwarded header is what identifies the
-    caller. Only the first entry is trusted, and only because the proxy in front is
-    ours — a header from an untrusted hop must never be believed.
+    Behind Nginx and the reverse proxy in front of it every request arrives from
+    localhost, so the direct peer is useless and the forwarded header is what
+    identifies the caller. Only the first entry is trusted, and only because the
+    proxy in front is ours — a header from an untrusted hop must never be believed.
     """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
