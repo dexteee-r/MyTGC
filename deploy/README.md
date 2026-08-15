@@ -15,8 +15,13 @@ app changing.
 What genuinely belongs to the machine still stays out: `/etc/mytcg/mytcg.env` holds the
 token signing key and is never committed. This directory holds its template only.
 
-Target: a Proxmox LXC running Debian/Ubuntu, reached through a Cloudflare Tunnel at
-`mytcg.elmzn.be`. TLS terminates at Cloudflare; Nginx listens on loopback only.
+Target: a Proxmox LXC running Debian/Ubuntu, published at `mytcg.elmzn.be`. TLS
+terminates at a reverse proxy in front — an openresty instance, on another host — and
+this Nginx listens on plain HTTP, port 80, on every interface.
+
+It used to be a Cloudflare Tunnel running on the same box, which is why several notes
+below still reason about "the tunnel", and why the bind was loopback-only. That is no
+longer what serves the site.
 
 ## Layout on the host
 
@@ -44,7 +49,7 @@ default of `/api` is already right.
 **`MYTCG_SECRET_KEY` must be set.** Without it the API generates one at boot, and
 every session dies on the next restart. It logs a warning saying so.
 
-**The API must run with `--proxy-headers`.** Behind Nginx and the tunnel, uvicorn
+**The API must run with `--proxy-headers`.** Behind Nginx and the proxy, uvicorn
 otherwise sees plain HTTP and issues the refresh cookie *without* its `Secure` flag.
 The unit file and the Nginx `X-Forwarded-Proto` mapping are both part of that chain;
 neither works alone.
