@@ -154,6 +154,51 @@ def collect() -> dict[str, list[tuple[str, float]]]:
     return by_number
 
 
+def pair(
+    ours: dict[str, list[str]],
+    by_number: dict[str, list[tuple[str, float]]],
+    rate: float,
+    today: str,
+) -> tuple[list[tuple], int, int]:
+    """Match our card ids to tcgcsv products. Returns (rows, unpriced, ambiguous).
+
+    The plain printing is unambiguous: one number, one ordinary card, and it is what a
+    collection holds most of. The parallels are not. punk-records numbers them
+    _p1/_p2/_r1 in its own order and tcgcsv names them "(Parallel)", "(Manga Art)",
+    "(Alternate Art)" in another, and nothing in either source ties the two together.
+    They are paired by position only when both sides agree on how many exist, which is
+    the one case where the order cannot silently shift. Otherwise they go unpriced: an
+    alternate art runs thirty times the plain card, so a confident wrong figure would
+    poison the total far worse than a visible gap.
+
+    Split out of main() because this is the part that has actually been wrong twice --
+    once pooling reprints from other sets, once pairing parallels off by one.
+    """
+    rows: list[tuple] = []
+    unpriced = ambiguous = 0
+
+    for number, ids in ours.items():
+        entries = by_number.get(number, [])
+        plain = [e for e in entries if is_plain(e[0])]
+        parallel = [e for e in entries if not is_plain(e[0])]
+        base = [i for i in ids if "_" not in i]
+        variants = [i for i in ids if "_" in i]
+
+        for card_id, entry in zip(base, plain):
+            rows.append((card_id, "en", SOURCE, round(entry[1] * rate, 2), "EUR", today))
+        unpriced += max(0, len(base) - len(plain))
+
+        if variants and len(variants) == len(parallel):
+            for card_id, entry in zip(variants, parallel):
+                rows.append((card_id, "en", SOURCE,
+                             round(entry[1] * rate, 2), "EUR", today))
+        else:
+            unpriced += len(variants)
+            ambiguous += len(variants) if parallel else 0
+
+    return rows, unpriced, ambiguous
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Snapshot prices into price_history.")
     parser.add_argument("--dry-run", action="store_true",
@@ -176,34 +221,7 @@ def main() -> int:
         ids.sort(key=lambda i: ("_" in i, i))
 
     today = date.today().isoformat()
-    rows, unpriced, ambiguous = [], 0, 0
-
-    # The plain printing is unambiguous: one number, one ordinary card, and it is what
-    # a collection holds most of. The parallels are not. punk-records numbers them
-    # _p1/_p2/_r1 in its own order and tcgcsv names them "(Parallel)", "(Manga Art)",
-    # "(Alternate Art)" in another, and nothing in either source ties the two together.
-    # They are paired by position only when both sides agree on how many exist, which
-    # is the one case where the order cannot silently shift. Otherwise they go
-    # unpriced: an alternate art runs thirty times the plain card, so a confident wrong
-    # figure would poison the total far worse than a visible gap.
-    for number, ids in ours.items():
-        entries = by_number.get(number, [])
-        plain = [e for e in entries if is_plain(e[0])]
-        parallel = [e for e in entries if not is_plain(e[0])]
-        base = [i for i in ids if "_" not in i]
-        variants = [i for i in ids if "_" in i]
-
-        for card_id, entry in zip(base, plain):
-            rows.append((card_id, "en", SOURCE, round(entry[1] * rate, 2), "EUR", today))
-        unpriced += max(0, len(base) - len(plain))
-
-        if variants and len(variants) == len(parallel):
-            for card_id, entry in zip(variants, parallel):
-                rows.append((card_id, "en", SOURCE,
-                             round(entry[1] * rate, 2), "EUR", today))
-        else:
-            unpriced += len(variants)
-            ambiguous += len(variants) if parallel else 0
+    rows, unpriced, ambiguous = pair(ours, by_number, rate, today)
 
     priced = len(rows)
     total = priced + unpriced
