@@ -12,6 +12,7 @@ import type {
   RegistrationPolicy,
   ScanResult,
   UserProfile,
+  ValuePoint,
   WishlistBulkResult,
   WishlistEntry,
 } from './types'
@@ -117,6 +118,8 @@ export const api = {
 
   priceHistory: (id: string, language: Language) =>
     request<PricePoint[]>(`/cards/${encodeURIComponent(id)}/prices?language=${language}`),
+
+  collectionValueHistory: () => request<ValuePoint[]>('/collection/value-history'),
 
   packs: (language?: Language) =>
     request<Pack[]>(`/packs${language ? `?language=${language}` : ''}`),

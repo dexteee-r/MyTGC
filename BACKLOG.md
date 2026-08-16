@@ -31,7 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Valeur de la collection dans le temps (même graphique, agrégé)
 - Alertes de seuil (brancher `alert_threshold`, resté mort en base) — pastille dans
   l'app en attendant un SMTP
 - Plus fortes variations de la semaine (collection et recherchées)
@@ -79,6 +78,23 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Valeur de la collection dans le temps.** Même graphique que la courbe par
+  carte, réutilisé tel quel — `ValuePoint` a la même forme utile que `PricePoint`
+  (`captured_at` + un nombre), donc `Collection.tsx` transforme simplement l'un en
+  l'autre à l'appel plutôt que de dupliquer le composant. La règle qui compte,
+  posée en base : `date_added <= captured_at`. Sans elle, un compte tout neuf
+  verrait des mois de « valeur » pour des cartes qu'il ne possédait pas encore —
+  chaque relevé de prix compte ce qui est possédé aujourd'hui, mais seulement à
+  partir du jour où c'est entré dans le classeur. Cassé exprès pour vérifier qu'un
+  seul test le rattrape (celui qui teste exactement cette règle), confirmé, rétabli.
+  Ce que la règle ne corrige pas et ne peut pas corriger : rien ne garde trace
+  d'une carte revendue ou d'une quantité baissée, donc un point ancien peut
+  surestimer ce qui était vraiment détenu ce jour-là. Dit dans le dialogue
+  d'explication plutôt que caché. N'apparaît que sous « Tout » — un total agrégé
+  sous le filtre « Doubles » afficherait un chiffre qui ne correspond pas à la
+  liste juste en dessous. Vérifié avec une carte semée sur trois dates à prix
+  connus : les trois valeurs (6,40 €, 7 €, 7,56 €) retrouvées exactes au survol,
+  absent sous Doubles comme prévu, base restaurée à l'identique après.
 - **Courbe de prix d'une carte sur la fiche.** `GET /cards/{id}/prices` expose enfin
   l'historique complet — jusqu'ici seul le dernier relevé sortait du serveur, jamais
   la série. Graphique construit selon la méthode de charting du projet : une seule

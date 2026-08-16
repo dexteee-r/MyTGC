@@ -143,6 +143,11 @@ class PricePoint(BaseModel):
     price: float
 
 
+class ValuePoint(BaseModel):
+    captured_at: str
+    total: float
+
+
 class CardPage(BaseModel):
     items: list[Card]
     total: int

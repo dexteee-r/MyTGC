@@ -38,6 +38,15 @@ export interface PricePoint {
   price: number
 }
 
+/* The same shape as PricePoint with a different name for what the number means: a
+   collection's total on that date, not one card's price. PriceChart only cares
+   about captured_at and a number, so callers map { captured_at, price: total }
+   into it rather than the chart growing a second, near-identical prop shape. */
+export interface ValuePoint {
+  captured_at: string
+  total: number
+}
+
 export interface CardPage {
   items: Card[]
   total: number

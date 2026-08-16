@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { InfoIcon } from '../components/icons'
+import { PriceChart } from '../components/PriceChart'
 import {
   Button,
   Dialog,
@@ -10,10 +11,10 @@ import {
   Segmented,
   Sounding,
 } from '../components/ui'
-import { imageUrl } from '../lib/api'
+import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
-import type { CollectionEntry } from '../lib/types'
+import type { CollectionEntry, ValuePoint } from '../lib/types'
 
 type Sort = 'recent' | 'set' | 'name'
 type View = 'all' | 'doubles'
@@ -33,6 +34,14 @@ export function Collection() {
   const [sort, setSort] = useState<Sort>('recent')
   const [view, setView] = useState<View>('all')
   const [infoOpen, setInfoOpen] = useState(false)
+  const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
+
+  // Its own request rather than folded into useCollection: every other screen that
+  // context feeds has no use for a time series, and a failure here should leave the
+  // rest of the page alone rather than blank the whole collection over a chart.
+  useEffect(() => {
+    api.collectionValueHistory().then(setValueHistory).catch(() => {})
+  }, [])
 
   /* What is worth trading: every card held more than once. The card you'd keep is
      never in this count — a stack of three shows two, because the base of a trade
@@ -127,6 +136,13 @@ export function Collection() {
             cotées » dit ce qui manque plutôt que de laisser un total partiel se lire
             comme une estimation complète.
           </p>
+          <p>
+            La courbe sous « Tout » retrace cette valeur au fil des relevés. Elle
+            compte ce que tu possèdes aujourd'hui à chaque prix passé, seulement à
+            partir du jour où tu l'as ajouté — jamais avant. Elle ne sait en revanche
+            pas retirer une carte revendue ou une quantité baissée depuis : rien ne
+            garde trace de ça.
+          </p>
         </div>
       </Dialog>
 
@@ -184,7 +200,21 @@ export function Collection() {
                 )}
               </div>
             )
-          ) : (
+          ) : null}
+
+          {/* Only under "Tout": the series is a total across the whole collection,
+              so plotting it under "Doubles" would show a number that does not match
+              the filtered list underneath it. Scoped to what history has ever priced
+              rather than to entries.length, the way PriceChart itself works. */}
+          {view === 'all' && valueHistory.length >= 2 && (
+            <div className="px-5 pb-4">
+              <PriceChart
+                points={valueHistory.map((p) => ({ captured_at: p.captured_at, price: p.total }))}
+              />
+            </div>
+          )}
+
+          {view === 'doubles' && (
             doubles.length > 0 && (
               <div className="px-5 pb-4">
                 {doublesValue.priced > 0 && doublesValue.priced < doubles.length && (

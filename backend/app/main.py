@@ -38,7 +38,7 @@ from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
                         HistoryCreate, LoginRequest, Pack, PricePoint, ProfileUpdate,
                         RefreshRequest,
                         RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
-                        WishlistBulk, WishlistBulkResult,
+                        ValuePoint, WishlistBulk, WishlistBulkResult,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
@@ -916,6 +916,30 @@ def collection_stats(conn: Conn, user: User):
         acquisition_total=round(row["spent"], 2),
         market_total=round(value["worth"], 2), market_priced=value["priced"],
     )
+
+
+# The other half of the same figure: not the latest reading per card, but every
+# reading, grouped by the day it was taken rather than by card.
+#
+# date_added <= captured_at is what keeps this honest rather than merely
+# convenient: without it, today's holdings would be priced against every past
+# snapshot, including the weeks before a card was ever added -- a brand-new
+# account would show months of "value" that were never actually theirs. What this
+# still cannot do is the reverse: a card removed, or a quantity lowered, leaves no
+# trace, so a past point can overstate what was truly held that day. There is no
+# way to answer that honestly with what the schema keeps.
+@app.get("/collection/value-history", response_model=list[ValuePoint])
+def get_collection_value_history(conn: Conn, user: User):
+    rows = conn.execute(
+        """SELECT h.captured_at AS captured_at, SUM(h.price * c.quantity) AS total
+             FROM price_history h
+             JOIN collection c
+               ON c.card_id = h.card_id AND c.language = h.language
+            WHERE c.user_id = ? AND c.date_added <= h.captured_at
+            GROUP BY h.captured_at
+            ORDER BY h.captured_at""", (user.id,),
+    ).fetchall()
+    return [ValuePoint(captured_at=r["captured_at"], total=round(r["total"], 2)) for r in rows]
 
 
 def _entry(conn: sqlite3.Connection, entry_id: int) -> CollectionEntry:
