@@ -232,3 +232,93 @@ def test_deleting_an_account_leaves_nothing_of_them_behind(client):
     }
     connection.close()
     assert after == {table: 0 for table in before}, after
+
+
+# --- the goal set (Home) -----------------------------------------------------------
+
+def test_a_goal_set_can_be_chosen(client):
+    account = register(client)
+    response = client.patch(
+        "/auth/me", json={"goal_pack_code": "OP-01", "goal_language": "en"},
+        headers=account["headers"],
+    )
+    assert response.status_code == 200
+    assert response.json()["goal_pack_code"] == "OP-01"
+    assert response.json()["goal_language"] == "en"
+
+
+def test_a_fresh_account_has_no_goal_set(client):
+    account = register(client)
+    body = client.get("/auth/me", headers=account["headers"]).json()
+    assert body["goal_pack_code"] is None
+    assert body["goal_language"] is None
+
+
+def test_a_goal_set_can_be_cleared(client):
+    account = register(client)
+    client.patch("/auth/me", json={"goal_pack_code": "OP-01", "goal_language": "en"},
+                headers=account["headers"])
+
+    cleared = client.patch(
+        "/auth/me", json={"goal_pack_code": None, "goal_language": None},
+        headers=account["headers"],
+    )
+    assert cleared.json()["goal_pack_code"] is None
+    assert cleared.json()["goal_language"] is None
+
+
+def test_a_goal_set_that_does_not_exist_is_refused(client):
+    account = register(client)
+    response = client.patch(
+        "/auth/me", json={"goal_pack_code": "ZZ-99", "goal_language": "en"},
+        headers=account["headers"],
+    )
+    assert response.status_code == 404
+    # Refused, not half-applied.
+    assert client.get("/auth/me", headers=account["headers"]).json()["goal_pack_code"] is None
+
+
+def test_the_two_editions_of_a_set_are_not_interchangeable(client):
+    """OP-01 in English and OP-01 in Japanese are different objects to own, the same
+    way the rest of the app treats a language as part of a card's identity, not a
+    detail of it."""
+    account = register(client)
+    response = client.patch(
+        "/auth/me", json={"goal_pack_code": "OP-01", "goal_language": "jp"},
+        headers=account["headers"],
+    )
+    assert response.status_code == 200
+    assert response.json()["goal_language"] == "jp"
+
+
+@pytest.mark.parametrize("body", [
+    {"goal_pack_code": "OP-01"},
+    {"goal_language": "en"},
+])
+def test_a_goal_needs_both_the_code_and_the_language(client, body):
+    """One without the other names nothing: a code alone does not say which printing,
+    and clearing only the language would leave the previous set's code behind,
+    unreachable but still on the account."""
+    account = register(client)
+    response = client.patch("/auth/me", json=body, headers=account["headers"])
+    assert response.status_code == 422
+
+
+def test_setting_a_goal_does_not_disturb_other_fields_on_the_same_call(client):
+    account = register(client)
+    response = client.patch(
+        "/auth/me",
+        json={"goal_pack_code": "OP-01", "goal_language": "en", "grid_columns": 3},
+        headers=account["headers"],
+    )
+    assert response.json()["grid_columns"] == 3
+    assert response.json()["goal_pack_code"] == "OP-01"
+
+
+def test_a_goal_set_is_private_to_its_account(client):
+    alice = register(client, email="alice@example.com")
+    bob = register(client, email="bob@example.com", invited_by=alice)
+    client.patch("/auth/me", json={"goal_pack_code": "OP-01", "goal_language": "en"},
+                headers=alice["headers"])
+
+    assert client.get("/auth/me", headers=bob["headers"]).json()["goal_pack_code"] is None

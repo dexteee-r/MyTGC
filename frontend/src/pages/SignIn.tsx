@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui'
+import { EyeIcon, EyeOffIcon } from '../components/icons'
 import { ApiError, api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import type { RegistrationPolicy } from '../lib/types'
@@ -17,6 +18,7 @@ export function SignIn() {
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [policy, setPolicy] = useState<RegistrationPolicy | null>(null)
+  const [revealed, setRevealed] = useState(false)
 
   /* Ask the server what sign-up requires rather than assuming. The very first
      account needs no code — nobody exists to issue one — so the field would be a
@@ -117,17 +119,32 @@ export function SignIn() {
 
         <label className="mt-4 block">
           <span className="t-code">Mot de passe</span>
-          <input
-            type="password"
-            required
-            /* Tells the password manager which flow this is, so it offers to save on
-               sign-up and to fill on sign-in instead of guessing. */
-            autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-            minLength={mode === 'up' ? MIN_PASSWORD : undefined}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 min-h-12 w-full rounded-xl bg-[var(--surface-rail)] px-4 outline-none"
-          />
+          <div className="relative mt-2">
+            <input
+              type={revealed ? 'text' : 'password'}
+              required
+              /* Tells the password manager which flow this is, so it offers to save on
+                 sign-up and to fill on sign-in instead of guessing. Revealing the
+                 field does not change which flow it is, so this stays put either
+                 way. */
+              autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+              minLength={mode === 'up' ? MIN_PASSWORD : undefined}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="min-h-12 w-full rounded-xl bg-[var(--surface-rail)] py-2 pr-12 pl-4 outline-none"
+            />
+            {/* type="button": inside a <form>, a bare <button> submits it, and
+                checking what you typed should not attempt to sign in. */}
+            <button
+              type="button"
+              onClick={() => setRevealed((show) => !show)}
+              aria-label={revealed ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              aria-pressed={revealed}
+              className="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-[var(--text-faint)]"
+            >
+              {revealed ? <EyeOffIcon className="size-5" /> : <EyeIcon className="size-5" />}
+            </button>
+          </div>
           {mode === 'up' && (
             <span className={`block pt-2 text-xs ${tooShort ? 'text-ember-500' : 'text-[var(--text-faint)]'}`}>
               {MIN_PASSWORD} caractères minimum. La longueur compte plus que les

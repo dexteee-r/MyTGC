@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CardGrid } from '../components/CardGrid'
-import { ChevronLeftIcon } from '../components/icons'
+import { ChevronLeftIcon, FlagIcon } from '../components/icons'
 import { Adrift, Button, EmptyState, Segmented, Sounding } from '../components/ui'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { useCollection } from '../lib/collection'
 import { useToast } from '../lib/toast'
 import type { Card, Language, WishlistBulkResult } from '../lib/types'
@@ -50,7 +51,11 @@ export function PackDetail() {
   const [failed, setFailed] = useState(false)
   const [view, setView] = useState<View>('all')
   const [sending, setSending] = useState(false)
+  const [settingGoal, setSettingGoal] = useState(false)
   const { show } = useToast()
+  const { user, setUser } = useAuth()
+
+  const isGoal = user?.goal_pack_code === packCode && user?.goal_language === language
 
   const filter = {
     pack_code: packCode,
@@ -100,6 +105,29 @@ export function PackDetail() {
     }
   }
 
+  /* The pair moves together — the server refuses one field without the other,
+     because a code alone cannot say which printing it means. Awaited rather than
+     fire-and-forget like the edition switch in language.tsx: that one is a light,
+     frequent flip with nothing that can fail; this is deliberate and occasional, and
+     a silent failure would leave someone believing they had set a goal that never
+     landed. */
+  const toggleGoal = async () => {
+    setSettingGoal(true)
+    try {
+      const updated = await api.updateProfile(
+        isGoal
+          ? { goal_pack_code: null, goal_language: null }
+          : { goal_pack_code: packCode, goal_language: language },
+      )
+      setUser(updated)
+      show(isGoal ? 'Objectif retiré.' : `${packCode} devient l'objectif du Classeur.`)
+    } catch {
+      show("Le changement n'a pas abouti.")
+    } finally {
+      setSettingGoal(false)
+    }
+  }
+
   const loadMore = () => {
     if (cards.length >= total || loading) return
     api
@@ -133,6 +161,27 @@ export function PackDetail() {
         <div className="channel mt-3 w-full">
           <div style={{ width: setSize ? `${(ownedTotal / setSize) * 100}%` : 0 }} />
         </div>
+
+        {/* setSize > 0 rather than always shown: a set with no cards resolved is the
+            symptom of the unrelated pack_code/pack_id mismatch on sets without a
+            printed code (the Promos), and offering to chase an already-broken page
+            would only add a second failure on top of the first. */}
+        {setSize > 0 && (
+          <button
+            onClick={toggleGoal}
+            disabled={settingGoal}
+            aria-pressed={isGoal}
+            className="mt-3 inline-flex min-h-[var(--touch)] items-center gap-1.5 rounded-full px-3 text-sm transition disabled:opacity-50"
+            style={{
+              color: isGoal ? 'var(--text-primary)' : 'var(--text-secondary)',
+              boxShadow: isGoal ? 'inset 0 0 0 1px var(--surface-rail)' : 'none',
+              fontWeight: isGoal ? 600 : 400,
+            }}
+          >
+            <FlagIcon className="size-4" />
+            {isGoal ? 'Objectif du Classeur' : 'Définir comme objectif'}
+          </button>
+        )}
       </header>
 
       <Segmented

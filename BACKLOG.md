@@ -14,7 +14,6 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
 
 Restent, dans l'ordre convenu :
-- Objectif d'extension : se fixer une extension à finir, et la voir en tête du Classeur
 - Doubles : tout ce qui est possédé en quantité > 1, avec la valeur totale
 - Courbe de prix d'une carte sur la fiche
 - Valeur de la collection dans le temps (même graphique, agrégé)
@@ -41,11 +40,12 @@ Deux tâches ajoutées en cours de route, à faire après la liste ci-dessus :
 - **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
   tests existants plutôt qu'en un seul balayage.
 
-**Anomalie trouvée en cours de route, pas encore traitée** : les extensions sans code
-imprimé (les Promos) sont liées par leur `pack_id` numérique, que l'écran Extensions
-passe ensuite à `/cards` comme si c'était un `pack_code` — leur page se charge donc
-vide. À corriger avant ou pendant la tâche "Objectif d'extension", qui touche le même
-écran.
+**Anomalie trouvée en cours de route, toujours pas corrigée** : les extensions sans
+code imprimé (les Promos) sont liées par leur `pack_id` numérique, que l'écran
+Extensions passe ensuite à `/cards` comme si c'était un `pack_code` — leur page se
+charge donc vide. La tâche "Objectif d'extension" a contourné le symptôme (le bouton
+« Définir comme objectif » ne s'affiche que si `setSize > 0`, donc jamais sur une page
+déjà cassée) sans toucher à la cause.
 
 ---
 
@@ -64,6 +64,24 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Objectif d'extension.** Un bouton sur la fiche extension (`PackDetail.tsx`) fixe
+  quelle extension est l'objectif du Classeur ; il n'apparaît que sur une page dont le
+  décompte est réel (`setSize > 0`), pour ne jamais proposer l'action sur l'anomalie
+  Promos ci-dessus. En base, `users.goal_pack_code` / `goal_language` avancent
+  toujours ensemble — le serveur refuse (422) qu'on envoie l'un sans l'autre, et
+  refuse (404) un code qui n'existe pas, sans rien appliquer à moitié.
+  Sur le Classeur, l'objectif s'affiche en tête, avant les intercalaires classés
+  automatiquement, et sort de cette liste classée pour ne pas s'y répéter. Bug trouvé
+  en testant plutôt qu'en lisant : une fois l'objectif la seule extension entamée,
+  « Intercalaires en cours » affichait « Classeur vide » juste en dessous d'une carte
+  qui montre 1/174 — la condition regardait la liste classée, jamais le vrai total.
+  Corrigé : la section s'efface plutôt que de contredire ce qui est déjà affiché.
+  Vérifié avec un compte à deux extensions actives : chacune n'apparaît qu'une fois,
+  ni dans les deux endroits ni nulle part.
+- **Bouton « voir le mot de passe »** sur l'écran de connexion et d'inscription (un
+  seul composant gère les deux modes). `type="button"` pour ne jamais soumettre le
+  formulaire par erreur, état retenu par carte non requis puisqu'il s'agit d'une
+  bascule d'affichage, pas d'une préférence.
 - **Vue « manquantes » par extension, avec tri par avancement.** La vue existait déjà
   (`PackDetail.tsx`, filtre « Manquantes » côté serveur) — ce qui manquait vraiment
   était le tri « Presque finies » sur l'écran Extensions. Les extensions déjà

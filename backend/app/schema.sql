@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS users (
     -- How many cards per row on the grids. A preference, not a viewport question:
     -- two is readable and three fits more, and which one is right is a taste.
     grid_columns     INTEGER NOT NULL DEFAULT 2,
+    -- The set the binder opens on. Both null or both set, never one alone: a code
+    -- without a language cannot say which printing, and the pair is what a set
+    -- actually is everywhere else in the schema (see cards' own composite key).
+    goal_pack_code   TEXT,
+    goal_language    TEXT,
     created_at    TEXT NOT NULL,
     last_login_at TEXT
 );

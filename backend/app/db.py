@@ -37,6 +37,8 @@ LATE_COLUMNS = [
     ("users", "default_language", "TEXT NOT NULL DEFAULT 'en'"),
     ("users", "grid_columns", "INTEGER NOT NULL DEFAULT 2"),
     ("cards", "release_date", "TEXT"),
+    ("users", "goal_pack_code", "TEXT"),
+    ("users", "goal_language", "TEXT"),
 ]
 
 

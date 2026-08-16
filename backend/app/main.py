@@ -150,7 +150,8 @@ def _profile(row) -> UserProfile:
     return UserProfile(id=row["id"], email=row["email"],
                        display_name=row["display_name"], created_at=row["created_at"],
                        default_language=row["default_language"] or "en",
-                       grid_columns=row["grid_columns"] or 2)
+                       grid_columns=row["grid_columns"] or 2,
+                       goal_pack_code=row["goal_pack_code"], goal_language=row["goal_language"])
 
 
 def _session(conn, response: Response, request: Request, row) -> Session:
@@ -308,6 +309,20 @@ def me(conn: Conn, user: User):
 @app.patch("/auth/me", response_model=UserProfile)
 def update_profile(conn: Conn, user: User, patch: ProfileUpdate):
     fields = patch.model_dump(exclude_unset=True)
+
+    # The pair moves together: a code alone cannot say which printing it means, and a
+    # language alone names nothing. "One sent, not the other" is refused rather than
+    # silently paired with the value already on the account, which would let clearing
+    # the language leave the previous set's code behind, unreachable but still there.
+    if ("goal_pack_code" in fields) != ("goal_language" in fields):
+        raise HTTPException(422, "goal_pack_code and goal_language must be set together")
+    if fields.get("goal_pack_code") and not conn.execute(
+        "SELECT 1 FROM cards WHERE pack_code = ? AND language = ?",
+        (fields["goal_pack_code"], fields["goal_language"]),
+    ).fetchone():
+        raise HTTPException(404, f"{fields['goal_pack_code']} not found in "
+                                 f"{fields['goal_language']}")
+
     if fields:
         assignments = ", ".join(f"{k} = ?" for k in fields)
         conn.execute(f"UPDATE users SET {assignments} WHERE id = ?",

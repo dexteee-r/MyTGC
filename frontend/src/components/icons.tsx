@@ -146,6 +146,38 @@ export function NewsIcon(props: { className?: string }) {
   )
 }
 
+/* A flag planted on a set: the destination chosen, not just the one closest to done.
+   Distinct from the wanted-poster and Log Pose objects already in use, and it reads
+   as "aim for this" without borrowing a star, which the rest of the app has not
+   claimed a meaning for. */
+export function FlagIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 3.5v17" />
+      <path d="M6 4.5c1.6-1.2 3.2-1.2 4.8 0s3.2 1.2 4.8 0v8c-1.6 1.2-3.2 1.2-4.8 0s-3.2-1.2-4.8 0Z" />
+    </svg>
+  )
+}
+
+export function EyeIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+export function EyeOffIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 4l16 16" />
+      <path d="M10.6 5.7A9.4 9.4 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a15.8 15.8 0 0 1-3.3 4.2M6.8 7.3C4 9.1 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.3 9.3 0 0 0 3.4-.65" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  )
+}
+
 /* A wanted poster: what a card on the hunt list is. The bounty world's own object
    for "I am looking for this", and it keeps the tab bar in one vocabulary. */
 export function WantedIcon(props: { className?: string }) {

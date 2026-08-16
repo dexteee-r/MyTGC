@@ -159,6 +159,10 @@ export interface UserProfile {
   default_language: Language
   /* How many cards per row on the grids. A taste, not a viewport question. */
   grid_columns: number
+  /* The one set the binder opens on. Both null or both set: a code alone cannot say
+     which printing, since the catalogue holds each set in both editions. */
+  goal_pack_code: string | null
+  goal_language: Language | null
 }
 
 export type RegistrationMode = 'open' | 'invite' | 'closed'

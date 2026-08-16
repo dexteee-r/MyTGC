@@ -61,12 +61,21 @@ class UserProfile(BaseModel):
     created_at: str | None = None
     default_language: Language = "en"
     grid_columns: int = 2
+    # The one set the binder opens on. Both null or both set -- never one without the
+    # other, since a code alone cannot say which printing it means.
+    goal_pack_code: str | None = None
+    goal_language: Language | None = None
 
 
 class ProfileUpdate(BaseModel):
     default_language: Language | None = None
     grid_columns: int | None = Field(default=None, ge=2, le=6)
     display_name: str | None = Field(default=None, max_length=60)
+    # Explicit null clears the goal -- FastAPI keeps "absent from the body" and
+    # "sent as null" apart via model_fields_set, which is what exclude_unset in the
+    # handler reads. Sending only one of the pair is what the handler rejects.
+    goal_pack_code: str | None = None
+    goal_language: Language | None = None
 
 
 class Session(BaseModel):

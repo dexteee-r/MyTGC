@@ -177,7 +177,15 @@ export const api = {
     request<void>(`/wishlist/${id}`, { method: 'DELETE' }),
 
   updateProfile: (
-    body: { default_language?: Language; grid_columns?: number; display_name?: string },
+    body: {
+      default_language?: Language
+      grid_columns?: number
+      display_name?: string
+      /* Explicit null clears the goal; the pair moves together or not at all —
+         the server refuses one without the other. */
+      goal_pack_code?: string | null
+      goal_language?: Language | null
+    },
   ) =>
     request<UserProfile>('/auth/me', { method: 'PATCH', body: JSON.stringify(body) }),
 
