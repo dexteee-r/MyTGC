@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Edition, variantOf } from '../components/Edition'
 import { ChevronLeftIcon } from '../components/icons'
+import { PriceChart } from '../components/PriceChart'
 import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
@@ -12,6 +13,7 @@ import {
   type Card,
   type Condition,
   type Language,
+  type PricePoint,
   type WishlistEntry,
 } from '../lib/types'
 
@@ -29,6 +31,7 @@ export function CardDetail() {
   const [wanted, setWanted] = useState<WishlistEntry | null>(null)
   const [editingPrice, setEditingPrice] = useState(false)
   const [priceDraft, setPriceDraft] = useState('')
+  const [history, setHistory] = useState<PricePoint[]>([])
 
   const load = useCallback(() => {
     setFailed(false)
@@ -39,6 +42,11 @@ export function CardDetail() {
         setWanted(list.find((e) => e.card_id === cardId && e.language === language) ?? null),
       )
       .catch(() => {})
+    // Its own request, its own failure: a card with no priced history yet is not an
+    // error, and the section simply stays empty rather than dragging the rest of the
+    // sheet into a retry screen for a chart nobody would see anyway.
+    setHistory([])
+    api.priceHistory(cardId, language).then(setHistory).catch(() => {})
   }, [cardId, language])
   useEffect(load, [load])
 
@@ -152,6 +160,12 @@ export function CardDetail() {
           )}
         </div>
       </div>
+
+      {history.length >= 2 && (
+        <div className="px-5 pt-6">
+          <PriceChart points={history} />
+        </div>
+      )}
 
       {(card.effect || card.trigger) && (
         <div className="space-y-3 px-5 pt-6">

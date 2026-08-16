@@ -14,7 +14,23 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
 
 Restent, dans l'ordre convenu :
-- Courbe de prix d'une carte sur la fiche
+- **Tri par prix sur Chercher, Recherchées et Collection**, croissant/décroissant.
+  Demandé le 2026-08-16, à traiter par écran plutôt qu'en un seul mécanisme partagé —
+  chacun pose une question différente sur *quel* prix :
+  - **Chercher** : un seul prix possible, `Card.market_price`. Le tri est côté
+    serveur aujourd'hui (`/cards?sort=`), paginé sur 9 447 cartes — un tri client ne
+    marcherait pas, il faut un nouveau cas `price` dans `SORTS` (backend) et l'ajouter
+    à `Sort` dans `Filters.tsx`.
+  - **Recherchées** : deux prix distincts — `WishlistEntry.price` (saisi à la main,
+    « vu à ») et `card.market_price` (la cote). Trier « par prix » sans préciser
+    lequel serait ambigu ; probablement deux options de tri séparées, pas une.
+  - **Collection** : deux prix aussi — `card.market_price` (valeur actuelle) et
+    `acquisition_price` (payé), et la quantité s'en mêle : trier par prix unitaire ou
+    par valeur totale de la pile (quantité × prix) ? Cette question rejoint celle déjà
+    tranchée pour Doubles (possédées vs échangeables) — probablement la même réponse.
+  Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
+  chargée, donc rien de bloquant côté données ; c'est uniquement une question de
+  conception à trancher avant de coder, comme demandé.
 - Valeur de la collection dans le temps (même graphique, agrégé)
 - Alertes de seuil (brancher `alert_threshold`, resté mort en base) — pastille dans
   l'app en attendant un SMTP
@@ -63,6 +79,24 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Courbe de prix d'une carte sur la fiche.** `GET /cards/{id}/prices` expose enfin
+  l'historique complet — jusqu'ici seul le dernier relevé sortait du serveur, jamais
+  la série. Graphique construit selon la méthode de charting du projet : une seule
+  série dans le temps est une ligne + aire, une seule teinte, celle déjà réservée aux
+  chiffres (`--accent-numeral`) — rien de nouveau inventé côté couleur. Aucune
+  légende, aucun repère de fin : la cote actuelle est déjà affichée en grand
+  au-dessus, la courbe raconte la trajectoire, pas le chiffre une deuxième fois.
+  Espacé par le **temps réellement écoulé** entre relevés, pas par leur rang — un
+  espacement par index aurait aplati un vrai trou dans les données (l'import ignore
+  un cycle plutôt que d'écrire un chiffre périmé) comme si de rien n'était. Survol
+  tactile et souris avec repère + infobulle. La géométrie est extraite en fonction
+  pure et testée : inversion des axes et espacement par index cassés exprès pour
+  confirmer que les tests les rattrapent, tous deux passés au rouge puis rétablis.
+  Vérifié sur une vraie carte avec des points semés à prix connus, coordonnées
+  calculées à la main et retrouvées exactes dans le DOM. Bug de ma part en cours de
+  route : une édition a coupé la classe `Card` en deux dans `models.py` — repéré
+  immédiatement par la suite de tests complète (139 → 39 échecs), jamais par le
+  nouveau fichier de tests pris seul, qui passait déjà.
 - **Doubles.** Sélecteur Tout / Doubles sur `Collection.tsx`, entièrement côté
   client — la collection est déjà chargée en entier pour chaque écran, rien à
   ajouter côté serveur. Deux totaux, décidés par l'utilisateur plutôt que devinés :

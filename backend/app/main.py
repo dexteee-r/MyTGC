@@ -35,7 +35,7 @@ from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
                         CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
-                        HistoryCreate, LoginRequest, Pack, ProfileUpdate,
+                        HistoryCreate, LoginRequest, Pack, PricePoint, ProfileUpdate,
                         RefreshRequest,
                         RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
                         WishlistBulk, WishlistBulkResult,
@@ -453,6 +453,24 @@ def get_card(conn: Conn, user: User, card_id: str, language: Language = "en"):
         )
     ]
     return card
+
+
+# One row per day the importer has run since this card first got a price -- the
+# import cadence (every 3 days) is what sets the point spacing, not a parameter
+# here. No cap: at roughly a hundred points a year, this stays cheap for as long as
+# the app is likely to run, and capping it now would be solving a problem that does
+# not exist yet.
+@app.get("/cards/{card_id}/prices", response_model=list[PricePoint])
+def get_price_history(conn: Conn, user: User, card_id: str, language: Language = "en"):
+    if not conn.execute("SELECT 1 FROM cards WHERE id = ? AND language = ?",
+                        (card_id, language)).fetchone():
+        raise HTTPException(404, f"{card_id} not found in {language}")
+    rows = conn.execute(
+        "SELECT captured_at, price FROM price_history"
+        " WHERE card_id = ? AND language = ? ORDER BY captured_at",
+        (card_id, language),
+    ).fetchall()
+    return [PricePoint(**dict(r)) for r in rows]
 
 
 @app.get("/packs", response_model=list[Pack])

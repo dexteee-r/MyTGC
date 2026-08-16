@@ -8,6 +8,7 @@ import type {
   Language,
   AuthSession,
   Pack,
+  PricePoint,
   RegistrationPolicy,
   ScanResult,
   UserProfile,
@@ -113,6 +114,9 @@ export const api = {
 
   card: (id: string, language: Language) =>
     request<Card>(`/cards/${encodeURIComponent(id)}?language=${language}`),
+
+  priceHistory: (id: string, language: Language) =>
+    request<PricePoint[]>(`/cards/${encodeURIComponent(id)}/prices?language=${language}`),
 
   packs: (language?: Language) =>
     request<Pack[]>(`/packs${language ? `?language=${language}` : ''}`),

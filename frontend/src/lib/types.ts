@@ -30,6 +30,14 @@ export interface Card {
   printings: string[]
 }
 
+/* One snapshot. The importer stamps at most one row per card per day, so points are
+   already deduplicated by the time they reach here -- nothing to collapse client
+   side. */
+export interface PricePoint {
+  captured_at: string
+  price: number
+}
+
 export interface CardPage {
   items: Card[]
   total: number

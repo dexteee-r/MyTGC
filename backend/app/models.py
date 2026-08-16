@@ -138,6 +138,11 @@ class Card(BaseModel):
         )
 
 
+class PricePoint(BaseModel):
+    captured_at: str
+    price: float
+
+
 class CardPage(BaseModel):
     items: list[Card]
     total: int
