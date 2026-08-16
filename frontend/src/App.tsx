@@ -30,6 +30,8 @@ import { PackDetail } from './pages/PackDetail'
 import { Packs } from './pages/Packs'
 import { Scanner } from './pages/Scanner'
 import { Search } from './pages/Search'
+import { SharedCollection } from './pages/SharedCollection'
+import { SharedWishlist } from './pages/SharedWishlist'
 import { SignIn } from './pages/SignIn'
 import { Wishlist } from './pages/Wishlist'
 
@@ -88,7 +90,22 @@ export default function App() {
    person's holdings on mount, and mounting it earlier would fire an unauthenticated
    request on every cold start. */
 function Gate() {
+  const { pathname } = useLocation()
   const { ready, user } = useAuth()
+
+  /* Checked before the sign-in/Shell branch below, not folded into either of
+     them: a signed-in visitor opening a friend's link must see the same
+     stranger's-eye view an anonymous one does, not their own tab bar wrapped
+     around it, and Shell already paints its own Sky behind every route it owns
+     — stacking this page's on top would double the sky rather than pick one. */
+  if (pathname.startsWith('/shared/')) {
+    return (
+      <Routes>
+        <Route path="/shared/collection/:token" element={<SharedCollection />} />
+        <Route path="/shared/wishlist/:token" element={<SharedWishlist />} />
+      </Routes>
+    )
+  }
 
   if (!ready) return <Spinner />
   if (!user)

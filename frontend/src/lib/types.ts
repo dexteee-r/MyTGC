@@ -202,3 +202,40 @@ export interface AuthSession {
   refresh_token: string
   user: UserProfile
 }
+
+/* --- public sharing --------------------------------------------------------- */
+
+export interface ShareStatus {
+  enabled: boolean
+  token: string | null
+}
+
+/* Deliberately narrower than CollectionEntry: no acquisition_price, no notes.
+   A second, separate type rather than Omit<CollectionEntry, ...> so the shapes
+   cannot silently drift back into agreement if the server ever widens one of
+   them — see the same reasoning in models.py. */
+export interface SharedCollectionEntry {
+  card_id: string
+  language: Language
+  quantity: number
+  condition: Condition | null
+  card: Card | null
+}
+
+export interface SharedCollection {
+  owner_name: string | null
+  entries: SharedCollectionEntry[]
+}
+
+export interface SharedWishlistEntry {
+  card_id: string
+  language: Language
+  priority: number
+  price: number | null
+  card: Card | null
+}
+
+export interface SharedWishlist {
+  owner_name: string | null
+  entries: SharedWishlistEntry[]
+}

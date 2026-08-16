@@ -59,9 +59,31 @@ CREATE TABLE IF NOT EXISTS users (
     -- actually is everywhere else in the schema (see cards' own composite key).
     goal_pack_code   TEXT,
     goal_language    TEXT,
+    -- A public, unauthenticated read link -- kept in the clear rather than hashed
+    -- like a refresh token or an invite code. Both of those are one-shot secrets:
+    -- shown once, never re-displayed, hashed because nothing legitimate needs the
+    -- plaintext again. A share link is the opposite -- it exists to be handed out
+    -- and revisited for as long as sharing stays on, so the account has to be able
+    -- to look its own link back up and show it again. Hashing it would only guard
+    -- against a database leak, and a leak already exposes the collection and
+    -- wishlist rows this token merely points at -- there is nothing left to
+    -- protect by hashing the pointer once the thing it points to is already out.
+    -- High entropy (secrets.token_urlsafe) is what actually keeps it unguessable.
+    -- Uniqueness lives in a separate index below, not inline: SQLite's ALTER TABLE
+    -- ADD COLUMN refuses a UNIQUE column outright, and this column reaches an
+    -- already-running database exactly that way (see LATE_COLUMNS in db.py).
+    share_collection_token TEXT,
+    share_wishlist_token   TEXT,
     created_at    TEXT NOT NULL,
     last_login_at TEXT
 );
+
+-- The unique index on share_collection_token / share_wishlist_token is not here:
+-- on an existing database this script runs before the two columns above have been
+-- added (see db.py, _add_missing_columns runs after this whole script), so an
+-- index on them here would fail with "no such column" on exactly the database this
+-- migration exists to update. db.py creates both indexes itself, once it knows the
+-- columns are actually there.
 
 -- Refresh tokens are stored hashed, never in the clear: the database is a backup
 -- target and a leaked table must not hand out sessions.

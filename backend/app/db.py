@@ -23,6 +23,19 @@ def connect(db_path: Path = DB_PATH) -> sqlite3.Connection:
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
     _add_missing_columns(conn)
+    # Only after the columns above are guaranteed to exist: on an existing database
+    # they arrive via ALTER TABLE just above, and an index created any earlier --
+    # inside the script that just ran, say -- would be created against a column
+    # that is not there yet on exactly the database this whole function exists to
+    # bring up to date.
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_collection"
+        " ON users (share_collection_token)"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_wishlist"
+        " ON users (share_wishlist_token)"
+    )
     conn.commit()
 
 
@@ -40,6 +53,8 @@ LATE_COLUMNS = [
     ("users", "goal_pack_code", "TEXT"),
     ("users", "goal_language", "TEXT"),
     ("collection", "notes", "TEXT"),
+    ("users", "share_collection_token", "TEXT"),
+    ("users", "share_wishlist_token", "TEXT"),
 ]
 
 

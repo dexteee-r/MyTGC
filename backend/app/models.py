@@ -304,3 +304,46 @@ class CollectionStats(BaseModel):
     market_total: float
     market_priced: int
     market_currency: str = "EUR"
+
+
+# --- public sharing ---------------------------------------------------------------
+#
+# What a link hands to a stranger, deliberately not the account's own models. A
+# CollectionEntry or a WishlistEntry would need every future field it ever grows to
+# be re-audited for whether it is fit for a public page -- acquisition_price is
+# what the owner paid, notes can hold a real address ("achetée à Paris"),
+# alert_threshold is a private preference nobody else needs. Two narrow shapes make
+# that omission structural instead of a habit someone has to remember to keep up.
+
+class ShareStatus(BaseModel):
+    enabled: bool
+    token: str | None = None
+
+
+class SharedCollectionEntry(BaseModel):
+    card_id: str
+    language: Language
+    quantity: int
+    condition: Condition | None = None
+    card: Card | None = None
+
+
+class SharedCollection(BaseModel):
+    owner_name: str | None = None
+    entries: list[SharedCollectionEntry]
+
+
+class SharedWishlistEntry(BaseModel):
+    card_id: str
+    language: Language
+    priority: int
+    # Kept, unlike the collection's acquisition_price: this is what the card went
+    # for somewhere public, the exact context a viewer needs to make an offer, not
+    # a private figure about the owner's own spending.
+    price: float | None = None
+    card: Card | None = None
+
+
+class SharedWishlist(BaseModel):
+    owner_name: str | None = None
+    entries: list[SharedWishlistEntry]

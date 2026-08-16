@@ -169,6 +169,20 @@ export function InfoIcon(props: { className?: string }) {
   )
 }
 
+/* A chain, not the three-node share glyph mobile OSes use for a share *sheet* --
+   there is no sheet here, no list of apps to hand off to, just one link that
+   works on its own. A chain reads as "a link exists" without borrowing an icon
+   whose meaning elsewhere is "open the share sheet". */
+export function LinkIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9.5 14.5 14.5 9.5" />
+      <path d="M11 6.5 12.6 4.9a3.4 3.4 0 0 1 4.8 4.8L15.9 11.3" />
+      <path d="M13 17.5 11.4 19.1a3.4 3.4 0 0 1-4.8-4.8L8.1 12.7" />
+    </svg>
+  )
+}
+
 export function EyeIcon(props: { className?: string }) {
   return (
     <svg {...base} {...props}>

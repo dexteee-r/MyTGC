@@ -8,6 +8,8 @@ import {
   isFiltered,
   type FilterState,
 } from '../components/Filters'
+import { LinkIcon } from '../components/icons'
+import { ShareDialog } from '../components/ShareDialog'
 import { Adrift, Button, EmptyState, PageHeader, Screen, Sounding } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useToast } from '../lib/toast'
@@ -42,6 +44,7 @@ export function Wishlist() {
   const [entries, setEntries] = useState<WishlistEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     language: null,
     ...EMPTY,
@@ -117,31 +120,56 @@ return (
           }
           action={
             entries.length > 0 ? (
-              <button
-                onClick={() => setFiltersOpen(true)}
-                aria-haspopup="dialog"
-                aria-label={
-                  applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
-                }
-                className="grid size-[46px] shrink-0 place-items-center rounded-full"
-                style={{
-                  background: isFiltered(filters, null)
-                    ? 'var(--gradient-sun)'
-                    : 'rgba(34,28,18,.1)',
-                  color: isFiltered(filters, null) ? 'var(--color-paper-ink)' : 'inherit',
-                }}
-              >
-                <svg viewBox="0 0 20 20" fill="none" className="size-[18px]" aria-hidden>
-                  <path
-                    d="M3 5h14M6 10h8M8.5 15h3"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  onClick={() => setShareOpen(true)}
+                  aria-label="Partager mes recherchées"
+                  className="grid size-[46px] place-items-center rounded-full"
+                  style={{ background: 'rgba(34,28,18,.1)' }}
+                >
+                  <LinkIcon className="size-[18px]" />
+                </button>
+                <button
+                  onClick={() => setFiltersOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-label={
+                    applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'
+                  }
+                  className="grid size-[46px] place-items-center rounded-full"
+                  style={{
+                    background: isFiltered(filters, null)
+                      ? 'var(--gradient-sun)'
+                      : 'rgba(34,28,18,.1)',
+                    color: isFiltered(filters, null) ? 'var(--color-paper-ink)' : 'inherit',
+                  }}
+                >
+                  <svg viewBox="0 0 20 20" fill="none" className="size-[18px]" aria-hidden>
+                    <path
+                      d="M3 5h14M6 10h8M8.5 15h3"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             ) : undefined
           }
+        />
+
+        {/* Not wrapped in the page's own ink theme: Dialog carries its own theme
+            isolation (see ui.tsx, OVERLAY_THEME), the same one every other overlay
+            in the app uses, and this is the one screen where the surrounding page
+            colours would otherwise leak the wrong way in. */}
+        <ShareDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title="Partager mes recherchées"
+          description="Un lien en lecture seule vers ce que tu cherches — priorité et prix constaté inclus, jamais tes notes ni ton seuil d'alerte. N'importe qui avec ce lien peut le consulter, sans compte."
+          fetchStatus={api.wishlistShareStatus}
+          enable={api.enableWishlistShare}
+          disable={api.disableWishlistShare}
+          publicPath={(token) => `/shared/wishlist/${token}`}
         />
 
         {applied.length > 0 && (

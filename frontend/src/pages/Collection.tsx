@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { InfoIcon } from '../components/icons'
+import { InfoIcon, LinkIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
+import { ShareDialog } from '../components/ShareDialog'
 import {
   Button,
   Dialog,
@@ -34,6 +35,7 @@ export function Collection() {
   const [sort, setSort] = useState<Sort>('recent')
   const [view, setView] = useState<View>('all')
   const [infoOpen, setInfoOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
 
   // Its own request rather than folded into useCollection: every other screen that
@@ -98,14 +100,34 @@ export function Collection() {
             : undefined
         }
         action={
-          <button
-            onClick={() => setInfoOpen(true)}
-            aria-label="Comment fonctionne cette page"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)]"
-          >
-            <InfoIcon className="size-5" />
-          </button>
+          <div className="flex shrink-0">
+            <button
+              onClick={() => setShareOpen(true)}
+              aria-label="Partager ma collection"
+              className="flex size-11 items-center justify-center rounded-full text-[var(--text-secondary)]"
+            >
+              <LinkIcon className="size-5" />
+            </button>
+            <button
+              onClick={() => setInfoOpen(true)}
+              aria-label="Comment fonctionne cette page"
+              className="flex size-11 items-center justify-center rounded-full text-[var(--text-secondary)]"
+            >
+              <InfoIcon className="size-5" />
+            </button>
+          </div>
         }
+      />
+
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        title="Partager ma collection"
+        description="Un lien en lecture seule vers ce que tu possèdes — quantités et état inclus, jamais ce que tu as payé ni tes notes. N'importe qui avec ce lien peut le consulter, sans compte."
+        fetchStatus={api.collectionShareStatus}
+        enable={api.enableCollectionShare}
+        disable={api.disableCollectionShare}
+        publicPath={(token) => `/shared/collection/${token}`}
       />
 
       <Dialog open={infoOpen} onClose={() => setInfoOpen(false)} title="Comment ça marche">

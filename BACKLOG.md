@@ -31,7 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Lien de partage public en lecture seule (collection ou recherchées)
 - Appareils connectés : lister les sessions (`user_agent` + dates, déjà en base,
   jamais montrés), pouvoir en révoquer une
 - Nom affiché : la colonne existe, rien ne l'édite
@@ -72,6 +71,40 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Lien de partage public en lecture seule, collection et recherchées.** Deux
+  colonnes en base (`share_collection_token`, `share_wishlist_token`), un jeton
+  par ressource plutôt qu'un seul pour le compte — activer l'une n'active jamais
+  l'autre. Gardé en clair, pas haché comme un jeton de renouvellement ou un code
+  d'invitation : ceux-là sont des secrets à usage unique montrés une fois puis
+  jamais revus, celui-ci doit pouvoir être rappelé et raffiché par le compte qui
+  l'a créé aussi longtemps que le partage reste actif. Ce que la vue publique
+  reçoit n'est pas `CollectionEntry`/`WishlistEntry` mais une forme dédiée,
+  volontairement plus étroite : jamais `acquisition_price`, jamais les notes,
+  jamais `alert_threshold` — le prix constaté (« vu à ») reste sur les
+  recherchées, c'est une information utile à qui regarde le lien, pas une donnée
+  privée du compte.
+  Trois bugs trouvés en écrivant, tous corrigés avant tout commit :
+  1. SQLite refuse `ALTER TABLE ADD COLUMN ... UNIQUE` — l'unicité vit dans un
+     index séparé plutôt que dans la colonne.
+  2. Cet index ne peut pas non plus vivre dans `schema.sql` : sur une base déjà
+     existante, ce script tourne avant que les colonnes soient ajoutées par la
+     migration qui suit, donc un index dessus à cet endroit échoue avec
+     « no such column » sur la base même qu'il est censé mettre à jour. Déplacé
+     dans `db.py`, après l'ajout des colonnes.
+  3. Le plus sérieux : `DELETE /collection/share` et `DELETE /wishlist/share`
+     étaient masqués par les routes `DELETE /collection/{entry_id}` et
+     `DELETE /wishlist/{entry_id}`, déclarées avant elles. Starlette fait
+     correspondre le gabarit du chemin avant que FastAPI ne tente de convertir
+     `entry_id` en entier — `share` correspond au gabarit `{entry_id}` en premier
+     et la vraie route n'est jamais atteinte, avec un 422 silencieux à la place
+     d'un 404 propre. Repéré par trois tests qui vérifiaient l'effet réel d'une
+     révocation plutôt que le seul code retourné par l'appel. Corrigé en plaçant
+     les routes de partage avant les routes paramétrées de même profondeur.
+  Vérifié en conditions réelles dans le navigateur, sur les deux ressources :
+  lien copié, ouvert dans un onglet sans session, réponse réseau inspectée pour
+  confirmer l'absence de `acquisition_price`/`notes`/`alert_threshold`, partage
+  désactivé puis lien revisité — « Lien introuvable » dans les deux cas. 173
+  tests serveur, 81 tests client, tous verts.
 - **Note libre par carte, et date d'acquisition modifiable.** Même migration,
   faites ensemble comme demandé : `collection.notes` (texte libre, comme les
   recherchées) et `date_added` devenu éditable sur l'endpoint qui ne faisait que le

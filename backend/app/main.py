@@ -14,6 +14,7 @@ Run:
 """
 
 import os
+import secrets
 import shutil
 import sqlite3
 import subprocess
@@ -37,7 +38,9 @@ from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
                         HistoryCreate, LoginRequest, Pack, PricePoint, ProfileUpdate,
                         RefreshRequest,
-                        RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
+                        RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session,
+                        ShareStatus, SharedCollection, SharedCollectionEntry,
+                        SharedWishlist, SharedWishlistEntry, UserProfile,
                         ValuePoint, WishlistBulk, WishlistBulkResult,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
@@ -680,6 +683,85 @@ def add_to_collection(conn: Conn, user: User, entry: CollectionCreate):
     return _entry(conn, cursor.lastrowid)
 
 
+# --- public sharing: the collection -------------------------------------------
+#
+# A read-only view of one account's collection, reachable by anyone holding the
+# link -- no session, no invite. See ShareStatus and SharedCollectionEntry in
+# models.py for what deliberately does not cross into this view: acquisition
+# price, personal notes.
+#
+# Registered here, ahead of PATCH/DELETE /collection/{entry_id}, and not merely
+# for tidiness: Starlette matches "/collection/share" against that route's path
+# *template* before FastAPI ever tries to parse "share" as the entry_id it
+# declares, so whichever of the two is registered first wins the literal segment.
+# Below it, this trio would 422 on every call, shadowed by a route that was never
+# meant to answer for them -- which is exactly what shipped here once already,
+# caught by a delete-then-fetch test rather than by reading the routing table.
+#
+# The token sits in the clear in the database rather than hashed like a refresh
+# token or an invite code -- both of those are shown once and never again on
+# purpose, and this is the opposite: an account has to be able to look its own
+# link back up and hand it out more than once. See schema.sql for the fuller
+# version of this same reasoning.
+
+@app.get("/collection/share", response_model=ShareStatus)
+def get_collection_share(conn: Conn, user: User):
+    row = conn.execute("SELECT share_collection_token FROM users WHERE id = ?",
+                       (user.id,)).fetchone()
+    token = row["share_collection_token"]
+    return ShareStatus(enabled=token is not None, token=token)
+
+
+@app.post("/collection/share", response_model=ShareStatus, status_code=201)
+def enable_collection_share(conn: Conn, user: User):
+    row = conn.execute("SELECT share_collection_token FROM users WHERE id = ?",
+                       (user.id,)).fetchone()
+    token = row["share_collection_token"]
+    if token is None:
+        # Collisions are astronomically unlikely at this many bits of entropy, but
+        # the unique index is the actual guarantee -- this loop is what turns that
+        # guarantee into a retry instead of a 500 on the one-in-a-universe day it
+        # matters.
+        for _ in range(5):
+            token = secrets.token_urlsafe(24)
+            try:
+                conn.execute("UPDATE users SET share_collection_token = ? WHERE id = ?",
+                            (token, user.id))
+                conn.commit()
+                break
+            except sqlite3.IntegrityError:
+                continue
+        else:
+            raise HTTPException(500, "could not mint a unique share token")
+    return ShareStatus(enabled=True, token=token)
+
+
+@app.delete("/collection/share", status_code=204)
+def disable_collection_share(conn: Conn, user: User):
+    conn.execute("UPDATE users SET share_collection_token = NULL WHERE id = ?", (user.id,))
+    conn.commit()
+
+
+@app.get("/shared/collection/{token}", response_model=SharedCollection)
+def get_shared_collection(conn: Conn, token: str):
+    owner = conn.execute("SELECT id, display_name FROM users WHERE share_collection_token = ?",
+                         (token,)).fetchone()
+    if owner is None:
+        raise HTTPException(404, "no shared collection at this link")
+
+    rows = conn.execute(
+        "SELECT * FROM collection WHERE user_id = ? ORDER BY date_added DESC, id DESC",
+        (owner["id"],),
+    ).fetchall()
+    entries = [
+        SharedCollectionEntry(card_id=r["card_id"], language=r["language"],
+                              quantity=r["quantity"], condition=r["condition"],
+                              card=_card_for(conn, r["card_id"], r["language"]))
+        for r in rows
+    ]
+    return SharedCollection(owner_name=owner["display_name"], entries=entries)
+
+
 @app.patch("/collection/{entry_id}", response_model=CollectionEntry)
 def update_collection(conn: Conn, user: User, entry_id: int, patch: CollectionUpdate):
     # Scoped by user_id, not just id: without it any signed-in account could edit
@@ -862,6 +944,67 @@ def add_missing_to_wishlist(conn: Conn, user: User, body: WishlistBulk):
     conn.commit()
     return WishlistBulkResult(missing=missing, added=cursor.rowcount,
                               already_listed=missing - cursor.rowcount)
+
+
+# --- public sharing: the want list ---------------------------------------------
+#
+# Same shape and the same reason for sitting here as the collection's trio above:
+# ahead of PATCH/DELETE /wishlist/{entry_id}, so "/wishlist/share" is not matched
+# by that route's path template and rejected as an unparsable entry_id before
+# ever reaching this one.
+
+@app.get("/wishlist/share", response_model=ShareStatus)
+def get_wishlist_share(conn: Conn, user: User):
+    row = conn.execute("SELECT share_wishlist_token FROM users WHERE id = ?",
+                       (user.id,)).fetchone()
+    token = row["share_wishlist_token"]
+    return ShareStatus(enabled=token is not None, token=token)
+
+
+@app.post("/wishlist/share", response_model=ShareStatus, status_code=201)
+def enable_wishlist_share(conn: Conn, user: User):
+    row = conn.execute("SELECT share_wishlist_token FROM users WHERE id = ?",
+                       (user.id,)).fetchone()
+    token = row["share_wishlist_token"]
+    if token is None:
+        for _ in range(5):
+            token = secrets.token_urlsafe(24)
+            try:
+                conn.execute("UPDATE users SET share_wishlist_token = ? WHERE id = ?",
+                            (token, user.id))
+                conn.commit()
+                break
+            except sqlite3.IntegrityError:
+                continue
+        else:
+            raise HTTPException(500, "could not mint a unique share token")
+    return ShareStatus(enabled=True, token=token)
+
+
+@app.delete("/wishlist/share", status_code=204)
+def disable_wishlist_share(conn: Conn, user: User):
+    conn.execute("UPDATE users SET share_wishlist_token = NULL WHERE id = ?", (user.id,))
+    conn.commit()
+
+
+@app.get("/shared/wishlist/{token}", response_model=SharedWishlist)
+def get_shared_wishlist(conn: Conn, token: str):
+    owner = conn.execute("SELECT id, display_name FROM users WHERE share_wishlist_token = ?",
+                         (token,)).fetchone()
+    if owner is None:
+        raise HTTPException(404, "no shared want list at this link")
+
+    rows = conn.execute(
+        "SELECT * FROM wishlist WHERE user_id = ? ORDER BY priority, id DESC",
+        (owner["id"],),
+    ).fetchall()
+    entries = [
+        SharedWishlistEntry(card_id=r["card_id"], language=r["language"],
+                            priority=r["priority"], price=r["price"],
+                            card=_card_for(conn, r["card_id"], r["language"]))
+        for r in rows
+    ]
+    return SharedWishlist(owner_name=owner["display_name"], entries=entries)
 
 
 @app.patch("/wishlist/{entry_id}", response_model=WishlistEntry)

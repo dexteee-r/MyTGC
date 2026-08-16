@@ -11,6 +11,9 @@ import type {
   PricePoint,
   RegistrationPolicy,
   ScanResult,
+  ShareStatus,
+  SharedCollection,
+  SharedWishlist,
   UserProfile,
   ValuePoint,
   WishlistBulkResult,
@@ -242,6 +245,21 @@ export const api = {
     request<void>('/auth/change-password', { method: 'POST', body: JSON.stringify(body) }),
 
   deleteAccount: () => request<void>('/auth/me', { method: 'DELETE' }),
+
+  collectionShareStatus: () => request<ShareStatus>('/collection/share'),
+  enableCollectionShare: () => request<ShareStatus>('/collection/share', { method: 'POST' }),
+  disableCollectionShare: () => request<void>('/collection/share', { method: 'DELETE' }),
+  /* No token in module state to send here, so the request carries no Authorization
+     header regardless of who is signed in — which is the point: this is what an
+     anonymous visitor with only the link sees. */
+  sharedCollection: (token: string) =>
+    request<SharedCollection>(`/shared/collection/${encodeURIComponent(token)}`),
+
+  wishlistShareStatus: () => request<ShareStatus>('/wishlist/share'),
+  enableWishlistShare: () => request<ShareStatus>('/wishlist/share', { method: 'POST' }),
+  disableWishlistShare: () => request<void>('/wishlist/share', { method: 'DELETE' }),
+  sharedWishlist: (token: string) =>
+    request<SharedWishlist>(`/shared/wishlist/${encodeURIComponent(token)}`),
 
   /* Language is always sent: the step-5 gate confirmed the edition cannot be read
      from the artwork, so leaving it out would let the wrong printing come back. */
