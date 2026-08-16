@@ -31,7 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Premier lancement : l'écran d'accueil d'un compte vide ne dit pas quoi faire
 - Page d'aide (la troisième rangée de la maquette, toujours dehors)
 - Numéro de version et journal des changements, dans le Carnet de bord
 - Écran d'erreur générique + `ErrorBoundary` (`Adrift` existe déjà sur 5 écrans, mais
@@ -68,6 +67,21 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Premier lancement.** Vérifié avec un compte tout neuf plutôt que supposé :
+  Classeur, Collection et Recherchées avaient déjà chacun un message et un
+  bouton d'action pour un état vide (« Classeur vide », « Rien de rangé pour
+  le moment », « Aucun avis affiché ») — le problème décrit dans le backlog
+  n'existait plus. La seule vraie anomalie : sur un Classeur entièrement vide
+  (rien de commencé, aucun objectif fixé), le bouton « Scanner une carte »
+  apparaissait deux fois d'affilée, celui du message vide et celui du bas de
+  page, l'un sous l'autre sans rien entre les deux. Le second s'efface
+  maintenant exactement dans ce cas, et reste dès qu'un intercalaire est
+  entamé ou qu'un objectif est fixé — cassé exprès (condition remplacée par
+  `true`) pour confirmer qu'un test le rattrape, confirmé, rétabli.
+  Vérifié avec un compte jetable : un seul bouton sur un classeur vide, les
+  deux reviennent à un état normal (une seule occurrence, pas de « Classeur
+  vide ») dès qu'une carte y est rangée. Compte et invitation supprimés
+  ensuite.
 - **Nom affiché, modifiable après coup.** Déjà proposé (facultatif) à
   l'inscription et déjà accepté par le serveur en PATCH — `ProfileUpdate` avait
   le champ depuis le début, rien ne l'exposait après la création du compte.

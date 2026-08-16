@@ -240,13 +240,19 @@ export function Home() {
         </>
       )}
 
-      <div className="px-5 pt-8">
-        <Link to="/scan" className="block">
-          <Button size="lg" full>
-            Scanner une carte
-          </Button>
-        </Link>
-      </div>
+      {/* Not shown when the empty-binder card above already carries this exact
+          button: a first launch with no goal and nothing started would otherwise
+          show "Scanner une carte" twice in a row, the second one right under
+          the first with nothing between them. */}
+      {!(started.length === 0 && !goal) && (
+        <div className="px-5 pt-8">
+          <Link to="/scan" className="block">
+            <Button size="lg" full>
+              Scanner une carte
+            </Button>
+          </Link>
+        </div>
+      )}
       </div>
     </Screen>
   )
