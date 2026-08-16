@@ -57,6 +57,15 @@ export interface CollectionEntry {
   card: Card | null
 }
 
+/* What adding a whole set at once actually did. `already_listed` is not noise: it is
+   the difference between "150 cartes ajoutées" and the truth, and saying the wrong
+   one makes the button look broken the day it adds nothing. */
+export interface WishlistBulkResult {
+  missing: number
+  added: number
+  already_listed: number
+}
+
 export interface WishlistEntry {
   id: number
   card_id: string

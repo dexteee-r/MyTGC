@@ -2,13 +2,31 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { CardGrid } from '../components/CardGrid'
 import { ChevronLeftIcon } from '../components/icons'
-import { Adrift, EmptyState, Segmented, Sounding } from '../components/ui'
+import { Adrift, Button, EmptyState, Segmented, Sounding } from '../components/ui'
 import { api } from '../lib/api'
 import { useCollection } from '../lib/collection'
-import type { Card, Language } from '../lib/types'
+import { useToast } from '../lib/toast'
+import type { Card, Language, WishlistBulkResult } from '../lib/types'
 
 const PAGE = 60
 type View = 'all' | 'missing' | 'owned'
+
+/* What actually happened, in words. Reporting the number asked for rather than the
+   number added would make the button look broken the second time it is pressed —
+   it would claim 150 additions and the want list would not have moved. */
+export function summarise({ missing, added, already_listed }: WishlistBulkResult): string {
+  const cards = (n: number) => `${n} carte${n > 1 ? 's' : ''}`
+  if (added === 0) {
+    return missing === 0
+      ? 'Rien ne manque dans cette extension.'
+      : `${cards(missing)} déjà dans tes recherchées.`
+  }
+  if (already_listed === 0) {
+    return `${cards(added)} ajoutée${added > 1 ? 's' : ''} aux recherchées.`
+  }
+  const were = already_listed > 1 ? 'y étaient déjà' : 'y était déjà'
+  return `${cards(added)} ajoutée${added > 1 ? 's' : ''}, ${already_listed} ${were}.`
+}
 
 /* One divider, opened. The page shows every slot in the set — the ones you hold as
    cards, the ones you do not as empty pockets — so "what am I missing" is answered
@@ -31,6 +49,8 @@ export function PackDetail() {
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [view, setView] = useState<View>('all')
+  const [sending, setSending] = useState(false)
+  const { show } = useToast()
 
   const filter = {
     pack_code: packCode,
@@ -64,6 +84,21 @@ export function PackDetail() {
       })
       .catch(() => {})
   }, [packCode, language, entries])
+
+  /* One call, not one per card. Looping over addToWishlist would be 150 round trips
+     and would reset the priority, price and notes on every card already wanted,
+     because that endpoint treats a repeat as an edit. */
+  const wantAllMissing = async () => {
+    setSending(true)
+    try {
+      const result = await api.wantEverythingMissing({ pack_code: packCode, language })
+      show(summarise(result))
+    } catch {
+      show("L'ajout n'a pas abouti.")
+    } finally {
+      setSending(false)
+    }
+  }
 
   const loadMore = () => {
     if (cards.length >= total || loading) return
@@ -110,6 +145,19 @@ export function PackDetail() {
         onChange={setView}
         label="Filtrer"
       />
+
+      {/* Only under "Manquantes", where the count on the button is exactly what the
+          list below it shows — offered from any other view, "tout" would mean
+          something the screen is not displaying. */}
+      {view === 'missing' && !loading && !failed && total > 0 && (
+        <div className="px-5 pt-3">
+          <Button variant="quiet" full disabled={sending} onClick={wantAllMissing}>
+            {sending
+              ? 'Ajout…'
+              : `Ajouter les ${total} manquantes aux recherchées`}
+          </Button>
+        </div>
+      )}
 
       {failed ? (
         <div className="pt-8"><Adrift onRetry={() => setView(view)} /></div>

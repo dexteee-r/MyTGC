@@ -10,7 +10,42 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 
 ## En cours
 
-**Rien.** La refonte « L'Horizon » est passée sur les dix écrans.
+**Vers une V1 complète.** Liste longue proposée le 2026-08-16, traitée une tâche à la
+fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
+
+Restent, dans l'ordre convenu :
+- Objectif d'extension : se fixer une extension à finir, et la voir en tête du Classeur
+- Doubles : tout ce qui est possédé en quantité > 1, avec la valeur totale
+- Courbe de prix d'une carte sur la fiche
+- Valeur de la collection dans le temps (même graphique, agrégé)
+- Alertes de seuil (brancher `alert_threshold`, resté mort en base) — pastille dans
+  l'app en attendant un SMTP
+- Plus fortes variations de la semaine (collection et recherchées)
+- Plus-value par carte (prix payé contre cote actuelle)
+- Note libre par carte, et date d'acquisition modifiable — même migration, à faire
+  ensemble
+- Lien de partage public en lecture seule (collection ou recherchées)
+- Appareils connectés : lister les sessions (`user_agent` + dates, déjà en base,
+  jamais montrés), pouvoir en révoquer une
+- Nom affiché : la colonne existe, rien ne l'édite
+- Premier lancement : l'écran d'accueil d'un compte vide ne dit pas quoi faire
+- Page d'aide (la troisième rangée de la maquette, toujours dehors)
+- Numéro de version et journal des changements, dans le Carnet de bord
+- Écran d'erreur générique + `ErrorBoundary` (`Adrift` existe déjà sur 5 écrans, mais
+  rien n'attrape un plantage de rendu)
+- Passe d'accessibilité (clavier, focus visibles, contrastes) — en dernier, une fois
+  que le reste ne bougera plus
+
+Deux tâches ajoutées en cours de route, à faire après la liste ci-dessus :
+- **Nettoyer le projet** : code mort, fichiers inutiles.
+- **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
+  tests existants plutôt qu'en un seul balayage.
+
+**Anomalie trouvée en cours de route, pas encore traitée** : les extensions sans code
+imprimé (les Promos) sont liées par leur `pack_id` numérique, que l'écran Extensions
+passe ensuite à `/cards` comme si c'était un `pack_code` — leur page se charge donc
+vide. À corriger avant ou pendant la tâche "Objectif d'extension", qui touche le même
+écran.
 
 ---
 
@@ -29,6 +64,23 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Vue « manquantes » par extension, avec tri par avancement.** La vue existait déjà
+  (`PackDetail.tsx`, filtre « Manquantes » côté serveur) — ce qui manquait vraiment
+  était le tri « Presque finies » sur l'écran Extensions. Les extensions déjà
+  terminées coulent en bas plutôt qu'en tête : trier par simple ratio décroissant
+  aurait mis le 100 % avant le 95 %, l'inverse de la question posée. Tri et famille
+  sont retenus le temps de la session (variable de module, comme `Search.tsx`) : sans
+  ça, ouvrir une extension puis revenir remettait tout à zéro, exactement au moment où
+  le tri sert. Le contrôle est épinglé hors du bandeau de familles qui défile, pour
+  rester atteignable quand une cinquième famille apparaîtra.
+- **Tout envoyer aux recherchées en un geste.** `POST /wishlist/bulk` plutôt qu'une
+  boucle de 150 appels sur `POST /wishlist` : ce dernier traite un ré-ajout comme une
+  édition et aurait écrasé silencieusement la priorité, le prix et les notes déjà
+  saisis sur les cartes déjà listées. Le nouvel endpoint n'insère jamais par-dessus
+  une ligne existante, et répond `manquantes / ajoutées / déjà présentes` pour que le
+  message affiché ne mente jamais — vérifié avec une carte témoin (priorité, prix,
+  note) qui ressort intacte après l'appel, et un second appui qui annonce correctement
+  n'avoir rien ajouté.
 - **Mentions légales.** La rangée que la maquette dessinait et qui ne menait nulle
   part mène maintenant à `/legal`, joignable **sans compte** : l'écran de connexion est
   la seule page que le public voit, et une mention légale qui exige un compte n'en est

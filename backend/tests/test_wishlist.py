@@ -90,6 +90,103 @@ def test_wanting_a_card_that_does_not_exist_is_refused(client):
                        headers=account["headers"]).status_code == 404
 
 
+# --- a whole set at once ----------------------------------------------------------
+
+def _bulk(client, account, pack_code="OP-01", language="en"):
+    return client.post("/wishlist/bulk",
+                       json={"pack_code": pack_code, "language": language},
+                       headers=account["headers"])
+
+
+def test_everything_missing_from_a_set_can_be_wanted_at_once(client):
+    account = register(client)
+    result = _bulk(client, account).json()
+
+    assert result == {"missing": 3, "added": 3, "already_listed": 0}
+    assert len(client.get("/wishlist", headers=account["headers"]).json()) == 3
+
+
+def test_the_bulk_add_leaves_out_what_is_already_held(client):
+    account = register(client)
+    client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                headers=account["headers"])
+
+    result = _bulk(client, account).json()
+    assert result["missing"] == 2
+    assert result["added"] == 2
+    wanted = {e["card_id"] for e in client.get("/wishlist", headers=account["headers"]).json()}
+    assert "OP01-001" not in wanted
+
+
+def test_the_bulk_add_never_touches_an_entry_already_there(client):
+    """The reason this endpoint exists rather than a loop over POST /wishlist.
+
+    That endpoint treats a repeat as an edit, so looping over a set would reset the
+    priority, the price and the notes on every card already wanted — silently, and
+    with no way back. Nothing here may overwrite.
+    """
+    account = register(client)
+    client.post(
+        "/wishlist",
+        json={"card_id": "OP01-002", "language": "en", "priority": 1,
+              "alert_threshold": 12.5, "price": 30.0, "notes": "vue en boutique"},
+        headers=account["headers"],
+    )
+
+    result = _bulk(client, account).json()
+    assert result == {"missing": 3, "added": 2, "already_listed": 1}
+
+    kept = next(e for e in client.get("/wishlist", headers=account["headers"]).json()
+                if e["card_id"] == "OP01-002")
+    assert kept["priority"] == 1
+    assert kept["alert_threshold"] == 12.5
+    assert kept["notes"] == "vue en boutique"
+
+    # The ones it did add take the ordinary default rather than inheriting anything.
+    fresh = next(e for e in client.get("/wishlist", headers=account["headers"]).json()
+                 if e["card_id"] == "OP01-001")
+    assert fresh["priority"] == 2
+    assert fresh["notes"] is None
+
+
+def test_running_it_twice_adds_nothing_the_second_time(client):
+    account = register(client)
+    _bulk(client, account)
+    again = _bulk(client, account).json()
+
+    assert again == {"missing": 3, "added": 0, "already_listed": 3}
+    assert len(client.get("/wishlist", headers=account["headers"]).json()) == 3
+
+
+def test_the_bulk_add_stays_in_the_edition_it_was_asked_for(client):
+    """The catalogue holds each card twice. Wanting the whole English set must not
+    quietly add its Japanese twin, which is a different card to own."""
+    account = register(client)
+    _bulk(client, account, language="en")
+
+    entries = client.get("/wishlist", headers=account["headers"]).json()
+    assert {e["language"] for e in entries} == {"en"}
+    assert _bulk(client, account, language="jp").json()["added"] == 1
+
+
+def test_an_unknown_set_is_refused(client):
+    account = register(client)
+    assert _bulk(client, account, pack_code="ZZ-99").status_code == 404
+
+
+def test_one_account_cannot_fill_another_ones_list(client):
+    alice = register(client, email="alice@example.com")
+    bob = register(client, email="bob@example.com", invited_by=alice)
+    _bulk(client, alice)
+
+    assert client.get("/wishlist", headers=bob["headers"]).json() == []
+
+
+def test_the_bulk_add_refuses_anonymous_callers(client):
+    assert client.post("/wishlist/bulk",
+                       json={"pack_code": "OP-01", "language": "en"}).status_code == 401
+
+
 # --- isolation ------------------------------------------------------------------
 
 def test_a_wishlist_is_private(client):

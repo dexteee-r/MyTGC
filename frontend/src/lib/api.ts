@@ -11,6 +11,7 @@ import type {
   RegistrationPolicy,
   ScanResult,
   UserProfile,
+  WishlistBulkResult,
   WishlistEntry,
 } from './types'
 
@@ -155,6 +156,16 @@ export const api = {
     priority?: number
     notes?: string | null
   }) => request<WishlistEntry>('/wishlist', { method: 'POST', body: JSON.stringify(body) }),
+
+  /* One call for a whole set, rather than a loop over addToWishlist: that one treats
+     a repeat as an edit, so looping would reset the priority, price and notes on
+     every card already wanted. The server only ever inserts, and reports what it
+     left alone. */
+  wantEverythingMissing: (body: { pack_code: string; language: Language }) =>
+    request<WishlistBulkResult>('/wishlist/bulk', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   updateWishlist: (
     id: number,

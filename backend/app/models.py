@@ -223,10 +223,15 @@ class HistoryCreate(BaseModel):
     query: str = Field(max_length=80)
 
 
+# Where a card lands when nobody said otherwise: the middle of the three. Named so the
+# bulk insert and the single add cannot drift into disagreeing about it.
+DEFAULT_PRIORITY = 2
+
+
 class WishlistCreate(BaseModel):
     card_id: str
     language: Language
-    priority: int = Field(default=2, ge=1, le=3)
+    priority: int = Field(default=DEFAULT_PRIORITY, ge=1, le=3)
     alert_threshold: float | None = Field(default=None, ge=0)
     price: float | None = Field(default=None, ge=0)
     notes: str | None = Field(default=None, max_length=280)
@@ -237,6 +242,25 @@ class WishlistUpdate(BaseModel):
     alert_threshold: float | None = Field(default=None, ge=0)
     price: float | None = Field(default=None, ge=0)
     notes: str | None = Field(default=None, max_length=280)
+
+
+class WishlistBulk(BaseModel):
+    """Everything one set is still missing, in one call.
+
+    A set runs to about 150 cards, so doing this by looping POST /wishlist would be
+    150 round trips -- and worse, that endpoint treats a second add as an edit and
+    would overwrite the priority, price and notes already typed against any card
+    already on the list. This one only ever inserts.
+    """
+    pack_code: str
+    language: Language
+
+
+class WishlistBulkResult(BaseModel):
+    missing: int
+    added: int
+    # Left exactly as they were, priorities and prices included.
+    already_listed: int
 
 
 class CollectionStats(BaseModel):

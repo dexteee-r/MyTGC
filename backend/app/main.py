@@ -31,12 +31,14 @@ from PIL import Image
 
 from app import auth, db, detection, diagnosis, hashing, recognition, throttle
 from app.config import BACKEND_DIR, IMAGE_CACHE_DIR, MEDIA_DIR
-from app.models import (Card, CardPage, ChangePasswordRequest, CollectionCreate,
+from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
+                        CollectionCreate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
                         HistoryCreate, LoginRequest, Pack, ProfileUpdate,
                         RefreshRequest,
                         RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session, UserProfile,
+                        WishlistBulk, WishlistBulkResult,
                         WishlistCreate, WishlistEntry, WishlistUpdate)
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
@@ -774,6 +776,47 @@ def add_to_wishlist(conn: Conn, user: User, entry: WishlistCreate):
     )
     conn.commit()
     return _wish(conn, cursor.lastrowid)
+
+
+# What is still missing from one set, added in a single statement.
+#
+# The two NOT EXISTS are the whole feature. The first is what "missing" means. The
+# second is what keeps this from being destructive: POST /wishlist treats a repeat as
+# an edit, so a client looping over a set would quietly reset the priority, price and
+# notes on every card already listed. Inserting only what is absent leaves those rows
+# untouched, and the response says how many were spared so the screen can be honest
+# about it rather than claiming to have added 150 cards it did not add.
+_MISSING_FROM_PACK = """
+    FROM cards
+    WHERE cards.pack_code = ? AND cards.language = ?
+      AND NOT EXISTS (SELECT 1 FROM collection c
+                      WHERE c.card_id = cards.id AND c.language = cards.language
+                        AND c.user_id = ?)
+"""
+
+
+@app.post("/wishlist/bulk", response_model=WishlistBulkResult, status_code=201)
+def add_missing_to_wishlist(conn: Conn, user: User, body: WishlistBulk):
+    if not conn.execute("SELECT 1 FROM cards WHERE pack_code = ? AND language = ?",
+                        (body.pack_code, body.language)).fetchone():
+        raise HTTPException(404, f"{body.pack_code} not found in {body.language}")
+
+    scope = (body.pack_code, body.language, user.id)
+    missing = conn.execute(f"SELECT COUNT(*) {_MISSING_FROM_PACK}", scope).fetchone()[0]
+
+    cursor = conn.execute(
+        f"""INSERT INTO wishlist (user_id, card_id, language, priority)
+            SELECT ?, cards.id, cards.language, ?
+            {_MISSING_FROM_PACK}
+              AND NOT EXISTS (SELECT 1 FROM wishlist w
+                              WHERE w.card_id = cards.id
+                                AND w.language = cards.language
+                                AND w.user_id = ?)""",
+        (user.id, DEFAULT_PRIORITY, *scope, user.id),
+    )
+    conn.commit()
+    return WishlistBulkResult(missing=missing, added=cursor.rowcount,
+                              already_listed=missing - cursor.rowcount)
 
 
 @app.patch("/wishlist/{entry_id}", response_model=WishlistEntry)
