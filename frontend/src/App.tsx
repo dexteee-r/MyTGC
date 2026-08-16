@@ -6,6 +6,7 @@ import {
   Routes,
   useLocation,
 } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Scrim, Sky, type SkyVariant } from './components/Sky'
 import {
   LogPoseIcon,
@@ -77,14 +78,22 @@ export const useSkyScroll = () => useContext(SkyScroll)
 
 export default function App() {
   return (
-    <AuthProvider>
-      {/* The router wraps both states, not just the signed-in one. The sign-in screen
-          is the only page the public ever reaches, so the legal notice has to be
-          readable from it — one that needs an account to open is not a notice. */}
-      <BrowserRouter>
-        <Gate />
-      </BrowserRouter>
-    </AuthProvider>
+    /* Outermost, above AuthProvider: the last-resort net for a crash that
+       happens before Shell even exists to catch its own (a bad session
+       payload during boot, say). Shell's own boundary, further down, resets
+       on navigation because it sits inside a route-keyed element; this one
+       has no such key, so its retry button re-runs the exact render that
+       just failed rather than moving to a different screen. */
+    <ErrorBoundary>
+      <AuthProvider>
+        {/* The router wraps both states, not just the signed-in one. The sign-in screen
+            is the only page the public ever reaches, so the legal notice has to be
+            readable from it — one that needs an account to open is not a notice. */}
+        <BrowserRouter>
+          <Gate />
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
@@ -200,23 +209,29 @@ function Shell() {
           className="flex h-full flex-col"
         >
           <TabBar />
+          {/* Keyed by pathname, so a crash caught here resets the moment someone taps
+              a different tab: ErrorBoundary's own state lives on this element, and
+              the key change unmounts and remounts it along with everything else,
+              which is what "Réessayer" would otherwise have to do by hand. */}
           <main
             key={pathname}
             className="hz-enter mx-auto min-h-0 w-full min-w-0 max-w-2xl flex-1 pt-[env(safe-area-inset-top)] lg:max-w-5xl lg:pt-0"
           >
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/packs" element={<Packs />} />
-              <Route path="/packs/:packCode" element={<PackDetail />} />
-              <Route path="/scan" element={<Scanner />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/wishlist" element={<Wishlist />} />
-              <Route path="/collection" element={<Collection />} />
-              <Route path="/card/:cardId" element={<CardDetail />} />
-              <Route path="/account" element={<Account />} />
-              <Route path="/legal" element={<Legal />} />
-              <Route path="/help" element={<Help />} />
-            </Routes>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/packs" element={<Packs />} />
+                <Route path="/packs/:packCode" element={<PackDetail />} />
+                <Route path="/scan" element={<Scanner />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/wishlist" element={<Wishlist />} />
+                <Route path="/collection" element={<Collection />} />
+                <Route path="/card/:cardId" element={<CardDetail />} />
+                <Route path="/account" element={<Account />} />
+                <Route path="/legal" element={<Legal />} />
+                <Route path="/help" element={<Help />} />
+              </Routes>
+            </ErrorBoundary>
           </main>
         </Scrim>
       </div>

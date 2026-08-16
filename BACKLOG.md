@@ -31,9 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Numéro de version et journal des changements, dans le Carnet de bord
-- Écran d'erreur générique + `ErrorBoundary` (`Adrift` existe déjà sur 5 écrans, mais
-  rien n'attrape un plantage de rendu)
 - Passe d'accessibilité (clavier, focus visibles, contrastes) — en dernier, une fois
   que le reste ne bougera plus
 
@@ -66,6 +63,29 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Écran d'erreur générique et `ErrorBoundary`.** `Adrift` existait déjà sur 5
+  écrans pour les échecs réseau, mais rien n'attrapait un plantage de rendu —
+  une exception levée pendant que React peint videait tout l'onglet, sans
+  rien à l'écran pour en sortir. Deux boîtes plutôt qu'une : une par écran,
+  posée à l'intérieur du `<main>` déjà `key={pathname}` de `Shell`, qui se
+  réinitialise donc tout seul dès qu'on change d'onglet — un plantage sur le
+  Classeur n'emporte jamais la barre de navigation ; et une autour de toute
+  l'app dans `App()`, filet de dernier recours pour un plantage qui
+  arriverait avant même que `Shell` existe. Le repli réutilise `Adrift` tel
+  quel plutôt qu'un composant à part — même boîte affaissée, même bouton
+  Réessayer, un titre et un texte différents suffisent. Rien de ce qui est
+  attrapé ne part vers un service tiers : juste la console, cohérent avec ce
+  que Mentions légales promet déjà (« aucun service tiers chargé dans la
+  page »).
+  Vérifié en conditions réelles, pas seulement en test : une exception
+  ajoutée exprès en tête de `Home.tsx`, rechargée dans le vrai navigateur —
+  l'écran de repli s'affiche, la barre de navigation reste utilisable, changer
+  d'onglet vers Collection l'affiche normalement (la boîte ne s'était pas
+  propagée plus haut), revenir au Classeur fait retomber sur le même repli
+  tant que la cause n'est pas corrigée. Exception retirée, le Classeur
+  s'affiche de nouveau normalement. 95 tests frontend (4 nouveaux sur
+  `ErrorBoundary`, dont un cassé exprès sur le bouton Réessayer pour confirmer
+  qu'un test le rattrape), typecheck, lint et build propres.
 - **Page d'aide.** La maquette dessinait une troisième rangée « Aide » sans
   contenu défini. Demandé : un mode d'emploi des fonctionnalités moins
   évidentes, plus un contact — pas une FAQ dictée au mot près, donc rédigée à
@@ -382,6 +402,8 @@ quand celui-ci remontera dans les priorités.
   2026-08-16, aucun blocage particulier, juste écartée pour l'instant.
 - Plus-value par carte (prix payé contre cote actuelle). Passée le 2026-08-16,
   même sort, aucun blocage particulier.
+- Numéro de version et journal des changements, dans le Carnet de bord. Passée
+  le 2026-08-16, aucun blocage particulier, juste écartée pour l'instant.
 - Scan hors ligne
 - **Build iOS natif** — bloqué par macOS, et payant pour installer sur un vrai
   iPhone (99 €/an). L'app s'installe désormais depuis Safari, ce qui couvre les deux
