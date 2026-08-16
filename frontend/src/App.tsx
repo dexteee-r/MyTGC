@@ -24,6 +24,7 @@ import { ToastProvider } from './lib/toast'
 import { Account } from './pages/Account'
 import { CardDetail } from './pages/CardDetail'
 import { Collection } from './pages/Collection'
+import { Help } from './pages/Help'
 import { Home } from './pages/Home'
 import { Legal } from './pages/Legal'
 import { PackDetail } from './pages/PackDetail'
@@ -63,6 +64,7 @@ function skyFor(path: string): { variant: SkyVariant; quiet: boolean } {
   if (path === '/collection') return { variant: 'dawn', quiet: true }
   if (path === '/account') return { variant: 'dusk', quiet: true }
   if (path === '/legal') return { variant: 'dusk', quiet: true }
+  if (path === '/help') return { variant: 'dusk', quiet: true }
   return { variant: 'dusk', quiet: false }
 }
 
@@ -213,6 +215,7 @@ function Shell() {
               <Route path="/card/:cardId" element={<CardDetail />} />
               <Route path="/account" element={<Account />} />
               <Route path="/legal" element={<Legal />} />
+              <Route path="/help" element={<Help />} />
             </Routes>
           </main>
         </Scrim>

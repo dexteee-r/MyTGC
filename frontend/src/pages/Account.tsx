@@ -19,10 +19,10 @@ const MIN_PASSWORD = 10
    is aboard, and how far along the chart it goes — and the machinery of the account
    sits under them where it belongs.
 
-   The handoff sketches a list of three rows: export, legal notices, help. Export is
-   real and is here; the other two still lead nowhere and stay out until they do not.
-   Everything below the fold — password, sign-out, deletion — is machinery the
-   handoff never drew, so it follows the same rails rather than inventing its own.  */
+   The handoff sketches a list of three rows: export, legal notices, help. All three
+   lead somewhere now. Everything below the fold — password, sign-out, deletion — is
+   machinery the handoff never drew, so it follows the same rails rather than
+   inventing its own.  */
 
 export function Account() {
   const { user, signOut, setUser } = useAuth()
@@ -227,6 +227,7 @@ export function Account() {
           Exporter ma collection
         </Row>
         <Row onClick={() => navigate('/legal')}>Mentions légales</Row>
+        <Row onClick={() => navigate('/help')}>Aide</Row>
       </div>
 
       <form onSubmit={changePassword} className="px-5 pt-8">

@@ -31,7 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Page d'aide (la troisième rangée de la maquette, toujours dehors)
 - Numéro de version et journal des changements, dans le Carnet de bord
 - Écran d'erreur générique + `ErrorBoundary` (`Adrift` existe déjà sur 5 écrans, mais
   rien n'attrape un plantage de rendu)
@@ -67,6 +66,28 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Page d'aide.** La maquette dessinait une troisième rangée « Aide » sans
+  contenu défini. Demandé : un mode d'emploi des fonctionnalités moins
+  évidentes, plus un contact — pas une FAQ dictée au mot près, donc rédigée à
+  partir de ce que le code fait réellement plutôt que d'un script fourni.
+  Scan, objectif d'extension, Doubles, notes et date d'ajout modifiables,
+  liens de partage, provenance des cotes, appareils connectés — chacun en
+  quelques phrases, sans reprendre ce qui s'explique déjà à l'écran au moment
+  où ça arrive : un échec de scan dit déjà pourquoi sur place (`CAUSE` dans
+  `ui.tsx`), donc la page dit qu'il le fait plutôt que de recopier les quatre
+  raisons, qui auraient pu diverger de cette page sans que rien ne le
+  signale. Vérifié dans le code plutôt que supposé : `import_prices.py`
+  n'écrit des prix que pour `language = 'en'` — les cartes japonaises n'ont
+  donc jamais de cote, un fait qui n'était nulle part ailleurs dans l'app et
+  qui mérite de l'être puisqu'il surprend. Contact repris du même e-mail que
+  Mentions légales.
+  Route `/help`, rangée « Aide » ajoutée au Carnet de bord à la suite des
+  deux déjà réelles (export, mentions légales) — le commentaire d'en-tête
+  d'`Account.tsx`, qui affirmait encore que ces deux-là « ne menaient nulle
+  part », était déjà faux avant cette tâche et corrigé au passage.
+  Vérifié avec un compte jetable : la rangée mène à la page, le lien mailto
+  pointe au bon endroit, contenu rendu sans rien de cassé. Compte et
+  invitation supprimés ensuite.
 - **Premier lancement.** Vérifié avec un compte tout neuf plutôt que supposé :
   Classeur, Collection et Recherchées avaient déjà chacun un message et un
   bouton d'action pour un état vide (« Classeur vide », « Rien de rangé pour
