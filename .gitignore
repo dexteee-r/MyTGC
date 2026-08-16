@@ -37,6 +37,11 @@ frontend/ios/App/Pods/
 .idea/
 .DS_Store
 
+# --- Local tooling config, not application code ---
+# launch.json points the dev-server preview at `npm run dev`; nothing in it is
+# secret, but it is machine-local tooling, not something a public repo should carry.
+.claude/
+
 # --- Frontend build output ---
 frontend/dist/
 frontend/node_modules/
