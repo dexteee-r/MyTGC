@@ -25,7 +25,7 @@ function entry(
   }
   return {
     id: id.length + quantity, card_id: id, language, quantity, condition: null,
-    date_added: '2026-01-01', acquisition_price: null, card,
+    date_added: '2026-01-01', acquisition_price: null, notes: null, card,
   }
 }
 

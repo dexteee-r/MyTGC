@@ -25,6 +25,8 @@ interface Owned {
   quantity: number
   condition: Condition | null
   acquisitionPrice: number | null
+  notes: string | null
+  dateAdded: string
 }
 
 interface CollectionState {
@@ -37,6 +39,8 @@ interface CollectionState {
   setQuantity: (cardId: string, language: Language, quantity: number) => Promise<void>
   setPrice: (cardId: string, language: Language, price: number | null) => Promise<void>
   setCondition: (cardId: string, language: Language, condition: Condition) => Promise<void>
+  setNotes: (cardId: string, language: Language, notes: string | null) => Promise<void>
+  setDateAdded: (cardId: string, language: Language, dateAdded: string) => Promise<void>
   reload: () => Promise<void>
 }
 
@@ -67,6 +71,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         quantity: entry.quantity,
         condition: entry.condition,
         acquisitionPrice: entry.acquisition_price,
+        notes: entry.notes,
+        dateAdded: entry.date_added,
       })
       const key = `${entry.language}:${entry.card_id.split('_')[0]}`
       byNumber.set(key, (byNumber.get(key) ?? 0) + entry.quantity)
@@ -101,6 +107,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         condition,
         date_added: new Date().toISOString().slice(0, 10),
         acquisition_price: null,
+        notes: null,
         card: null,
       }
       setEntries((current) => [optimistic, ...current])
@@ -187,6 +194,49 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     [entries, index, reload],
   )
 
+  const setNotes = useCallback(
+    async (cardId: string, language: Language, notes: string | null) => {
+      const existing = index.byCard.get(`${language}:${cardId}`)
+      if (!existing) return
+
+      const previous = entries
+      setEntries((current) =>
+        current.map((e) => (e.id === existing.entryId ? { ...e, notes } : e)),
+      )
+      try {
+        await api.updateCollection(existing.entryId, { notes })
+        await reload()
+      } catch {
+        setEntries(previous)
+      }
+    },
+    [entries, index, reload],
+  )
+
+  /* Corrects the day a holding was logged, not when it happened to be typed in.
+     The server refuses a future date -- not held yet is a claim, not a correction --
+     so a rejection here is left for the caller to surface, same as setPrice leaves
+     validation to the server rather than duplicating its rules on this side. */
+  const setDateAdded = useCallback(
+    async (cardId: string, language: Language, dateAdded: string) => {
+      const existing = index.byCard.get(`${language}:${cardId}`)
+      if (!existing) return
+
+      const previous = entries
+      setEntries((current) =>
+        current.map((e) => (e.id === existing.entryId ? { ...e, date_added: dateAdded } : e)),
+      )
+      try {
+        await api.updateCollection(existing.entryId, { date_added: dateAdded })
+        await reload()
+      } catch (error) {
+        setEntries(previous)
+        throw error
+      }
+    },
+    [entries, index, reload],
+  )
+
   const value: CollectionState = {
     ready,
     entries,
@@ -197,6 +247,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     setQuantity,
     setPrice,
     setCondition,
+    setNotes,
+    setDateAdded,
     reload,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

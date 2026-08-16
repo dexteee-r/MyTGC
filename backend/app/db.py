@@ -39,6 +39,7 @@ LATE_COLUMNS = [
     ("cards", "release_date", "TEXT"),
     ("users", "goal_pack_code", "TEXT"),
     ("users", "goal_language", "TEXT"),
+    ("collection", "notes", "TEXT"),
 ]
 
 

@@ -94,6 +94,68 @@ def test_an_image_path_cannot_escape_the_cache(client):
     assert client.get("/images/en/../../mytcg.db").status_code == 404
 
 
+# --- notes and the acquisition date -----------------------------------------------
+
+def test_a_note_can_be_set_and_cleared(client):
+    account = register(client)
+    entry = client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                        headers=account["headers"]).json()
+    assert entry["notes"] is None
+
+    noted = client.patch(f"/collection/{entry['id']}", json={"notes": "signée"},
+                         headers=account["headers"])
+    assert noted.json()["notes"] == "signée"
+
+    cleared = client.patch(f"/collection/{entry['id']}", json={"notes": None},
+                           headers=account["headers"])
+    assert cleared.json()["notes"] is None
+
+
+def test_the_acquisition_date_can_be_moved_earlier(client):
+    """The date is stamped the moment a card is added; correcting it after the fact
+    is the whole point of making it editable."""
+    account = register(client)
+    entry = client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                        headers=account["headers"]).json()
+
+    moved = client.patch(f"/collection/{entry['id']}", json={"date_added": "2026-01-15"},
+                         headers=account["headers"])
+    assert moved.json()["date_added"] == "2026-01-15"
+
+
+def test_the_acquisition_date_cannot_be_moved_into_the_future(client):
+    """Not held yet is a claim about the future, not a correction of the past."""
+    account = register(client)
+    entry = client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                        headers=account["headers"]).json()
+
+    response = client.patch(f"/collection/{entry['id']}", json={"date_added": "2099-01-01"},
+                            headers=account["headers"])
+    assert response.status_code == 422
+    # Refused, not half-applied.
+    assert client.get("/collection", headers=account["headers"]).json()[0]["date_added"] != "2099-01-01"
+
+
+def test_a_malformed_acquisition_date_is_refused(client):
+    account = register(client)
+    entry = client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                        headers=account["headers"]).json()
+
+    response = client.patch(f"/collection/{entry['id']}", json={"date_added": "not a date"},
+                            headers=account["headers"])
+    assert response.status_code == 422
+
+
+def test_notes_and_the_acquisition_date_stay_within_their_own_holding(client):
+    alice = register(client, email="alice@example.com")
+    bob = register(client, email="bob@example.com", invited_by=alice)
+    entry = client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                        headers=alice["headers"]).json()
+
+    assert client.patch(f"/collection/{entry['id']}", json={"notes": "vue chez Bob"},
+                        headers=bob["headers"]).status_code == 404
+
+
 # --- what the collection is worth -------------------------------------------------
 
 def test_only_the_latest_snapshot_values_a_card(client):

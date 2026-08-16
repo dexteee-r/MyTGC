@@ -109,7 +109,10 @@ CREATE TABLE IF NOT EXISTS collection (
     quantity           INTEGER NOT NULL DEFAULT 1,
     condition          TEXT,             -- near_mint, lightly_played, played...
     date_added         TEXT NOT NULL,
-    acquisition_price  REAL
+    acquisition_price  REAL,
+    -- Free text about this specific copy -- "signée", "achetée à Paris" -- not
+    -- about the card, which is shared by everyone.
+    notes              TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_collection_card ON collection (user_id, card_id, language);

@@ -24,7 +24,7 @@ const card: Card = {
 
 const holding: CollectionEntry = {
   id: 7, card_id: 'OP01-001', language: 'en', quantity: 2, condition: 'near_mint',
-  date_added: '2026-01-01', acquisition_price: null, card: null,
+  date_added: '2026-01-01', acquisition_price: null, notes: null, card: null,
 }
 
 const posted: { url: string; method: string; body: unknown }[] = []
@@ -122,5 +122,63 @@ describe('la fiche carte', () => {
     mount({ card: { market_price: null } })
     await screen.findByText('Monkey.D.Luffy')
     expect(screen.getByText('Tirage non coté')).toBeTruthy()
+  })
+
+  it('enregistre une note quand on quitte le champ', async () => {
+    mount({ collection: [holding] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByText('Ajouter une note'))
+    const field = screen.getByLabelText('Note sur cet exemplaire')
+    await userEvent.type(field, 'signée')
+    await userEvent.tab()
+
+    await waitFor(() => {
+      const write = posted.find((p) => p.method === 'PATCH' && p.url.includes('/collection/7'))
+      expect(write).toBeTruthy()
+      expect(write?.body).toMatchObject({ notes: 'signée' })
+    })
+  })
+
+  it('envoie null pour effacer une note plutôt qu’une chaîne vide', async () => {
+    mount({ collection: [{ ...holding, notes: 'ancienne note' }] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByText('ancienne note'))
+    const field = screen.getByLabelText('Note sur cet exemplaire')
+    await userEvent.clear(field)
+    await userEvent.tab()
+
+    await waitFor(() => {
+      const write = posted.find((p) => p.method === 'PATCH' && p.url.includes('/collection/7'))
+      expect(write?.body).toMatchObject({ notes: null })
+    })
+  })
+
+  it('enregistre la date d’ajout corrigée', async () => {
+    mount({ collection: [holding] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByText(/Ajoutée le/))
+    const field = screen.getByLabelText("Date d'ajout à la collection")
+    await userEvent.clear(field)
+    await userEvent.type(field, '2026-02-10')
+    await userEvent.tab()
+
+    await waitFor(() => {
+      const write = posted.find((p) => p.method === 'PATCH' && p.url.includes('/collection/7'))
+      expect(write).toBeTruthy()
+      expect(write?.body).toMatchObject({ date_added: '2026-02-10' })
+    })
+  })
+
+  it('ne borde pas le champ de note en majuscules une fois écrite', async () => {
+    /* .t-code met le texte en capitales -- juste pour l'invite "Ajouter une note",
+       jamais pour ce que la personne a réellement tapé. Un test plutôt qu'un coup
+       d'œil, après avoir fait exactement cette erreur sur la page Légale. */
+    mount({ collection: [{ ...holding, notes: 'signée par l’auteur' }] })
+    await screen.findByText('Monkey.D.Luffy')
+    const button = screen.getByText('signée par l’auteur')
+    expect(button.className).not.toContain('t-code')
   })
 })

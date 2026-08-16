@@ -22,7 +22,15 @@ export function CardDetail() {
   const [params] = useSearchParams()
   const language = (params.get('language') ?? 'en') as Language
   const navigate = useNavigate()
-  const { ownedOf, add, setQuantity, setPrice, setCondition: saveCondition } = useCollection()
+  const {
+    ownedOf,
+    add,
+    setQuantity,
+    setPrice,
+    setCondition: saveCondition,
+    setNotes: saveNotes,
+    setDateAdded,
+  } = useCollection()
   const { show } = useToast()
 
   const [card, setCard] = useState<Card | null>(null)
@@ -31,6 +39,9 @@ export function CardDetail() {
   const [wanted, setWanted] = useState<WishlistEntry | null>(null)
   const [editingPrice, setEditingPrice] = useState(false)
   const [priceDraft, setPriceDraft] = useState('')
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesDraft, setNotesDraft] = useState('')
+  const [editingDate, setEditingDate] = useState(false)
   const [history, setHistory] = useState<PricePoint[]>([])
 
   const load = useCallback(() => {
@@ -80,6 +91,26 @@ export function CardDetail() {
     const parsed = priceDraft.trim() === '' ? null : Number(priceDraft.replace(',', '.'))
     const price = parsed != null && Number.isFinite(parsed) && parsed >= 0 ? parsed : null
     setPrice(card.id, language, price)
+  }
+
+  const commitNotes = () => {
+    setEditingNotes(false)
+    if (!card) return
+    const trimmed = notesDraft.trim()
+    saveNotes(card.id, language, trimmed === '' ? null : trimmed)
+  }
+
+  const commitDate = async (value: string) => {
+    setEditingDate(false)
+    if (!card || !value) return
+    try {
+      await setDateAdded(card.id, language, value)
+    } catch {
+      // The only realistic rejection here is a future date, and the input's own
+      // max already keeps the picker from offering one — this is the fallback for
+      // whatever gets past that (a device clock behind the server's, mainly).
+      show("Cette date n'a pas été acceptée.")
+    }
   }
 
   const toggleWanted = async () => {
@@ -268,6 +299,78 @@ export function CardDetail() {
                         minimumFractionDigits: Number.isInteger(owned.acquisitionPrice) ? 0 : 2,
                         maximumFractionDigits: 2,
                       })} €`}
+                </button>
+              )}
+            </div>
+
+            {/* When it entered the binder, corrected after the fact — the server
+                stamps today's date automatically on add, and this is the only way
+                to fix it once it turns out to be wrong. */}
+            <div className="mt-4 flex justify-center">
+              {editingDate ? (
+                <input
+                  autoFocus
+                  type="date"
+                  defaultValue={owned.dateAdded}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onBlur={(event) => commitDate(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') setEditingDate(false)
+                  }}
+                  aria-label="Date d'ajout à la collection"
+                  className="t-code rounded-full px-4 py-2 text-center outline-none"
+                  style={{ background: 'var(--surface-recessed)' }}
+                />
+              ) : (
+                <button
+                  onClick={() => setEditingDate(true)}
+                  className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
+                >
+                  Ajoutée le{' '}
+                  {new Date(`${owned.dateAdded}T00:00:00`).toLocaleDateString('fr', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </button>
+              )}
+            </div>
+
+            {/* Free text about this specific copy — "signée", "achetée à Paris" —
+                not about the card, which every account shares. A textarea rather
+                than the price field's single line: a note is prose, not a number,
+                and 280 characters wraps. */}
+            <div className="mt-4">
+              {editingNotes ? (
+                <textarea
+                  autoFocus
+                  rows={2}
+                  maxLength={280}
+                  value={notesDraft}
+                  onChange={(event) => setNotesDraft(event.target.value)}
+                  onBlur={commitNotes}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') setEditingNotes(false)
+                  }}
+                  aria-label="Note sur cet exemplaire"
+                  placeholder="Signée, achetée à Paris…"
+                  className="w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none"
+                  style={{ background: 'var(--surface-recessed)' }}
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setNotesDraft(owned.notes ?? '')
+                    setEditingNotes(true)
+                  }}
+                  className={`block min-h-[var(--touch)] w-full px-4 text-left text-[var(--text-secondary)] underline underline-offset-4 ${
+                    owned.notes ? 'text-sm' : 't-code'
+                  }`}
+                >
+                  {/* Free text is never worn as t-code: that class uppercases, and a
+                      note the person actually typed is not a value to reformat, the
+                      way the placeholder prompt above it is. */}
+                  {owned.notes ? owned.notes : 'Ajouter une note'}
                 </button>
               )}
             </div>

@@ -172,6 +172,9 @@ class CollectionEntry(BaseModel):
     condition: Condition | None = None
     date_added: str
     acquisition_price: float | None = None
+    # Free text about this specific holding -- "signée", "achetée à Paris". Not
+    # about the card, about the copy: see collection.notes in schema.sql.
+    notes: str | None = None
     card: Card | None = None
 
 
@@ -187,6 +190,12 @@ class CollectionUpdate(BaseModel):
     quantity: int | None = Field(default=None, ge=0)
     condition: Condition | None = None
     acquisition_price: float | None = Field(default=None, ge=0)
+    notes: str | None = Field(default=None, max_length=280)
+    # A plain ISO date, like everywhere else a date crosses this API -- validated
+    # in the endpoint (real date, not in the future), not here: main.py already
+    # imports `date` to stamp this column on creation, and the rule belongs beside
+    # that stamp, not duplicated into a model this file otherwise keeps date-free.
+    date_added: str | None = None
 
 
 class ScanPrinting(BaseModel):

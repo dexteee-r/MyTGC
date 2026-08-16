@@ -145,7 +145,13 @@ export const api = {
 
   updateCollection: (
     id: number,
-    body: { quantity?: number; condition?: Condition | null; acquisition_price?: number | null },
+    body: {
+      quantity?: number
+      condition?: Condition | null
+      acquisition_price?: number | null
+      notes?: string | null
+      date_added?: string
+    },
   ) =>
     request<CollectionEntry>(`/collection/${id}`, {
       method: 'PATCH',

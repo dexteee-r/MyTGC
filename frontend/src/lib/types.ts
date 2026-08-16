@@ -71,6 +71,9 @@ export interface CollectionEntry {
   condition: Condition | null
   date_added: string
   acquisition_price: number | null
+  /* About this specific copy -- "signée", "achetée à Paris" -- not about the card,
+     which every account shares. */
+  notes: string | null
   card: Card | null
 }
 

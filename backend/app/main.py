@@ -691,6 +691,18 @@ def update_collection(conn: Conn, user: User, entry_id: int, patch: CollectionUp
         raise HTTPException(404, "entry not found")
 
     fields = patch.model_dump(exclude_unset=True)
+
+    if "date_added" in fields:
+        try:
+            parsed = date.fromisoformat(fields["date_added"])
+        except (TypeError, ValueError):
+            raise HTTPException(422, "date_added must be a real ISO date") from None
+        # A collector can backdate a card they forgot to log the day they got it,
+        # but not one they have not held yet -- that is a claim about the future,
+        # not a correction.
+        if parsed > date.today():
+            raise HTTPException(422, "date_added cannot be in the future")
+
     if fields.get("quantity") == 0:
         # Dropping to zero means the card left the collection; keeping a zero-quantity
         # row would make every count and filter lie.

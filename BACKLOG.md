@@ -31,12 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Alertes de seuil (brancher `alert_threshold`, resté mort en base) — pastille dans
-  l'app en attendant un SMTP
-- Plus fortes variations de la semaine (collection et recherchées)
-- Plus-value par carte (prix payé contre cote actuelle)
-- Note libre par carte, et date d'acquisition modifiable — même migration, à faire
-  ensemble
 - Lien de partage public en lecture seule (collection ou recherchées)
 - Appareils connectés : lister les sessions (`user_agent` + dates, déjà en base,
   jamais montrés), pouvoir en révoquer une
@@ -78,6 +72,23 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Note libre par carte, et date d'acquisition modifiable.** Même migration,
+  faites ensemble comme demandé : `collection.notes` (texte libre, comme les
+  recherchées) et `date_added` devenu éditable sur l'endpoint qui ne faisait que le
+  poser à la création. Le serveur refuse une date dans le futur — pas encore
+  possédée est une prétention, pas une correction — et refuse un format qui n'est
+  pas une vraie date ISO.
+  Piège trouvé en écrivant l'UI : `.t-code` met le texte en capitales, très bien
+  pour l'invite « Ajouter une note », faux pour la note une fois écrite par la
+  personne — même erreur déjà commise sur la page Légale, cette fois repérée avant
+  de la commettre et fixée par un test dédié plutôt qu'un coup d'œil.
+  Vérification compliquée par l'environnement du volet navigateur : `blur` et `Tab`
+  simulés n'y déclenchaient aucun gestionnaire React, ni sur ce composant ni sur un
+  bouton sans rapport (« Retirer un exemplaire », testé sans effet). Plutôt que de
+  s'acharner sur un problème d'environnement, la logique a été vérifiée dans jsdom
+  via `userEvent.tab()`, qui simule un vrai déplacement de focus — quatre tests,
+  cassés exprès un par un (chaîne vide au lieu de `null`, capitales sur la note),
+  tous rattrapés puis rétablis.
 - **Valeur de la collection dans le temps.** Même graphique que la courbe par
   carte, réutilisé tel quel — `ValuePoint` a la même forme utile que `PricePoint`
   (`captured_at` + un nombre), donc `Collection.tsx` transforme simplement l'un en
@@ -258,6 +269,13 @@ quand celui-ci remontera dans les priorités.
 ## Déjà connu, plus ancien
 
 - Réinitialisation de mot de passe (demande un SMTP)
+- Alertes de seuil (brancher `alert_threshold`, resté mort en base). Passée le
+  2026-08-16 dans la liste V1 — pastille dans l'app en attendant un SMTP restait
+  possible sans e-mail, mais écartée quand même à ce stade.
+- Plus fortes variations de la semaine (collection et recherchées). Passée le
+  2026-08-16, aucun blocage particulier, juste écartée pour l'instant.
+- Plus-value par carte (prix payé contre cote actuelle). Passée le 2026-08-16,
+  même sort, aucun blocage particulier.
 - Scan hors ligne
 - **Build iOS natif** — bloqué par macOS, et payant pour installer sur un vrai
   iPhone (99 €/an). L'app s'installe désormais depuis Safari, ce qui couvre les deux
