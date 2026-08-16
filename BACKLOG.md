@@ -31,7 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Nom affiché : la colonne existe, rien ne l'édite
 - Premier lancement : l'écran d'accueil d'un compte vide ne dit pas quoi faire
 - Page d'aide (la troisième rangée de la maquette, toujours dehors)
 - Numéro de version et journal des changements, dans le Carnet de bord
@@ -69,6 +68,23 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Nom affiché, modifiable après coup.** Déjà proposé (facultatif) à
+  l'inscription et déjà accepté par le serveur en PATCH — `ProfileUpdate` avait
+  le champ depuis le début, rien ne l'exposait après la création du compte.
+  Champ ajouté au Carnet de bord, bouton « Enregistrer » désactivé tant que la
+  saisie, une fois les espaces en trop retirés, ne diffère pas du nom déjà en
+  place — un nom réduit à des espaces ne compte pas comme un changement, pas
+  plus qu'un nom identique renvoyé sans y toucher. Le champ part du nom déjà
+  en base, qui pour un compte sans nom choisi est déjà l'avant-arobase de
+  l'e-mail (comportement du serveur depuis toujours, à l'inscription). Même
+  champ que celui lu par les liens de partage publics (`owner_name` sur
+  `SharedCollection`/`SharedWishlist`) — le changer ici change aussi ce qu'un
+  lien montre à un inconnu.
+  Vérifié avec un compte jetable : champ pré-rempli à l'ouverture, bouton
+  désactivé tant que rien ne change, activé après une saisie, valeur relue
+  identique après un rechargement complet de la page — donc bien persistée
+  côté serveur, pas seulement dans l'état local. Compte et invitation de test
+  supprimés ensuite.
 - **Appareils connectés.** `refresh_tokens.user_agent` était en base depuis la
   construction des sessions, jamais relu par personne. Une session affichée est
   la ligne encore active d'une famille de jetons — la rotation révoque le jeton

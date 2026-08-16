@@ -26,6 +26,17 @@ function mount(sessions: DeviceSession[]) {
       if (url.includes('/auth/sessions')) {
         return { ok: true, status: 200, json: async () => sessions, text: async () => '' } as Response
       }
+      if (url.includes('/auth/me') && method === 'PATCH') {
+        const body = init?.body ? JSON.parse(init.body as string) : {}
+        return {
+          ok: true, status: 200, text: async () => '',
+          json: async () => ({
+            id: 1, email: 'a@example.com', display_name: body.display_name ?? null,
+            created_at: null, default_language: 'en', grid_columns: 2,
+            goal_pack_code: null, goal_language: null,
+          }),
+        } as Response
+      }
       if (url.includes('/collection/stats')) {
         return {
           ok: true, status: 200, text: async () => '',
@@ -126,5 +137,37 @@ describe('appareils connectés', () => {
     expect(calls.some((c) => c.url.includes('/auth/sessions/42') && c.method === 'DELETE')).toBe(true)
     // The current device's own row survives the revocation of the other one.
     expect(screen.getByText(/Chrome sur Windows/)).toBeTruthy()
+  })
+})
+
+describe('nom affiché', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('le bouton reste désactivé tant que rien de nouveau n’est saisi', async () => {
+    mount([])
+    const button = await screen.findByText('Enregistrer')
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('un nom composé uniquement d’espaces ne compte pas comme un changement', async () => {
+    mount([])
+    const field = await screen.findByLabelText('Nom affiché')
+    fireEvent.change(field, { target: { value: '   ' } })
+    expect((screen.getByText('Enregistrer') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('enregistre le nom saisi', async () => {
+    const { calls } = mount([])
+    const field = await screen.findByLabelText('Nom affiché')
+    fireEvent.change(field, { target: { value: 'Barbe Noire' } })
+
+    const button = screen.getByText('Enregistrer')
+    expect((button as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(button)
+
+    await waitFor(() => {
+      const patch = calls.find((c) => c.url.includes('/auth/me') && c.method === 'PATCH')
+      expect(patch).toBeTruthy()
+    })
   })
 })

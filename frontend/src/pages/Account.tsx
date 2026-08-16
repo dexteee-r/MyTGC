@@ -25,7 +25,7 @@ const MIN_PASSWORD = 10
    handoff never drew, so it follows the same rails rather than inventing its own.  */
 
 export function Account() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, setUser } = useAuth()
   const { stats, entries } = useCollection()
   const { language, setLanguage } = useLanguage()
   const { show } = useToast()
@@ -40,6 +40,8 @@ export function Account() {
   const [health, setHealth] = useState<Health | null>(null)
   const [sessions, setSessions] = useState<DeviceSession[] | null>(null)
   const [revoking, setRevoking] = useState<number | null>(null)
+  const [displayName, setDisplayName] = useState(user?.display_name ?? '')
+  const [savingName, setSavingName] = useState(false)
 
   useEffect(() => {
     api.packs().then(setPacks).catch(() => {})
@@ -87,6 +89,23 @@ export function Account() {
       )
     } finally {
       setBusy(false)
+    }
+  }
+
+  const trimmedName = displayName.trim()
+  const nameChanged = trimmedName.length > 0 && trimmedName !== (user?.display_name ?? '')
+
+  const saveDisplayName = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!nameChanged) return
+    setSavingName(true)
+    try {
+      setUser(await api.updateProfile({ display_name: trimmedName }))
+      show('Nom affiché mis à jour.')
+    } catch {
+      show("La mise à jour n'a pas abouti.")
+    } finally {
+      setSavingName(false)
     }
   }
 
@@ -147,6 +166,33 @@ export function Account() {
       )}
 
       {stats && <Breakdown stats={stats} />}
+
+      {/* Chosen once at sign-up (optional there, defaulting to the email's local
+          part) and never editable since — the server has taken a PATCH here all
+          along, nothing stood in front of it. */}
+      <form onSubmit={saveDisplayName} className="px-5 pt-8">
+        <p className="t-eyebrow pb-2.5">Nom affiché</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={displayName}
+            maxLength={60}
+            aria-label="Nom affiché"
+            onChange={(event) => setDisplayName(event.target.value)}
+            className="t-code min-h-[var(--touch)] w-full min-w-0 rounded-full px-4 outline-none"
+            style={{ background: 'var(--surface-recessed)' }}
+          />
+          <Button type="submit" variant="quiet" disabled={!nameChanged || savingName}>
+            {savingName ? 'Un instant…' : 'Enregistrer'}
+          </Button>
+        </div>
+        {/* Not just a label for this screen: it is what a shared link's own page
+            greets a stranger with -- "Collection de {owner_name}" on
+            SharedCollection/SharedWishlist reads this exact field. */}
+        <p className="pt-2.5 text-sm text-[var(--text-secondary)]">
+          Le nom vu sur cet écran, et par qui ouvre un de tes liens de partage.
+        </p>
+      </form>
 
       {/* The default edition. It belongs here rather than in a settings screen that
           does not exist, and it is the account's setting now, not the session's. */}
