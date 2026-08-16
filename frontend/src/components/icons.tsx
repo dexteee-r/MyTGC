@@ -159,6 +159,16 @@ export function FlagIcon(props: { className?: string }) {
   )
 }
 
+export function InfoIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <circle cx="12" cy="7.7" r="0.15" fill="currentColor" stroke="currentColor" strokeWidth="2.4" />
+    </svg>
+  )
+}
+
 export function EyeIcon(props: { className?: string }) {
   return (
     <svg {...base} {...props}>

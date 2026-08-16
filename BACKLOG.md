@@ -14,7 +14,6 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
 
 Restent, dans l'ordre convenu :
-- Doubles : tout ce qui est possédé en quantité > 1, avec la valeur totale
 - Courbe de prix d'une carte sur la fiche
 - Valeur de la collection dans le temps (même graphique, agrégé)
 - Alertes de seuil (brancher `alert_threshold`, resté mort en base) — pastille dans
@@ -64,6 +63,21 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Doubles.** Sélecteur Tout / Doubles sur `Collection.tsx`, entièrement côté
+  client — la collection est déjà chargée en entier pour chaque écran, rien à
+  ajouter côté serveur. Deux totaux, décidés par l'utilisateur plutôt que devinés :
+  « possédées » compte tous les exemplaires, « échangeables » ne compte que le
+  surplus, un exemplaire de chaque restant toujours dans le classeur. Testé en
+  cassant le calcul exprès (quantité complète au lieu de quantité − 1) pour confirmer
+  que les tests le rattrapent, et vérifié sur une carte semée à 3 exemplaires à prix
+  réel : 11,34 € possédées, 7,56 € échangeables.
+- **Explication de la page Collection.** Un bouton d'information ouvre le
+  fonctionnement de la page — médaillon de quantité, Tout/Doubles, tri, provenance
+  des prix. Demandé centré plutôt qu'en feuille : nouveau composant `Dialog`,
+  distinct de `Sheet` plutôt qu'une variante dessus, avec la logique commune (Échap,
+  verrouillage du défilement, thème) extraite dans un hook partagé pour que les deux
+  ne dérivent pas. Vérifié que `Sheet` fonctionne toujours à l'identique ailleurs
+  (panneau de filtres de Chercher) après l'extraction.
 - **Objectif d'extension.** Un bouton sur la fiche extension (`PackDetail.tsx`) fixe
   quelle extension est l'objectif du Classeur ; il n'apparaît que sur une page dont le
   décompte est réel (`setSize > 0`), pour ne jamais proposer l'action sur l'anomalie

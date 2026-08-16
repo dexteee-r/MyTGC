@@ -336,6 +336,37 @@ export function Chip({
    What it holds is secondary to what is behind it, which is why it is a sheet and
    not a permanent strip: a control touched occasionally should not spend the rest
    of the session taking up the space the results need. */
+/* Escape-to-close and the scroll lock, shared by every full-screen overlay. Kept in
+   one place because Sheet and Dialog would otherwise drift — one gaining a fix the
+   other never gets, discovered only when whichever screen uses the other breaks. */
+function useOverlayBehavior(open: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    // The page behind must not scroll under the overlay — on a phone that reads as
+    // the page having jumped once it closes.
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [open, onClose])
+}
+
+// The theme-isolation variables every overlay's card needs, regardless of where it
+// sits on screen: dark ground, cream text, whatever the page under it is doing.
+const OVERLAY_THEME = {
+  color: 'rgba(243, 230, 203, 1)',
+  '--text-primary': 'rgba(243, 230, 203, 1)',
+  '--text-secondary': 'rgba(243, 230, 203, 0.55)',
+  '--surface-rail': 'rgba(243, 230, 203, 0.12)',
+  '--surface-recessed': 'rgba(0, 0, 0, 0.25)',
+} as React.CSSProperties
+
 export function Sheet({
   open,
   onClose,
@@ -349,21 +380,7 @@ export function Sheet({
   children: ReactNode
   footer?: ReactNode
 }) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    // The list behind must not scroll under the sheet — on a phone that reads as the
-    // page having jumped when the sheet closes.
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previous
-    }
-  }, [open, onClose])
+  useOverlayBehavior(open, onClose)
 
   if (!open) return null
 
@@ -375,18 +392,7 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         className="hz-enter relative max-h-[82%] overflow-y-auto rounded-t-[22px] pb-[env(safe-area-inset-bottom)]"
-        style={{
-          background: 'var(--color-sea-900)',
-          boxShadow: 'var(--shadow-deck)',
-          /* ISOLATION DU THÈME : On force les variables CSS vitales de tes filtres
-             vers les valeurs du thème sombre (ton beige/blanc cassé). Cela protège 
-             la modale des modifications de thème de la page parente. */
-          color: 'rgba(243, 230, 203, 1)',
-          '--text-primary': 'rgba(243, 230, 203, 1)',
-          '--text-secondary': 'rgba(243, 230, 203, 0.55)',
-          '--surface-rail': 'rgba(243, 230, 203, 0.12)',
-          '--surface-recessed': 'rgba(0, 0, 0, 0.25)',
-        } as React.CSSProperties}
+        style={{ background: 'var(--color-sea-900)', boxShadow: 'var(--shadow-deck)', ...OVERLAY_THEME }}
       >
         <header
           className="sticky top-0 z-10 flex items-center justify-between gap-4 px-5 pt-5 pb-3"
@@ -413,6 +419,52 @@ export function Sheet({
             {footer}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+/* A centred card, not a sheet. Sheet reads as part of the screen it opened from —
+   the edge it slides in from is still the screen's own edge, which suits a filter
+   panel or an editor that belongs to what is behind it. A short explanation of how
+   the whole page works is not part of any one place on it, so it interrupts from the
+   middle instead, the way a plain "what is this" dialog does everywhere else. */
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+}) {
+  useOverlayBehavior(open, onClose)
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
+      <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="hz-enter relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-[22px] p-5"
+        style={{ background: 'var(--color-sea-900)', boxShadow: 'var(--shadow-deck)', ...OVERLAY_THEME }}
+      >
+        <div className="flex items-center justify-between gap-4 pb-3">
+          <h2 className="t-display text-[1.35rem]">{title}</h2>
+          <button
+            onClick={onClose}
+            className="t-code -mr-2 min-h-[var(--touch)] px-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Fermer
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   )

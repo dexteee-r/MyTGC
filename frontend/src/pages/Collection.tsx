@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { InfoIcon } from '../components/icons'
 import {
   Button,
+  Dialog,
   EmptyState,
   PageHeader,
   Screen,
@@ -14,6 +16,7 @@ import { money } from '../lib/money'
 import type { CollectionEntry } from '../lib/types'
 
 type Sort = 'recent' | 'set' | 'name'
+type View = 'all' | 'doubles'
 
 /* ── The plate ──────────────────────────────────────────────────────────────
    The collection as an object rather than as an inventory. A list row gives one card
@@ -28,9 +31,36 @@ type Sort = 'recent' | 'set' | 'name'
 export function Collection() {
   const { entries, stats, ready } = useCollection()
   const [sort, setSort] = useState<Sort>('recent')
+  const [view, setView] = useState<View>('all')
+  const [infoOpen, setInfoOpen] = useState(false)
+
+  /* What is worth trading: every card held more than once. The card you'd keep is
+     never in this count — a stack of three shows two, because the base of a trade
+     is what you can give away without emptying your own binder. */
+  const doubles = useMemo(() => entries.filter((entry) => entry.quantity > 1), [entries])
+
+  /* Both figures the doubles view needs, computed here rather than on the server:
+     the collection is already loaded whole for every screen, and this is the only
+     place anyone asks for it — a stats endpoint for one number one screen reads
+     would be a round trip to save a filter and a reduce. */
+  const doublesValue = useMemo(() => {
+    let held = 0
+    let trade = 0
+    let priced = 0
+    for (const entry of doubles) {
+      const price = entry.card?.market_price
+      if (price == null) continue
+      priced += 1
+      held += entry.quantity * price
+      trade += (entry.quantity - 1) * price
+    }
+    return { held, trade, priced }
+  }, [doubles])
+
+  const source = view === 'doubles' ? doubles : entries
 
   const groups = useMemo(() => {
-    const sorted = [...entries]
+    const sorted = [...source]
     if (sort === 'name') {
       sorted.sort((a, b) => (a.card?.name ?? a.card_id).localeCompare(b.card?.name ?? b.card_id))
     } else if (sort === 'set') {
@@ -45,7 +75,7 @@ export function Collection() {
       buckets.get(key)!.push(entry)
     }
     return [...buckets].map(([key, items]) => ({ key, items }))
-  }, [entries, sort])
+  }, [source, sort])
 
   if (!ready) return <div className="pt-10"><Sounding label="Ouverture du journal" /></div>
 
@@ -58,7 +88,47 @@ export function Collection() {
             ? `${stats.total_quantity} cartes · ${stats.distinct_cards} références`
             : undefined
         }
+        action={
+          <button
+            onClick={() => setInfoOpen(true)}
+            aria-label="Comment fonctionne cette page"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)]"
+          >
+            <InfoIcon className="size-5" />
+          </button>
+        }
       />
+
+      <Dialog open={infoOpen} onClose={() => setInfoOpen(false)} title="Comment ça marche">
+        <div className="space-y-4 text-sm leading-relaxed text-[var(--text-secondary)]">
+          <p>
+            Chaque carte scannée ou ajoutée depuis sa fiche atterrit ici. Le médaillon{' '}
+            <span className="t-numeral text-[0.8rem]" style={{ color: 'var(--text-primary)' }}>×3</span>{' '}
+            dans le coin d'une carte n'apparaît que si tu en as plus d'un exemplaire —
+            un « 1 » sur chaque carte serait du bruit sur un écran qui montre déjà ce
+            que tu possèdes.
+          </p>
+          <p>
+            <strong style={{ color: 'var(--text-primary)' }}>Tout / Doubles</strong> change
+            quelles cartes sont listées. « Doubles » ne garde que celles possédées en
+            plusieurs exemplaires, avec deux totaux distincts : <em>possédées</em> compte
+            tout ce que tu en as, <em>échangeables</em> ne compte que le surplus — un
+            exemplaire de chaque reste toujours dans ton classeur.
+          </p>
+          <p>
+            <strong style={{ color: 'var(--text-primary)' }}>Trier</strong> ordonne la
+            liste par date d'ajout, par extension, ou alphabétiquement. Ça ne change
+            jamais quelles cartes sont affichées, seulement leur ordre.
+          </p>
+          <p>
+            La <strong style={{ color: 'var(--text-primary)' }}>valeur estimée</strong> vient
+            de tcgcsv (le marché américain, converti en euros au taux du jour), pas de
+            Cardmarket. Elle ne couvre pas toutes les cartes — la ligne « X sur Y
+            cotées » dit ce qui manque plutôt que de laisser un total partiel se lire
+            comme une estimation complète.
+          </p>
+        </div>
+      </Dialog>
 
       {entries.length === 0 ? (
         <div className="pt-8">
@@ -75,29 +145,73 @@ export function Collection() {
         </div>
       ) : (
         <>
-          {/* What the shelf is worth, on the shelf itself. The log book carries the
-              same figure beside what it cost and with the full caveat; here it is the
-              headline only. The coverage line shows when part of the binder has no
-              price — a total presented as if it covered everything is an appraisal,
-              and this one never covers the Japanese cards. */}
-          {stats && (
-            <div className="flex items-baseline justify-between gap-4 px-5 pb-4">
-              <div className="min-w-0">
-                <p className="t-code">Valeur estimée</p>
-                {stats.market_priced > 0 && stats.market_priced < stats.total_quantity && (
-                  <p className="t-code pt-1 text-[var(--text-faint)]">
-                    {stats.market_priced} sur {stats.total_quantity} cotées
+          {/* A second axis from the sort below it, the way PackDetail's own view
+              selector sits apart from nothing to sort within a single set — here it
+              decides which cards are on the table at all before sort decides their
+              order. */}
+          <Segmented
+            value={view}
+            options={[
+              { value: 'all' as const, label: 'Tout' },
+              { value: 'doubles' as const, label: 'Doubles' },
+            ]}
+            onChange={setView}
+            label="Vue"
+          />
+
+          {view === 'all' ? (
+            /* What the shelf is worth, on the shelf itself. The log book carries the
+               same figure beside what it cost and with the full caveat; here it is the
+               headline only. The coverage line shows when part of the binder has no
+               price — a total presented as if it covered everything is an appraisal,
+               and this one never covers the Japanese cards. */
+            stats && (
+              <div className="flex items-baseline justify-between gap-4 px-5 pb-4">
+                <div className="min-w-0">
+                  <p className="t-code">Valeur estimée</p>
+                  {stats.market_priced > 0 && stats.market_priced < stats.total_quantity && (
+                    <p className="t-code pt-1 text-[var(--text-faint)]">
+                      {stats.market_priced} sur {stats.total_quantity} cotées
+                    </p>
+                  )}
+                </div>
+                {stats.market_priced > 0 ? (
+                  <p className="t-numeral shrink-0 text-[1.4rem] leading-none">
+                    {money(stats.market_total)}
                   </p>
+                ) : (
+                  <p className="t-code shrink-0 text-[var(--text-faint)]">aucune carte cotée</p>
                 )}
               </div>
-              {stats.market_priced > 0 ? (
-                <p className="t-numeral shrink-0 text-[1.4rem] leading-none">
-                  {money(stats.market_total)}
-                </p>
-              ) : (
-                <p className="t-code shrink-0 text-[var(--text-faint)]">aucune carte cotée</p>
-              )}
-            </div>
+            )
+          ) : (
+            doubles.length > 0 && (
+              <div className="px-5 pb-4">
+                {doublesValue.priced > 0 && doublesValue.priced < doubles.length && (
+                  <p className="t-code pb-2 text-[var(--text-faint)]">
+                    {doublesValue.priced} sur {doubles.length} cotées
+                  </p>
+                )}
+                {doublesValue.priced > 0 ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Both figures rather than one: what the stack is worth and what
+                        it is worth to give away are different questions, and picking
+                        one to show would answer only one of them. The card you would
+                        keep is never in "échangeables" — see doublesValue above. */}
+                    <div>
+                      <p className="t-numeral text-[1.4rem] leading-none">{money(doublesValue.held)}</p>
+                      <p className="t-code pt-1">possédées</p>
+                    </div>
+                    <div>
+                      <p className="t-numeral text-[1.4rem] leading-none">{money(doublesValue.trade)}</p>
+                      <p className="t-code pt-1">échangeables</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="t-code text-[var(--text-faint)]">Aucun double coté pour l'instant.</p>
+                )}
+              </div>
+            )
           )}
 
           <Segmented
@@ -111,23 +225,31 @@ export function Collection() {
             label="Trier"
           />
 
-          {groups.map((group) => (
-            <section key={group.key}>
-              {group.key && (
-                <p className="t-code border-b border-[rgba(243,230,203,.12)] px-4 py-2.5">{group.key}</p>
-              )}
-              {/* align-content: start. At 0.8% of the catalogue the last row is
-                  always partial, and a stretched grid would centre three cards in
-                  the middle of an empty band as though something had failed. */}
-              <ul
-                className="grid grid-cols-3 content-start gap-1.5 px-4 pb-2 lg:grid-cols-6"
-              >
-                {group.items.map((entry) => (
-                  <Seated key={`${entry.card_id}-${entry.language}`} entry={entry} />
-                ))}
-              </ul>
-            </section>
-          ))}
+          {view === 'doubles' && doubles.length === 0 ? (
+            <div className="pt-4">
+              <EmptyState title="Aucun double pour l'instant">
+                Une carte devient un double dès que tu en as plus d'un exemplaire.
+              </EmptyState>
+            </div>
+          ) : (
+            groups.map((group) => (
+              <section key={group.key}>
+                {group.key && (
+                  <p className="t-code border-b border-[rgba(243,230,203,.12)] px-4 py-2.5">{group.key}</p>
+                )}
+                {/* align-content: start. At 0.8% of the catalogue the last row is
+                    always partial, and a stretched grid would centre three cards in
+                    the middle of an empty band as though something had failed. */}
+                <ul
+                  className="grid grid-cols-3 content-start gap-1.5 px-4 pb-2 lg:grid-cols-6"
+                >
+                  {group.items.map((entry) => (
+                    <Seated key={`${entry.card_id}-${entry.language}`} entry={entry} />
+                  ))}
+                </ul>
+              </section>
+            ))
+          )}
         </>
       )}
     </Screen>
