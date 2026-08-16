@@ -31,8 +31,6 @@ Restent, dans l'ordre convenu :
   Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
   chargée, donc rien de bloquant côté données ; c'est uniquement une question de
   conception à trancher avant de coder, comme demandé.
-- Appareils connectés : lister les sessions (`user_agent` + dates, déjà en base,
-  jamais montrés), pouvoir en révoquer une
 - Nom affiché : la colonne existe, rien ne l'édite
 - Premier lancement : l'écran d'accueil d'un compte vide ne dit pas quoi faire
 - Page d'aide (la troisième rangée de la maquette, toujours dehors)
@@ -71,6 +69,30 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Appareils connectés.** `refresh_tokens.user_agent` était en base depuis la
+  construction des sessions, jamais relu par personne. Une session affichée est
+  la ligne encore active d'une famille de jetons — la rotation révoque le jeton
+  précédent à chaque renouvellement, donc au plus une ligne par famille n'est
+  jamais révoquée à un instant donné, et lister ces lignes revient exactement à
+  lister les appareils connectés sans avoir à regrouper par famille soi-même.
+  Révoquer une session ne coupe qu'un appareil : la portée est la ligne
+  choisie, pas le compte entier, et un test dédié le vérifie en gardant les
+  deux jetons de rafraîchissement en main pour prouver que l'autre survit.
+  Même garde que `revoke_invite` : un identifiant qui n'appartient pas au
+  compte appelant répond 404, jamais un 403 qui confirmerait que la ligne
+  existe chez quelqu'un d'autre.
+  Le `user_agent` brut est illisible sur un écran censé aider à repérer un
+  appareil inconnu — devine « Chrome sur Windows » plutôt que d'afficher la
+  chaîne complète, avec les jetons les plus spécifiques testés en premier
+  (Edge et CriOS contiennent aussi "Chrome/" et "Safari/"). Aucune bibliothèque
+  ajoutée pour ça, une poignée de `includes()`.
+  Vérifié avec un vrai compte jetable : inscrit par navigateur, une deuxième
+  connexion simulée en curl avec un user-agent iPhone pour obtenir un second
+  appareil, la liste affiche bien les deux, « Cet appareil » sur le bon, la
+  révocation du second le retire de la liste sans toucher au premier — confirmé
+  aussi côté serveur en retentant un rafraîchissement avec l'ancien jeton
+  (refusé) puis avec celui de l'appareil resté connecté (accepté). Compte et
+  invitation de test supprimés ensuite, base revenue à l'identique.
 - **Lien de partage public en lecture seule, collection et recherchées.** Deux
   colonnes en base (`share_collection_token`, `share_wishlist_token`), un jeton
   par ressource plutôt qu'un seul pour le compte — activer l'une n'active jamais

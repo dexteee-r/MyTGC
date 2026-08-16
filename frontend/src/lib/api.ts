@@ -4,6 +4,7 @@ import type {
   CollectionEntry,
   CollectionStats,
   Condition,
+  DeviceSession,
   Health,
   Language,
   AuthSession,
@@ -245,6 +246,9 @@ export const api = {
     request<void>('/auth/change-password', { method: 'POST', body: JSON.stringify(body) }),
 
   deleteAccount: () => request<void>('/auth/me', { method: 'DELETE' }),
+
+  sessions: () => request<DeviceSession[]>('/auth/sessions'),
+  revokeSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
 
   collectionShareStatus: () => request<ShareStatus>('/collection/share'),
   enableCollectionShare: () => request<ShareStatus>('/collection/share', { method: 'POST' }),

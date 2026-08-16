@@ -88,6 +88,21 @@ class Session(BaseModel):
     user: UserProfile
 
 
+class DeviceSession(BaseModel):
+    # The still-active refresh token of one login -- rotation replaces it every 15
+    # minutes of use, so this row's own issued_at is "last renewed", not "first
+    # signed in", and is exactly what tells someone whether a device is still in
+    # active use.
+    id: int
+    user_agent: str | None = None
+    issued_at: str
+    expires_at: str
+    # Whether this is the very session making the request, matched against its own
+    # refresh cookie -- so the screen can point at "cet appareil" instead of leaving
+    # someone guessing which row is the one they are looking at it from.
+    current: bool = False
+
+
 class Card(BaseModel):
     id: str
     language: Language

@@ -182,6 +182,41 @@ def revoke_all(conn: sqlite3.Connection, user_id: int) -> None:
     conn.commit()
 
 
+def list_sessions(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.Row]:
+    """One row per device currently signed in.
+
+    Rotation revokes a family's previous token the moment it issues the next one
+    (see rotate_refresh_token), so at most one row per family ever has
+    revoked_at IS NULL -- this query returns exactly the still-active session of
+    each device without needing to group by family itself.
+    """
+    return conn.execute(
+        "SELECT * FROM refresh_tokens WHERE user_id = ? AND revoked_at IS NULL"
+        " AND expires_at > ? ORDER BY issued_at DESC",
+        (user_id, now().isoformat(timespec="seconds")),
+    ).fetchall()
+
+
+def revoke_session(conn: sqlite3.Connection, user_id: int, session_id: int) -> bool:
+    """Ends one device's session. Scoped to user_id so one account can never
+    revoke a row that belongs to another by guessing its id. Returns whether a
+    row was actually revoked, so the caller can 404 on a no-op."""
+    cursor = conn.execute(
+        "UPDATE refresh_tokens SET revoked_at = ? WHERE id = ? AND user_id = ?"
+        " AND revoked_at IS NULL",
+        (now().isoformat(timespec="seconds"), session_id, user_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def token_matches(token: str | None, token_hash: str) -> bool:
+    """Whether a plaintext token is the one behind a stored hash -- used to mark
+    which row in list_sessions is the caller's own, from the refresh cookie it
+    already carries alongside its access token."""
+    return token is not None and _digest(token) == token_hash
+
+
 # Scoped to "/" rather than "/auth". The client reaches the API through a proxy
 # prefix (/api/auth/refresh in dev), so a cookie pinned to /auth is never sent and
 # the session silently dies on every reload. Pinning it to the server's own path

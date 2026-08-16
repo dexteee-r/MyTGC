@@ -34,7 +34,7 @@ from app import auth, db, detection, diagnosis, hashing, recognition, throttle
 from app.config import BACKEND_DIR, IMAGE_CACHE_DIR, MEDIA_DIR
 from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
                         CollectionCreate,
-                        Invite, InviteCreate,
+                        DeviceSession, Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
                         HistoryCreate, LoginRequest, Pack, PricePoint, ProfileUpdate,
                         RefreshRequest,
@@ -346,6 +346,30 @@ def change_password(conn: Conn, user: User, body: ChangePasswordRequest):
     # Changing a password is how someone reacts to a suspected compromise, so every
     # other session goes with it.
     auth.revoke_all(conn, user.id)
+
+
+# --- connected devices ------------------------------------------------------------
+#
+# refresh_tokens.user_agent has been in the schema since sessions were built --
+# nothing ever read it back. list_sessions/revoke_session in auth.py do the actual
+# work; these two just expose it.
+
+@app.get("/auth/sessions", response_model=list[DeviceSession])
+def list_sessions(conn: Conn, user: User,
+                  mytcg_refresh: Annotated[str | None, Cookie()] = None):
+    rows = auth.list_sessions(conn, user.id)
+    return [
+        DeviceSession(id=r["id"], user_agent=r["user_agent"], issued_at=r["issued_at"],
+                     expires_at=r["expires_at"],
+                     current=auth.token_matches(mytcg_refresh, r["token_hash"]))
+        for r in rows
+    ]
+
+
+@app.delete("/auth/sessions/{session_id}", status_code=204)
+def revoke_session(conn: Conn, user: User, session_id: int):
+    if not auth.revoke_session(conn, user.id, session_id):
+        raise HTTPException(404, "session introuvable")
 
 
 @app.delete("/auth/me", status_code=204)

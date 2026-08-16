@@ -185,6 +185,17 @@ export interface UserProfile {
   goal_language: Language | null
 }
 
+/* The still-active refresh token of one device. Rotation replaces it every 15
+   minutes of use, so issued_at is "last renewed", not "first signed in" — which
+   is exactly what says whether a device is still in active use. */
+export interface DeviceSession {
+  id: number
+  user_agent: string | null
+  issued_at: string
+  expires_at: string
+  current: boolean
+}
+
 export type RegistrationMode = 'open' | 'invite' | 'closed'
 
 export interface RegistrationPolicy {

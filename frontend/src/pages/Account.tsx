@@ -10,7 +10,7 @@ import { downloadCollection } from '../lib/export'
 import { money } from '../lib/money'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
-import type { Health, Pack } from '../lib/types'
+import type { DeviceSession, Health, Pack } from '../lib/types'
 
 const MIN_PASSWORD = 10
 
@@ -38,11 +38,26 @@ export function Account() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [packs, setPacks] = useState<Pack[] | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
+  const [sessions, setSessions] = useState<DeviceSession[] | null>(null)
+  const [revoking, setRevoking] = useState<number | null>(null)
 
   useEffect(() => {
     api.packs().then(setPacks).catch(() => {})
     api.health().then(setHealth).catch(() => {})
+    api.sessions().then(setSessions).catch(() => {})
   }, [])
+
+  const revokeSession = async (id: number) => {
+    setRevoking(id)
+    try {
+      await api.revokeSession(id)
+      setSessions((current) => current?.filter((session) => session.id !== id) ?? null)
+    } catch {
+      show("La déconnexion de cet appareil n'a pas abouti.")
+    } finally {
+      setRevoking(null)
+    }
+  }
 
   /* Both editions, because this is the whole binder and not the one being browsed. */
   const catalogue = useMemo(
@@ -207,6 +222,45 @@ export function Account() {
         </div>
       </form>
 
+      {sessions && sessions.length > 0 && (
+        <section className="px-5 pt-8">
+          <p className="t-eyebrow pb-2.5">Appareils connectés</p>
+          <ul className="space-y-2">
+            {sessions.map((session) => (
+              <li
+                key={session.id}
+                className="flex items-center justify-between gap-3 rounded-[14px] p-3"
+                style={{ background: 'var(--surface-recessed)' }}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {describeDevice(session.user_agent)}
+                    {session.current && (
+                      <span className="t-code pl-2 text-[var(--text-faint)]">Cet appareil</span>
+                    )}
+                  </p>
+                  <p className="t-code pt-1 text-[var(--text-faint)]">
+                    Actif depuis le {formatSessionDate(session.issued_at)}
+                  </p>
+                </div>
+                {!session.current && (
+                  <Button
+                    variant="ghost"
+                    disabled={revoking === session.id}
+                    onClick={() => revokeSession(session.id)}
+                  >
+                    Déconnecter
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {/* The current row has no button of its own on purpose: "Se déconnecter"
+              just below already does exactly that, and a second control for the
+              same action would just be two ways to ask the same question. */}
+        </section>
+      )}
+
       <div className="mx-5 mt-8 border-t border-[rgba(243,230,203,.12)] pt-6">
         <Button variant="quiet" full onClick={signOut}>
           Se déconnecter
@@ -264,6 +318,49 @@ function Row({
       </span>
     </button>
   )
+}
+
+/* A raw user_agent string is unreadable on a screen meant to help someone spot an
+   unfamiliar device -- "Chrome sur Windows" answers the question this list
+   exists for, the full string does not. Order matters within each guess: Edge's
+   own UA also contains "Chrome/" and "Safari/", and Chrome on iOS is "CriOS"
+   rather than "Chrome/", so the more specific tokens are checked first. */
+function describeDevice(userAgent: string | null): string {
+  if (!userAgent) return 'Appareil inconnu'
+  const os = userAgent.includes('iPhone')
+    ? 'iPhone'
+    : userAgent.includes('iPad')
+      ? 'iPad'
+      : userAgent.includes('Android')
+        ? 'Android'
+        : userAgent.includes('Macintosh')
+          ? 'Mac'
+          : userAgent.includes('Windows')
+            ? 'Windows'
+            : userAgent.includes('Linux')
+              ? 'Linux'
+              : null
+  const browser = userAgent.includes('Edg/')
+    ? 'Edge'
+    : userAgent.includes('CriOS')
+      ? 'Chrome'
+      : userAgent.includes('Chrome/')
+        ? 'Chrome'
+        : userAgent.includes('Firefox')
+          ? 'Firefox'
+          : userAgent.includes('Safari/')
+            ? 'Safari'
+            : null
+  if (os && browser) return `${browser} sur ${os}`
+  return os ?? browser ?? 'Navigateur inconnu'
+}
+
+function formatSessionDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fr', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
 function Quarter({ value, label }: { value: number | string; label: string }) {
