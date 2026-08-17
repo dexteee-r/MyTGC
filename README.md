@@ -392,15 +392,12 @@ Behind Nginx and the proxy in front every request arrives from localhost, so the
 
 ## Accounts
 
-Multi-user, replacing the original single-user premise. Run the migration once on an
-existing database — it rebuilds `collection` and `wishlist` with a `user_id` and hands the
-existing rows to the account it creates:
+Multi-user: `collection` and `wishlist` are scoped to a `user_id` from a fresh install
+onward. (The one-time script that migrated the original single-user premise onto this
+shape has since been removed — that migration is long done, and a script whose only
+job was to run once has no reason to keep shipping.)
 
-```bash
-py backend/scripts/migrate_multiuser.py --email you@example.com
-```
-
-Then set a signing key, or every session dies on each restart:
+Set a signing key, or every session dies on each restart:
 
 ```bash
 export MYTCG_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"

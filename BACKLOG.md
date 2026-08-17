@@ -35,9 +35,16 @@ Restent, dans l'ordre convenu :
   que le reste ne bougera plus
 
 Deux tâches ajoutées en cours de route, à faire après la liste ci-dessus :
-- **Nettoyer le projet** : code mort, fichiers inutiles.
+- **Nettoyer le projet** : code mort, fichiers inutiles. Fait le 2026-08-17, voir
+  « Fait » — les scripts d'analyse et de calibration sous `backend/scripts/`
+  passés en revue un par un : `migrate_multiuser.py` supprimé (migration one-shot
+  déjà jouée), les six autres (`analyze_separability.py`, `calibrate_threshold.py`,
+  `composite_eval.py`, `gate_eval.py`, `synthetic_eval.py`,
+  `measure_watermark.py`) gardés — ce sont des outils de mesure qu'on rejouerait
+  légitimement si le catalogue grossit, si le pipeline de reconnaissance change,
+  ou si le seuil doit être recalibré.
 - **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
-  tests existants plutôt qu'en un seul balayage.
+  tests existants plutôt qu'en un seul balayage. Pas commencée.
 
 **Anomalie trouvée en cours de route, toujours pas corrigée** : les extensions sans
 code imprimé (les Promos) sont liées par leur `pack_id` numérique, que l'écran
@@ -63,6 +70,35 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Nettoyer le projet.** Cherché plutôt que supposé : un
+  export compté une seule fois dans tout l'arbre (sa propre déclaration) est
+  mort, et un handler FastAPI jamais `include_router()`-é ne répond à rien,
+  quel que soit le nombre de fois où son nom apparaît. Huit exports frontend
+  jamais réimportés supprimés — quatre icônes (`HomeIcon`, `LayersIcon`,
+  `BoxIcon`, `CameraOffIcon`, `PlusIcon` — reste `CameraIcon`, la seule
+  utilisée), `Rule` et `Tally` dans `ui.tsx`, et `COLOR_SWATCHES` dans
+  `types.ts` — ce dernier avec un commentaire qui prétendait encore servir
+  « aux puces de filtre et aux points sur une carte », remplacé depuis par
+  `CARD_COLOR`/`CARD_COLORS` sans que le premier n'ait jamais été retiré.
+  Trouvé aussi côté serveur, plus sérieux qu'un simple oubli :
+  `backend/app/history.py`, un module entier avec son propre `APIRouter`,
+  jamais monté sur l'app (`main.py` ne l'importe pas et a sa propre
+  implémentation de `/search-history`, authentifiée). Le sien ne l'était
+  pas — `save_search(query, user_id)` prenait `user_id` en paramètre brut,
+  avec en commentaire « en production, extraire user_id du token JWT » —
+  et écrivait dans `data/mytcg.db` en dur plutôt que par la connexion
+  centralisée de `db.py`. Mort, mais le genre de mort qui aurait été une
+  faille le jour où quelqu'un l'aurait monté par réflexe. Supprimé.
+  189 tests serveur et 95 tests client toujours verts après coup, aucun
+  fichier retrouvé orphelin après un second passage sur les exports restants.
+  Les sept scripts de `backend/scripts/` jamais appelés par l'app passés en
+  revue un par un plutôt que devinés : six sont des outils de mesure qu'on
+  rejouerait légitimement (catalogue qui grossit, pipeline qui change, seuil
+  à recalibrer), gardés. Le septième, `migrate_multiuser.py`, était une
+  migration one-shot mono-compte → multi-comptes déjà jouée — le schéma
+  actuel ne produit plus jamais la forme qu'il migre, donc plus rien ne peut
+  légitimement le rappeler. Supprimé avec l'instruction du README qui y
+  renvoyait, plutôt que laissée à pointer vers un fichier qui n'existe plus.
 - **Écran d'erreur générique et `ErrorBoundary`.** `Adrift` existait déjà sur 5
   écrans pour les échecs réseau, mais rien n'attrapait un plantage de rendu —
   une exception levée pendant que React peint videait tout l'onglet, sans

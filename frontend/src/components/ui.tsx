@@ -86,38 +86,11 @@ export function PageHeader({
   )
 }
 
-/* A hairline rail. Everywhere a rule is needed — a single light line, not a carved
-   pair: on this ground the value difference does the separating. */
-export function Rule({ className = '' }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={`pointer-events-none absolute inset-x-0 bottom-0 block h-px bg-[rgba(243,230,203,.12)] ${className}`}
-    />
-  )
-}
-
 export function SectionLabel({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 px-5 pt-7 pb-3">
       <h2 className="t-eyebrow">{children}</h2>
       {aside}
-    </div>
-  )
-}
-
-/* Counts are struck in the light of the sun. Numbers are the only thing allowed to
-   be gold — a gold label and the accent becomes a palette. */
-export function Tally({ value, of, label }: { value: number; of?: number; label: string }) {
-  return (
-    <div>
-      <p className="t-numeral text-[2.25rem]">
-        {value.toLocaleString('fr')}
-        {of !== undefined && (
-          <span className="text-[var(--text-faint)]">/{of.toLocaleString('fr')}</span>
-        )}
-      </p>
-      <p className="t-code pt-2">{label}</p>
     </div>
   )
 }

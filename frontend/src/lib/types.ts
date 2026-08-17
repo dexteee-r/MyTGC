@@ -157,16 +157,6 @@ export const CONDITION_LABELS: Record<Condition, string> = {
   damaged: 'Abîmée',
 }
 
-/* Card colours as printed. Used for the filter chips and the dots on a card. */
-export const COLOR_SWATCHES: Record<string, string> = {
-  Red: '#d0021b',
-  Green: '#1e9e5a',
-  Blue: '#1f7ae0',
-  Purple: '#8b4fc0',
-  Black: '#2b2b2b',
-  Yellow: '#e8c33a',
-}
-
 export interface UserProfile {
   id: number
   email: string
