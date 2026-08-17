@@ -80,7 +80,6 @@ describe('la fiche carte', () => {
     mount()
     expect(await screen.findByText('Monkey.D.Luffy')).toBeTruthy()
     expect(screen.getByText('0')).toBeTruthy()
-    expect(screen.getByText('exemplaire')).toBeTruthy()
   })
 
   it('range la carte au premier « + » sans passer par un formulaire', async () => {

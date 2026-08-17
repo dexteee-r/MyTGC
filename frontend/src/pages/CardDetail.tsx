@@ -165,6 +165,18 @@ export function CardDetail() {
           ) : (
             <div className="sunken aspect-[600/838] w-full" />
           )}
+
+          {/* Right under the card rather than lower in the details flow, and no
+              longer `big`: what the card screen used to open with (the one control
+              a collector repeats more than any other) reads better as small and
+              close to what it counts than as a headline of its own. Living inside
+              this same sticky box, it travels with the card rather than the text. */}
+          <div className="mt-3 flex justify-center">
+            <Stepper
+              value={owned?.quantity ?? 0}
+              onChange={setCount}
+            />
+          </div>
         </div>
 
         <div>
@@ -245,17 +257,6 @@ export function CardDetail() {
           )}
 
           <section className="px-5 pt-7">
-            {/* The one control in large type. It is the gesture a collector repeats
-                more than any other, and it reads the same at nought as at nine. */}
-            <div className="flex justify-center">
-              <Stepper
-                big
-                value={owned?.quantity ?? 0}
-                unit={(owned?.quantity ?? 0) > 1 ? 'exemplaires' : 'exemplaire'}
-                onChange={setCount}
-              />
-            </div>
-
             {owned && (
               <>
                 {/* The same ring the goal card on the Classeur uses to say "this one
@@ -265,7 +266,7 @@ export function CardDetail() {
                     fact about a held copy that changes what it can be traded or sold
                     for, so it is the one that gets to look like it. */}
                 <div
-                  className="mt-6 rounded-[14px] p-4"
+                  className="rounded-[14px] p-4"
                   style={{ boxShadow: 'inset 0 0 0 1px var(--surface-rail)' }}
                 >
                   <label className="block">
