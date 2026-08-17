@@ -140,263 +140,293 @@ export function CardDetail() {
         </button>
       </header>
 
-      {/* You came here to look at the card, so the card is the screen. Whole, at the
-          width it can carry, watermark included — cropping it would be lying about
-          what the material is. Held it is lit; not held it sits back in the water. */}
-      <div className="relative isolate mx-auto mt-2 w-[min(80%,320px)] lg:w-[400px]">
-        {/* The rarest card in the game gets a light of its own, and only here — on
-            a grid of 9,447 tiles it would be noise. */}
-        {card.rarity === 'SecretRare' && <span aria-hidden className="rare-halo" />}
-        {src ? (
-          <img
-            src={src}
-            alt={card.name}
-            decoding="async"
-            className={owned ? 'float-lit w-full' : 'float w-full opacity-55 saturate-[.85]'}
-          />
-        ) : (
-          <div className="sunken aspect-[600/838] w-full" />
-        )}
-      </div>
-
-      <div className="px-5 pt-6 text-center">
-        <h1 className="t-display text-[2rem]">{card.name}</h1>
-        <p className="t-code flex items-center justify-center gap-1.5 pt-2.5">
-          {card.id} · {card.rarity}
-          {variantOf(card.id) && <> · {variantOf(card.id)}</>} ·{' '}
-          <Edition language={language} />
-        </p>
-        <div className="mt-3 flex justify-center">
-          <ColorBar colors={card.colors} className="h-[3px] w-16" />
-        </div>
-
-        {/* What it goes for, directly under what it is — the second thing you want to
-            know about a card, so it is not buried in the list at the foot. When there
-            is no figure the screen says why: silence here reads as a broken feature,
-            which is exactly how it was read. */}
-        <div className="pt-5">
-          {card.market_price != null ? (
-            <>
-              <p className="t-numeral text-[1.5rem] leading-none">
-                {money(card.market_price)}
-              </p>
-              <p className="t-code pt-1.5 text-[var(--text-faint)]">
-                cote indicative · marché US
-              </p>
-            </>
+      {/* Stacked on a phone, side by side from `lg:` up — the card on the left, large,
+          everything about it on the right. The image is already first in the DOM
+          (the mobile reading order, and what a screen reader meets first), so on
+          desktop it simply lands in the grid's first column with no `order` needed. */}
+      <div className="lg:grid lg:grid-cols-[460px_1fr] lg:items-start lg:gap-12 lg:px-8 lg:pt-2">
+        {/* You came here to look at the card, so the card is the screen. Whole, at the
+            width it can carry, watermark included — cropping it would be lying about
+            what the material is. Held it is lit; not held it sits back in the water.
+            Sticky on desktop: the details column can run long (chart, effect text,
+            the facts list), and the one thing every one of those sections is about
+            should not scroll out of view while they do. */}
+        <div className="relative isolate mx-auto mt-2 w-[min(80%,320px)] lg:sticky lg:top-6 lg:mx-0 lg:mt-0 lg:w-[460px]">
+          {/* The rarest card in the game gets a light of its own, and only here — on
+              a grid of 9,447 tiles it would be noise. */}
+          {card.rarity === 'SecretRare' && <span aria-hidden className="rare-halo" />}
+          {src ? (
+            <img
+              src={src}
+              alt={card.name}
+              decoding="async"
+              className={owned ? 'float-lit w-full' : 'float w-full opacity-55 saturate-[.85]'}
+            />
           ) : (
-            <p className="t-code text-[var(--text-faint)]">
-              {language === 'jp' ? 'Pas de cote en édition japonaise' : 'Tirage non coté'}
-            </p>
+            <div className="sunken aspect-[600/838] w-full" />
           )}
+        </div>
+
+        <div>
+          <div className="px-5 pt-6 text-center">
+            <h1 className="t-display text-[2rem]">{card.name}</h1>
+            <p className="t-code flex items-center justify-center gap-1.5 pt-2.5">
+              {card.id} · {card.rarity}
+              {variantOf(card.id) && <> · {variantOf(card.id)}</>} ·{' '}
+              <Edition language={language} />
+            </p>
+            <div className="mt-3 flex justify-center">
+              <ColorBar colors={card.colors} className="h-[3px] w-16" />
+            </div>
+
+            {/* What it goes for, directly under what it is — the second thing you want
+                to know about a card, so it is not buried in the list at the foot. When
+                there is no figure the screen says why: silence here reads as a broken
+                feature, which is exactly how it was read. */}
+            <div className="pt-5">
+              {card.market_price != null ? (
+                <>
+                  <p className="t-numeral text-[1.5rem] leading-none">
+                    {money(card.market_price)}
+                  </p>
+                  <p className="t-code pt-1.5 text-[var(--text-faint)]">
+                    cote indicative · marché US
+                  </p>
+                </>
+              ) : (
+                <p className="t-code text-[var(--text-faint)]">
+                  {language === 'jp' ? 'Pas de cote en édition japonaise' : 'Tirage non coté'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {history.length >= 2 && (
+            <div className="px-5 pt-6">
+              <PriceChart points={history} />
+            </div>
+          )}
+
+          {(card.effect || card.trigger) && (
+            <div className="space-y-3 px-5 pt-6">
+              {card.effect && (
+                <p className="text-[0.94rem] leading-relaxed whitespace-pre-line">
+                  {card.effect}
+                </p>
+              )}
+              {card.trigger && (
+                <p className="text-[0.94rem] leading-relaxed whitespace-pre-line text-[var(--text-secondary)]">
+                  <span className="t-code">Trigger</span> {card.trigger}
+                </p>
+              )}
+            </div>
+          )}
+
+          {card.printings.length > 0 && (
+            <section className="pt-7">
+              <p className="t-eyebrow px-5 pb-2">Autres tirages</p>
+              <p className="px-5 pb-3 text-sm text-[var(--text-secondary)]">
+                Même illustration et même code imprimé. Choisis celui que tu possèdes —
+                rien ne permet de les distinguer automatiquement.
+              </p>
+              <div className="no-scrollbar flex gap-2 overflow-x-auto px-5">
+                {card.printings.map((id) => (
+                  <Link
+                    key={id}
+                    to={`/card/${encodeURIComponent(id)}?language=${language}`}
+                    className="t-code min-h-[var(--touch)] shrink-0 rounded-full px-4 leading-[2.75rem]"
+                    style={{ background: 'var(--surface-recessed)' }}
+                  >
+                    {id}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="px-5 pt-7">
+            {/* The one control in large type. It is the gesture a collector repeats
+                more than any other, and it reads the same at nought as at nine. */}
+            <div className="flex justify-center">
+              <Stepper
+                big
+                value={owned?.quantity ?? 0}
+                unit={(owned?.quantity ?? 0) > 1 ? 'exemplaires' : 'exemplaire'}
+                onChange={setCount}
+              />
+            </div>
+
+            {owned && (
+              <>
+                {/* The same ring the goal card on the Classeur uses to say "this one
+                    matters" — a border, not a new colour, so it stays inside the
+                    palette the rest of the sheet already draws from. Everything
+                    below it (price, date, note) stays a plain pill; État is the one
+                    fact about a held copy that changes what it can be traded or sold
+                    for, so it is the one that gets to look like it. */}
+                <div
+                  className="mt-6 rounded-[14px] p-4"
+                  style={{ boxShadow: 'inset 0 0 0 1px var(--surface-rail)' }}
+                >
+                  <label className="block">
+                    <span className="t-eyebrow">État</span>
+                    <select
+                      value={owned.condition ?? condition}
+                      onChange={(event) => {
+                        const next = event.target.value as Condition
+                        setCondition(next)
+                        saveCondition(card.id, language, next)
+                      }}
+                      className="mt-2 min-h-[var(--touch)] w-full rounded-full px-4 text-[1.05rem] font-semibold text-[var(--text-primary)] outline-none"
+                      style={{ background: 'var(--surface-recessed)' }}
+                    >
+                      {Object.entries(CONDITION_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {/* Typed in by hand, like the wishlist's bounty: the feed prices the
+                    market, not what you paid, so a number here means someone paid it. */}
+                <div className="mt-4 flex justify-center">
+                  {editingPrice ? (
+                    <input
+                      autoFocus
+                      inputMode="decimal"
+                      value={priceDraft}
+                      onChange={(event) => setPriceDraft(event.target.value)}
+                      onBlur={commitPrice}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') commitPrice()
+                        if (event.key === 'Escape') setEditingPrice(false)
+                      }}
+                      aria-label="Prix d'achat, en euros"
+                      className="t-code w-28 rounded-full px-4 py-2 text-center outline-none"
+                      style={{ background: 'var(--surface-recessed)' }}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setPriceDraft(
+                          owned.acquisitionPrice != null ? String(owned.acquisitionPrice) : '',
+                        )
+                        setEditingPrice(true)
+                      }}
+                      className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
+                    >
+                      {owned.acquisitionPrice == null
+                        ? "Noter le prix d'achat"
+                        : `Payée ${owned.acquisitionPrice.toLocaleString('fr', {
+                            minimumFractionDigits: Number.isInteger(owned.acquisitionPrice) ? 0 : 2,
+                            maximumFractionDigits: 2,
+                          })} €`}
+                    </button>
+                  )}
+                </div>
+
+                {/* When it entered the binder, corrected after the fact — the server
+                    stamps today's date automatically on add, and this is the only way
+                    to fix it once it turns out to be wrong. */}
+                <div className="mt-4 flex justify-center">
+                  {editingDate ? (
+                    <input
+                      autoFocus
+                      type="date"
+                      defaultValue={owned.dateAdded}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onBlur={(event) => commitDate(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setEditingDate(false)
+                      }}
+                      aria-label="Date d'ajout à la collection"
+                      className="t-code rounded-full px-4 py-2 text-center outline-none"
+                      style={{ background: 'var(--surface-recessed)' }}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setEditingDate(true)}
+                      className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
+                    >
+                      Ajoutée le{' '}
+                      {new Date(`${owned.dateAdded}T00:00:00`).toLocaleDateString('fr', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </button>
+                  )}
+                </div>
+
+                {/* Free text about this specific copy — "signée", "achetée à Paris" —
+                    not about the card, which every account shares. Boxed like a
+                    comment field rather than styled as the underlined single-line
+                    buttons price and date use above it: those hold one value each, a
+                    note is prose, and looking the part before it is even clicked says
+                    so before the person has to read the label. Closed and open share
+                    the same box (rounded-2xl, recessed) so opening it never jumps. */}
+                <div className="mt-4">
+                  {editingNotes ? (
+                    <textarea
+                      autoFocus
+                      rows={2}
+                      maxLength={280}
+                      value={notesDraft}
+                      onChange={(event) => setNotesDraft(event.target.value)}
+                      onBlur={commitNotes}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setEditingNotes(false)
+                      }}
+                      aria-label="Note sur cet exemplaire"
+                      className="w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none"
+                      style={{ background: 'var(--surface-recessed)' }}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setNotesDraft(owned.notes ?? '')
+                        setEditingNotes(true)
+                      }}
+                      className={`block min-h-[3.75rem] w-full rounded-2xl px-4 py-3 text-left leading-relaxed outline-none ${
+                        owned.notes ? 'text-sm text-[var(--text-secondary)]' : 't-code text-[var(--text-faint)]'
+                      }`}
+                      style={{ background: 'var(--surface-recessed)' }}
+                    >
+                      {/* Free text is never worn as t-code: that class uppercases, and
+                          a note the person actually typed is not a value to reformat,
+                          the way the placeholder prompt above it is. */}
+                      {owned.notes ? owned.notes : 'Ajouter une note'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Lit while it is on the list: this is a state as much as a button, and
+                the poster screen it feeds is the loudest surface in the app. */}
+            <div className="mt-6">
+              <Button variant={wanted ? 'primary' : 'quiet'} full onClick={toggleWanted}>
+                {wanted ? 'Retirer des recherchées' : 'Mettre dans les recherchées'}
+              </Button>
+            </div>
+          </section>
+
+          {/* The facts, in rows separated by a hairline. A card without a power
+              exists — an Event, a Stage — so an absent value shows a dash and never
+              a zero. */}
+          <dl className="mt-8 px-5">
+            <Fact label="Extension" value={card.pack_name ?? card.pack_code} />
+            <Fact label="Couleur" value={card.colors.join(' / ')} />
+            <Fact label="Catégorie" value={card.category} />
+            <Fact label="Coût" value={card.cost} />
+            <Fact label="Puissance" value={card.power} />
+            <Fact label="Contre" value={card.counter} />
+            {card.types.length > 0 && <Fact label="Types" value={card.types.join(' / ')} />}
+          </dl>
         </div>
       </div>
-
-      {history.length >= 2 && (
-        <div className="px-5 pt-6">
-          <PriceChart points={history} />
-        </div>
-      )}
-
-      {(card.effect || card.trigger) && (
-        <div className="space-y-3 px-5 pt-6">
-          {card.effect && (
-            <p className="text-[0.94rem] leading-relaxed whitespace-pre-line">{card.effect}</p>
-          )}
-          {card.trigger && (
-            <p className="text-[0.94rem] leading-relaxed whitespace-pre-line text-[var(--text-secondary)]">
-              <span className="t-code">Trigger</span> {card.trigger}
-            </p>
-          )}
-        </div>
-      )}
-
-      {card.printings.length > 0 && (
-        <section className="pt-7">
-          <p className="t-eyebrow px-5 pb-2">Autres tirages</p>
-          <p className="px-5 pb-3 text-sm text-[var(--text-secondary)]">
-            Même illustration et même code imprimé. Choisis celui que tu possèdes — rien
-            ne permet de les distinguer automatiquement.
-          </p>
-          <div className="no-scrollbar flex gap-2 overflow-x-auto px-5">
-            {card.printings.map((id) => (
-              <Link
-                key={id}
-                to={`/card/${encodeURIComponent(id)}?language=${language}`}
-                className="t-code min-h-[var(--touch)] shrink-0 rounded-full px-4 leading-[2.75rem]"
-                style={{ background: 'var(--surface-recessed)' }}
-              >
-                {id}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="px-5 pt-7">
-        {/* The one control in large type. It is the gesture a collector repeats more
-            than any other, and it reads the same at nought as at nine. */}
-        <div className="flex justify-center">
-          <Stepper
-            big
-            value={owned?.quantity ?? 0}
-            unit={(owned?.quantity ?? 0) > 1 ? 'exemplaires' : 'exemplaire'}
-            onChange={setCount}
-          />
-        </div>
-
-        {owned && (
-          <>
-            <label className="mt-6 block">
-              <span className="t-eyebrow">État</span>
-              <select
-                value={owned.condition ?? condition}
-                onChange={(event) => {
-                  const next = event.target.value as Condition
-                  setCondition(next)
-                  saveCondition(card.id, language, next)
-                }}
-                className="mt-2 min-h-[var(--touch)] w-full rounded-full px-4 text-[var(--text-primary)] outline-none"
-                style={{ background: 'var(--surface-recessed)' }}
-              >
-                {Object.entries(CONDITION_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Typed in by hand, like the wishlist's bounty: the feed prices the
-                market, not what you paid, so a number here means someone paid it. */}
-            <div className="mt-4 flex justify-center">
-              {editingPrice ? (
-                <input
-                  autoFocus
-                  inputMode="decimal"
-                  value={priceDraft}
-                  onChange={(event) => setPriceDraft(event.target.value)}
-                  onBlur={commitPrice}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') commitPrice()
-                    if (event.key === 'Escape') setEditingPrice(false)
-                  }}
-                  aria-label="Prix d'achat, en euros"
-                  className="t-code w-28 rounded-full px-4 py-2 text-center outline-none"
-                  style={{ background: 'var(--surface-recessed)' }}
-                />
-              ) : (
-                <button
-                  onClick={() => {
-                    setPriceDraft(owned.acquisitionPrice != null ? String(owned.acquisitionPrice) : '')
-                    setEditingPrice(true)
-                  }}
-                  className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
-                >
-                  {owned.acquisitionPrice == null
-                    ? "Noter le prix d'achat"
-                    : `Payée ${owned.acquisitionPrice.toLocaleString('fr', {
-                        minimumFractionDigits: Number.isInteger(owned.acquisitionPrice) ? 0 : 2,
-                        maximumFractionDigits: 2,
-                      })} €`}
-                </button>
-              )}
-            </div>
-
-            {/* When it entered the binder, corrected after the fact — the server
-                stamps today's date automatically on add, and this is the only way
-                to fix it once it turns out to be wrong. */}
-            <div className="mt-4 flex justify-center">
-              {editingDate ? (
-                <input
-                  autoFocus
-                  type="date"
-                  defaultValue={owned.dateAdded}
-                  max={new Date().toISOString().slice(0, 10)}
-                  onBlur={(event) => commitDate(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setEditingDate(false)
-                  }}
-                  aria-label="Date d'ajout à la collection"
-                  className="t-code rounded-full px-4 py-2 text-center outline-none"
-                  style={{ background: 'var(--surface-recessed)' }}
-                />
-              ) : (
-                <button
-                  onClick={() => setEditingDate(true)}
-                  className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
-                >
-                  Ajoutée le{' '}
-                  {new Date(`${owned.dateAdded}T00:00:00`).toLocaleDateString('fr', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </button>
-              )}
-            </div>
-
-            {/* Free text about this specific copy — "signée", "achetée à Paris" —
-                not about the card, which every account shares. A textarea rather
-                than the price field's single line: a note is prose, not a number,
-                and 280 characters wraps. */}
-            <div className="mt-4">
-              {editingNotes ? (
-                <textarea
-                  autoFocus
-                  rows={2}
-                  maxLength={280}
-                  value={notesDraft}
-                  onChange={(event) => setNotesDraft(event.target.value)}
-                  onBlur={commitNotes}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setEditingNotes(false)
-                  }}
-                  aria-label="Note sur cet exemplaire"
-                  placeholder="Signée, achetée à Paris…"
-                  className="w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none"
-                  style={{ background: 'var(--surface-recessed)' }}
-                />
-              ) : (
-                <button
-                  onClick={() => {
-                    setNotesDraft(owned.notes ?? '')
-                    setEditingNotes(true)
-                  }}
-                  className={`block min-h-[var(--touch)] w-full px-4 text-left text-[var(--text-secondary)] underline underline-offset-4 ${
-                    owned.notes ? 'text-sm' : 't-code'
-                  }`}
-                >
-                  {/* Free text is never worn as t-code: that class uppercases, and a
-                      note the person actually typed is not a value to reformat, the
-                      way the placeholder prompt above it is. */}
-                  {owned.notes ? owned.notes : 'Ajouter une note'}
-                </button>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Lit while it is on the list: this is a state as much as a button, and the
-            poster screen it feeds is the loudest surface in the app. */}
-        <div className="mt-6">
-          <Button variant={wanted ? 'primary' : 'quiet'} full onClick={toggleWanted}>
-            {wanted ? 'Retirer des recherchées' : 'Mettre dans les recherchées'}
-          </Button>
-        </div>
-      </section>
-
-      {/* The facts, in rows separated by a hairline. A card without a power exists —
-          an Event, a Stage — so an absent value shows a dash and never a zero. */}
-      <dl className="mt-8 px-5">
-        <Fact label="Extension" value={card.pack_name ?? card.pack_code} />
-        <Fact label="Couleur" value={card.colors.join(' / ')} />
-        <Fact label="Catégorie" value={card.category} />
-        <Fact label="Coût" value={card.cost} />
-        <Fact label="Puissance" value={card.power} />
-        <Fact label="Contre" value={card.counter} />
-        {card.types.length > 0 && <Fact label="Types" value={card.types.join(' / ')} />}
-      </dl>
     </Screen>
   )
 }
