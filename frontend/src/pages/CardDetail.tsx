@@ -177,6 +177,22 @@ export function CardDetail() {
               onChange={setCount}
             />
           </div>
+
+          {/* The facts, in rows separated by a hairline. A card without a power
+              exists — an Event, a Stage — so an absent value shows a dash and never
+              a zero. Grouped with the card itself rather than left in the details
+              flow: these describe the card everyone's copy shares (its extension,
+              its colour, its stats), never the one held here — that half stays on
+              the right, next to État and the rest of what is specific to it. */}
+          <dl className="mt-6">
+            <Fact label="Extension" value={card.pack_name ?? card.pack_code} />
+            <Fact label="Couleur" value={card.colors.join(' / ')} />
+            <Fact label="Catégorie" value={card.category} />
+            <Fact label="Coût" value={card.cost} />
+            <Fact label="Puissance" value={card.power} />
+            <Fact label="Contre" value={card.counter} />
+            {card.types.length > 0 && <Fact label="Types" value={card.types.join(' / ')} />}
+          </dl>
         </div>
 
         <div>
@@ -413,19 +429,6 @@ export function CardDetail() {
               </Button>
             </div>
           </section>
-
-          {/* The facts, in rows separated by a hairline. A card without a power
-              exists — an Event, a Stage — so an absent value shows a dash and never
-              a zero. */}
-          <dl className="mt-8 px-5">
-            <Fact label="Extension" value={card.pack_name ?? card.pack_code} />
-            <Fact label="Couleur" value={card.colors.join(' / ')} />
-            <Fact label="Catégorie" value={card.category} />
-            <Fact label="Coût" value={card.cost} />
-            <Fact label="Puissance" value={card.power} />
-            <Fact label="Contre" value={card.counter} />
-            {card.types.length > 0 && <Fact label="Types" value={card.types.join(' / ')} />}
-          </dl>
         </div>
       </div>
     </Screen>
