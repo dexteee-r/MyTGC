@@ -73,15 +73,21 @@ function mount(options: {
     return { ok: true, status: 200, json: async () => body, text: async () => '' } as Response
   }))
 
+  // A page really is in history before the card in normal use -- Recherchées,
+  // Collection, a search result -- so the test starts from one too, rather
+  // than a bare single-entry stack history.back() could not meaningfully leave.
   return render(
-    <MemoryRouter initialEntries={['/card/OP01-001?language=en']}>
+    <MemoryRouter
+      initialEntries={['/wishlist', '/card/OP01-001?language=en']}
+      initialIndex={1}
+    >
       <AuthProvider>
         <LanguageProvider>
           <CollectionProvider>
             <ToastProvider>
               <Routes>
                 <Route path="/card/:cardId" element={<CardDetail />} />
-                <Route path="/collection" element={<p>Écran Collection</p>} />
+                <Route path="/wishlist" element={<p>Écran Recherchées</p>} />
               </Routes>
             </ToastProvider>
           </CollectionProvider>
@@ -202,17 +208,35 @@ describe('la fiche carte', () => {
     expect(button.className).not.toContain('t-code')
   })
 
-  it('« Retour » mène toujours à la collection, jamais un simple retour en arrière', async () => {
-    /* Not history.back(): once the arrow navigation lets someone hop across
-       several cards, "back" would only undo one hop rather than actually leave
-       the sheet -- and however this screen was reached, the collection is
-       where a held card belongs. */
+  it('« Retour » ramène à l’écran d’où la carte a été ouverte', async () => {
+    /* Not a fixed destination: whatever page linked here (Recherchées,
+       Collection, a search result...) is where a plain visit -- no arrow-hop
+       yet -- should return to, the same thing history.back() already did
+       before hops needed accounting for. */
     mount()
     await screen.findByText('Monkey.D.Luffy')
 
     await userEvent.click(screen.getByText('Retour'))
 
-    expect(await screen.findByText('Écran Collection')).toBeTruthy()
+    expect(await screen.findByText('Écran Recherchées')).toBeTruthy()
+  })
+
+  it('« Retour » après plusieurs sauts revient à l’écran d’origine, pas à une carte intermédiaire', async () => {
+    /* The one thing a bare history.back() got wrong, and the reason "Retour"
+       counts hops instead of just calling it: three cards deep into arrow
+       navigation, one tap needs to leave the sheet entirely, not surface the
+       two cards visited on the way in. */
+    mount({ collection: [holding, entry('OP01-002'), entry('OP01-003')] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByLabelText('Carte suivante de la collection'))
+    await screen.findByText('Carte OP01-002')
+    await userEvent.click(screen.getByLabelText('Carte suivante de la collection'))
+    await screen.findByText('Carte OP01-003')
+
+    await userEvent.click(screen.getByText('Retour'))
+
+    expect(await screen.findByText('Écran Recherchées')).toBeTruthy()
   })
 })
 

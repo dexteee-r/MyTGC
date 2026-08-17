@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Edition, variantOf } from '../components/Edition'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
@@ -23,6 +23,25 @@ export function CardDetail() {
   const [params] = useSearchParams()
   const language = (params.get('language') ?? 'en') as Language
   const navigate = useNavigate()
+  const location = useLocation()
+
+  /* How many arrow-hops separate this card from wherever the person actually
+     came from (Recherchées, Collection, a search result, ...). Carried forward
+     in router state on every hop rather than kept in a ref or useState: this
+     whole route remounts on every card-to-card navigation (`<main
+     key={pathname}>` in Shell), which would otherwise reset any local counter
+     back to zero on the very next hop. Absent state reads as zero -- the first
+     arrival at a card, before any hop has happened yet. */
+  const hops = (location.state as { hops?: number } | null)?.hops ?? 0
+
+  /* One target for both buttons and the arrow keys, so the two can never drift
+     apart on where a hop actually lands or how it is counted. */
+  const goToCard = (target: { card_id: string; language: Language }) => {
+    navigate(
+      `/card/${encodeURIComponent(target.card_id)}?language=${target.language}`,
+      { state: { hops: hops + 1 } },
+    )
+  }
   const {
     entries,
     ownedOf,
@@ -98,20 +117,15 @@ export function CardDetail() {
         return
       }
       if (event.key === 'ArrowLeft' && previousInCollection) {
-        navigate(
-          `/card/${encodeURIComponent(previousInCollection.card_id)}`
-          + `?language=${previousInCollection.language}`,
-        )
+        goToCard(previousInCollection)
       } else if (event.key === 'ArrowRight' && nextInCollection) {
-        navigate(
-          `/card/${encodeURIComponent(nextInCollection.card_id)}`
-          + `?language=${nextInCollection.language}`,
-        )
+        goToCard(nextInCollection)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [previousInCollection, nextInCollection, navigate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previousInCollection, nextInCollection, hops])
 
   if (failed) return <Screen><div className="pt-14"><ErrorState onRetry={load} /></div></Screen>
   if (!card) return <Spinner />
@@ -197,12 +211,7 @@ export function CardDetail() {
         <>
           {previousInCollection && (
             <button
-              onClick={() =>
-                navigate(
-                  `/card/${encodeURIComponent(previousInCollection.card_id)}`
-                  + `?language=${previousInCollection.language}`,
-                )
-              }
+              onClick={() => goToCard(previousInCollection)}
               aria-label="Carte précédente de la collection"
               className="fixed top-1/2 left-2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-paper-100)] lg:left-4"
               style={{ background: 'rgba(4,18,26,.72)' }}
@@ -212,12 +221,7 @@ export function CardDetail() {
           )}
           {nextInCollection && (
             <button
-              onClick={() =>
-                navigate(
-                  `/card/${encodeURIComponent(nextInCollection.card_id)}`
-                  + `?language=${nextInCollection.language}`,
-                )
-              }
+              onClick={() => goToCard(nextInCollection)}
               aria-label="Carte suivante de la collection"
               className="fixed top-1/2 right-2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-paper-100)] lg:right-4"
               style={{ background: 'rgba(4,18,26,.72)' }}
@@ -232,12 +236,15 @@ export function CardDetail() {
       {/* The set name used to sit here. It is a fact about the card, not a place to
           go back to, and it now reads in the list at the foot with the others. */}
       <header className="px-3 pt-4">
-        {/* A fixed destination rather than history.back(): once the arrows above
-            let someone hop across several cards, "back" would only undo one hop
-            at a time instead of actually leaving the sheet -- and however this
-            screen was reached, the collection is where a held card belongs. */}
+        {/* history.back() after all, but for as many steps as this card is deep
+            into a run of arrow-hops -- `hops` counts exactly that. Zero hops (the
+            ordinary case: arrived straight from Recherchées, Collection, a
+            search result, wherever) is history.back() unchanged, landing back on
+            that same screen. A run of hops skips every intermediate card in one
+            jump instead of surfacing them one "Retour" tap at a time, which is
+            the one thing a bare history.back() got wrong here. */}
         <button
-          onClick={() => navigate('/collection')}
+          onClick={() => navigate(-(hops + 1))}
           className="t-code flex min-h-[var(--touch)] items-center gap-2 px-2 text-[var(--text-secondary)]"
         >
           <ChevronLeftIcon className="size-4" />
