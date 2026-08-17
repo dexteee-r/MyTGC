@@ -27,9 +27,18 @@ const holding: CollectionEntry = {
   date_added: '2026-01-01', acquisition_price: null, notes: null, card: null,
 }
 
+// `id` is never read by the collection-navigation logic (only card_id/language,
+// to find this card's own position in the list), so a shared placeholder is fine.
+function entry(cardId: string, over: Partial<CollectionEntry> = {}): CollectionEntry {
+  return { ...holding, id: 900, card_id: cardId, ...over }
+}
+
 const posted: { url: string; method: string; body: unknown }[] = []
 
-function mount(options: { card?: Partial<Card>; collection?: CollectionEntry[] } = {}) {
+function mount(options: {
+  card?: Partial<Card>
+  collection?: CollectionEntry[]
+} = {}) {
   const subject = { ...card, ...options.card }
   const collection = options.collection ?? []
   posted.length = 0
@@ -39,17 +48,28 @@ function mount(options: { card?: Partial<Card>; collection?: CollectionEntry[] }
     if (method !== 'GET') {
       posted.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : null })
     }
-    const body = url.includes('/cards/')
-      ? subject
-      : url.includes('/wishlist')
-        ? []
-        : url.includes('/collection/stats')
-          ? {
-              distinct_cards: 0, total_quantity: 0, by_language: {}, by_rarity: {},
-              acquisition_total: 0, market_total: 0, market_priced: 0,
-              market_currency: 'EUR',
-            }
-          : collection
+    // Checked before the bare '/cards/' match below, which '/cards/{id}/prices'
+    // also contains. The plain card GET echoes back a name derived from
+    // whichever id the URL actually asked for, whenever that id is not
+    // `subject`'s own -- so a test can click "next" and see a different card's
+    // name arrive, proof that navigation requested a different id rather than
+    // only moving a route param nobody read.
+    const requestedId = decodeURIComponent(url.split('/cards/')[1]?.split(/[/?]/)[0] ?? '')
+    const body = url.includes('/prices')
+      ? []
+      : url.includes('/cards/')
+        ? requestedId === subject.id
+          ? subject
+          : { ...subject, id: requestedId, name: `Carte ${requestedId}` }
+        : url.includes('/wishlist')
+          ? []
+          : url.includes('/collection/stats')
+            ? {
+                distinct_cards: 0, total_quantity: 0, by_language: {}, by_rarity: {},
+                acquisition_total: 0, market_total: 0, market_priced: 0,
+                market_currency: 'EUR',
+              }
+            : collection
     return { ok: true, status: 200, json: async () => body, text: async () => '' } as Response
   }))
 
@@ -61,6 +81,7 @@ function mount(options: { card?: Partial<Card>; collection?: CollectionEntry[] }
             <ToastProvider>
               <Routes>
                 <Route path="/card/:cardId" element={<CardDetail />} />
+                <Route path="/collection" element={<p>Écran Collection</p>} />
               </Routes>
             </ToastProvider>
           </CollectionProvider>
@@ -179,5 +200,121 @@ describe('la fiche carte', () => {
     await screen.findByText('Monkey.D.Luffy')
     const button = screen.getByText('signée par l’auteur')
     expect(button.className).not.toContain('t-code')
+  })
+
+  it('« Retour » mène toujours à la collection, jamais un simple retour en arrière', async () => {
+    /* Not history.back(): once the arrow navigation lets someone hop across
+       several cards, "back" would only undo one hop rather than actually leave
+       the sheet -- and however this screen was reached, the collection is
+       where a held card belongs. */
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByText('Retour'))
+
+    expect(await screen.findByText('Écran Collection')).toBeTruthy()
+  })
+})
+
+describe('naviguer entre les cartes de la collection', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('ne montre aucun bouton pour une carte absente de la collection', async () => {
+    mount({ collection: [entry('OP01-002'), entry('OP01-003')] })
+    await screen.findByText('Monkey.D.Luffy')
+    expect(screen.queryByLabelText('Carte précédente de la collection')).toBeNull()
+    expect(screen.queryByLabelText('Carte suivante de la collection')).toBeNull()
+  })
+
+  it('ne montre aucun bouton quand la carte est seule dans la collection', async () => {
+    mount({ collection: [holding] })
+    await screen.findByText('Monkey.D.Luffy')
+    expect(screen.queryByLabelText('Carte précédente de la collection')).toBeNull()
+    expect(screen.queryByLabelText('Carte suivante de la collection')).toBeNull()
+  })
+
+  it('le bouton suivant mène à la carte suivante de la collection', async () => {
+    mount({ collection: [holding, entry('OP01-002')] })
+    await screen.findByText('Monkey.D.Luffy')
+    expect(screen.queryByLabelText('Carte précédente de la collection')).toBeNull()
+
+    await userEvent.click(screen.getByLabelText('Carte suivante de la collection'))
+
+    expect(await screen.findByText('Carte OP01-002')).toBeTruthy()
+  })
+
+  it('le bouton précédent mène à la carte précédente de la collection', async () => {
+    mount({ collection: [entry('OP01-000'), holding] })
+    await screen.findByText('Monkey.D.Luffy')
+    expect(screen.queryByLabelText('Carte suivante de la collection')).toBeNull()
+
+    await userEvent.click(screen.getByLabelText('Carte précédente de la collection'))
+
+    expect(await screen.findByText('Carte OP01-000')).toBeTruthy()
+  })
+
+  it('propose les deux boutons quand la carte est au milieu de la liste', async () => {
+    mount({ collection: [entry('OP01-000'), holding, entry('OP01-002')] })
+    await screen.findByText('Monkey.D.Luffy')
+    expect(screen.getByLabelText('Carte précédente de la collection')).toBeTruthy()
+    expect(screen.getByLabelText('Carte suivante de la collection')).toBeTruthy()
+  })
+
+  it('suit l’ordre de la collection, pas celui d’une extension', async () => {
+    /* The whole point of this task: two cards from unrelated sets, adjacent only
+       because the collection list puts them next to each other. */
+    mount({ collection: [holding, entry('ST01-001')] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByLabelText('Carte suivante de la collection'))
+
+    expect(await screen.findByText('Carte ST01-001')).toBeTruthy()
+  })
+})
+
+describe('naviguer au clavier', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('la flèche droite mène à la carte suivante de la collection', async () => {
+    mount({ collection: [holding, entry('OP01-002')] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(await screen.findByText('Carte OP01-002')).toBeTruthy()
+  })
+
+  it('la flèche gauche mène à la carte précédente de la collection', async () => {
+    mount({ collection: [entry('OP01-000'), holding] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.keyboard('{ArrowLeft}')
+
+    expect(await screen.findByText('Carte OP01-000')).toBeTruthy()
+  })
+
+  it('ne fait rien à l’extrémité de la liste où le bouton correspondant est absent', async () => {
+    mount({ collection: [holding] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.keyboard('{ArrowRight}{ArrowLeft}')
+
+    expect(screen.getByText('Monkey.D.Luffy')).toBeTruthy()
+  })
+
+  it('est ignorée quand un champ de texte a le focus', async () => {
+    /* The whole reason this guard exists: without it, correcting a note that
+       happens to end in an arrow-key edit -- moving the cursor left, say --
+       would fire the page's own navigation instead of moving the cursor. */
+    mount({ collection: [holding, entry('OP01-002')] })
+    await screen.findByText('Monkey.D.Luffy')
+
+    await userEvent.click(screen.getByText('Ajouter une note'))
+    const field = screen.getByLabelText('Note sur cet exemplaire')
+    field.focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(screen.getByText('Monkey.D.Luffy')).toBeTruthy()
+    expect(screen.queryByText('Carte OP01-002')).toBeNull()
   })
 })

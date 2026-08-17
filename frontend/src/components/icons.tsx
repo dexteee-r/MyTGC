@@ -26,6 +26,14 @@ export function ChevronLeftIcon(props: { className?: string }) {
   )
 }
 
+export function ChevronRightIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m9.5 5 7 7-7 7" />
+    </svg>
+  )
+}
+
 export function TrendIcon(props: { className?: string }) {
   return (
     <svg {...base} {...props}>

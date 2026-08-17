@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Edition, variantOf } from '../components/Edition'
-import { ChevronLeftIcon } from '../components/icons'
+import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
 import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
@@ -23,6 +24,7 @@ export function CardDetail() {
   const language = (params.get('language') ?? 'en') as Language
   const navigate = useNavigate()
   const {
+    entries,
     ownedOf,
     add,
     setQuantity,
@@ -60,6 +62,56 @@ export function CardDetail() {
     api.priceHistory(cardId, language).then(setHistory).catch(() => {})
   }, [cardId, language])
   useEffect(load, [load])
+
+  /* Previous/next step through the collection itself, not the catalogue — the
+     collection is already held in full for the session (see collection.tsx), in
+     the same date_added-DESC order the Collection screen shows by default, so
+     finding this card's neighbours costs nothing further to fetch. A card not in
+     the collection has no position in that list to step from, so it gets no
+     buttons rather than a pair that would silently fall back to some other
+     order the person never asked for. Matched on the route's own cardId rather
+     than `card.id`: hooks cannot follow the early "still loading" return below,
+     so this has to stand on values available from the very first render. */
+  const positionInCollection = entries.findIndex(
+    (entry) => entry.card_id === cardId && entry.language === language,
+  )
+  const previousInCollection = positionInCollection > 0
+    ? entries[positionInCollection - 1] : null
+  const nextInCollection = positionInCollection !== -1
+    && positionInCollection < entries.length - 1
+    ? entries[positionInCollection + 1] : null
+
+  /* The arrow keys mirror the two buttons exactly rather than adding a second
+     way to move that could drift from the first — same targets, same absence at
+     either end of the list. Ignored while a form field owns the keystroke: the
+     État <select> already reads its own left/right, and a text cursor moving
+     through a note or a price should never be hijacked into leaving the page. */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (target && (
+        target.tagName === 'INPUT'
+        || target.tagName === 'TEXTAREA'
+        || target.tagName === 'SELECT'
+        || target.isContentEditable
+      )) {
+        return
+      }
+      if (event.key === 'ArrowLeft' && previousInCollection) {
+        navigate(
+          `/card/${encodeURIComponent(previousInCollection.card_id)}`
+          + `?language=${previousInCollection.language}`,
+        )
+      } else if (event.key === 'ArrowRight' && nextInCollection) {
+        navigate(
+          `/card/${encodeURIComponent(nextInCollection.card_id)}`
+          + `?language=${nextInCollection.language}`,
+        )
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previousInCollection, nextInCollection, navigate])
 
   if (failed) return <Screen><div className="pt-14"><ErrorState onRetry={load} /></div></Screen>
   if (!card) return <Spinner />
@@ -128,11 +180,64 @@ export function CardDetail() {
 
   return (
     <Screen>
+      {/* Pinned to the viewport rather than the scroll — the whole point is to stay
+          reachable while the sheet underneath is however long this card's own text
+          runs. Portalled to <body> rather than left in place: `<main>` carries the
+          route's own `hz-enter` entrance animation, which for its ~400ms holds a
+          non-none `transform` — and a `transform` anywhere in an element's
+          ancestry turns `position: fixed` into "fixed to that ancestor" instead of
+          to the viewport, per spec. Left in place, these buttons would render
+          offset for as long as the animation runs and then visibly jump into their
+          real position once it ended. Escaping to <body> sidesteps the whole
+          question of what does or does not animate above this page.
+          Absent rather than disabled at either edge of the collection, or on a
+          card that isn't in it at all: a lit control with nothing behind it
+          reads as a bug the first time it is tapped. */}
+      {createPortal(
+        <>
+          {previousInCollection && (
+            <button
+              onClick={() =>
+                navigate(
+                  `/card/${encodeURIComponent(previousInCollection.card_id)}`
+                  + `?language=${previousInCollection.language}`,
+                )
+              }
+              aria-label="Carte précédente de la collection"
+              className="fixed top-1/2 left-2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-paper-100)] lg:left-4"
+              style={{ background: 'rgba(4,18,26,.72)' }}
+            >
+              <ChevronLeftIcon className="size-6" />
+            </button>
+          )}
+          {nextInCollection && (
+            <button
+              onClick={() =>
+                navigate(
+                  `/card/${encodeURIComponent(nextInCollection.card_id)}`
+                  + `?language=${nextInCollection.language}`,
+                )
+              }
+              aria-label="Carte suivante de la collection"
+              className="fixed top-1/2 right-2 z-20 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-paper-100)] lg:right-4"
+              style={{ background: 'rgba(4,18,26,.72)' }}
+            >
+              <ChevronRightIcon className="size-6" />
+            </button>
+          )}
+        </>,
+        document.body,
+      )}
+
       {/* The set name used to sit here. It is a fact about the card, not a place to
           go back to, and it now reads in the list at the foot with the others. */}
       <header className="px-3 pt-4">
+        {/* A fixed destination rather than history.back(): once the arrows above
+            let someone hop across several cards, "back" would only undo one hop
+            at a time instead of actually leaving the sheet -- and however this
+            screen was reached, the collection is where a held card belongs. */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/collection')}
           className="t-code flex min-h-[var(--touch)] items-center gap-2 px-2 text-[var(--text-secondary)]"
         >
           <ChevronLeftIcon className="size-4" />
