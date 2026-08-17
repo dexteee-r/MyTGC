@@ -143,7 +143,7 @@ export function CardDetail() {
       {/* You came here to look at the card, so the card is the screen. Whole, at the
           width it can carry, watermark included — cropping it would be lying about
           what the material is. Held it is lit; not held it sits back in the water. */}
-      <div className="relative isolate mx-auto mt-2 w-[min(72%,260px)]">
+      <div className="relative isolate mx-auto mt-2 w-[min(80%,320px)] lg:w-[400px]">
         {/* The rarest card in the game gets a light of its own, and only here — on
             a grid of 9,447 tiles it would be noise. */}
         {card.rarity === 'SecretRare' && <span aria-hidden className="rare-halo" />}
