@@ -291,12 +291,12 @@ function Poster({
                 src={src}
                 alt=""
                 decoding="async"
-                className="h-[132px] w-[95px] object-cover"
+                className="h-[224px] w-[160px] object-cover"
                 style={{ boxShadow: `0 0 0 2px ${INK}` }}
               />
             ) : (
               <div
-                className="h-[132px] w-[95px]"
+                className="h-[224px] w-[160px]"
                 style={{ background: 'rgba(34,28,18,.1)', boxShadow: `0 0 0 2px ${INK}` }}
               />
             )}

@@ -876,11 +876,13 @@ def clear_history(conn: Conn, user: User):
 
 # --- wishlist -------------------------------------------------------------------
 
+WISHLIST_ENTRY_FIELDS = ("id", "card_id", "language", "priority", "alert_threshold",
+                        "price", "notes")
+
+
 def _wish(conn: sqlite3.Connection, entry_id: int) -> WishlistEntry:
     row = conn.execute("SELECT * FROM wishlist WHERE id = ?", (entry_id,)).fetchone()
-    return WishlistEntry(**{k: row[k] for k in
-                            ("id", "card_id", "language", "priority",
-                             "alert_threshold", "notes")},
+    return WishlistEntry(**{k: row[k] for k in WISHLIST_ENTRY_FIELDS},
                          card=_card_for(conn, row["card_id"], row["language"]))
 
 
@@ -890,8 +892,7 @@ def list_wishlist(conn: Conn, user: User):
         "SELECT * FROM wishlist WHERE user_id = ? ORDER BY priority, id DESC", (user.id,)
     ).fetchall()
     return [
-        WishlistEntry(**{k: r[k] for k in ("id", "card_id", "language", "priority",
-                                           "alert_threshold", "notes")},
+        WishlistEntry(**{k: r[k] for k in WISHLIST_ENTRY_FIELDS},
                       card=_card_for(conn, r["card_id"], r["language"]))
         for r in rows
     ]

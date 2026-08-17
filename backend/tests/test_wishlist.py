@@ -84,6 +84,23 @@ def test_an_entry_can_be_edited_and_removed(client):
     assert client.get("/wishlist", headers=account["headers"]).json() == []
 
 
+def test_the_price_set_on_an_entry_survives_a_reload(client):
+    """Found live: _wish() built its response from a hand-picked tuple of column
+    names that never included "price", so a figure saved through PATCH was there
+    in the database and gone from every response -- POST's own reply, PATCH's own
+    reply, and every later GET -- the moment the page asked for it again."""
+    account = register(client)
+    entry = client.post("/wishlist", json={"card_id": "OP01-001", "language": "en"},
+                        headers=account["headers"]).json()
+
+    patched = client.patch(f"/wishlist/{entry['id']}", json={"price": 12.5},
+                           headers=account["headers"])
+    assert patched.json()["price"] == 12.5
+
+    reloaded = client.get("/wishlist", headers=account["headers"]).json()
+    assert reloaded[0]["price"] == 12.5
+
+
 def test_wanting_a_card_that_does_not_exist_is_refused(client):
     account = register(client)
     assert client.post("/wishlist", json={"card_id": "ZZ99-999", "language": "en"},
