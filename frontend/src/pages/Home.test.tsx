@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../lib/auth'
 import { CollectionProvider } from '../lib/collection'
-import type { Pack } from '../lib/types'
+import type { Pack, UserProfile } from '../lib/types'
 import { Home } from './Home'
 
 /* A first launch shows "Classeur vide" with its own "Scanner une carte" button —
@@ -11,7 +11,7 @@ import { Home } from './Home'
    the same button twice in a row with nothing between them. Only that
    regression is under test here. */
 
-function mount(packs: Pack[]) {
+function mount(packs: Pack[], user: Partial<UserProfile> | null = null) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
@@ -30,7 +30,24 @@ function mount(packs: Pack[]) {
       if (url.includes('/collection')) {
         return { ok: true, status: 200, json: async () => [], text: async () => '' } as Response
       }
-      // /auth/refresh and /health: unused by these tests either way.
+      // AuthProvider boots by asking /auth/refresh; a signed-in test supplies a
+      // profile here rather than through the sign-in form, which this page
+      // never renders.
+      if (url.includes('/auth/refresh') && user) {
+        return {
+          ok: true, status: 200, text: async () => '',
+          json: async () => ({
+            access_token: 'test', token_type: 'bearer', expires_in: 900,
+            refresh_token: 'test',
+            user: {
+              id: 1, email: 'a@example.com', display_name: null, created_at: null,
+              default_language: 'en', grid_columns: 2,
+              goal_pack_code: null, goal_language: null, ...user,
+            },
+          }),
+        } as Response
+      }
+      // /auth/refresh with no user, and /health: unused by these tests either way.
       return { ok: false, status: 401, text: async () => '', json: async () => ({}) } as Response
     }),
   )
@@ -67,5 +84,21 @@ describe('premier lancement du Classeur', () => {
     await screen.findByText('ROMANCE DAWN')
     expect(screen.queryByText('Classeur vide')).toBeNull()
     expect(screen.getAllByText('Scanner une carte')).toHaveLength(1)
+  })
+})
+
+describe('l’objectif du Classeur sur un set Promos', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('retrouve le set choisi par pack_id quand il n’a pas de pack_code imprimé', async () => {
+    /* The Promos anomaly (BACKLOG.md): those sets have no printed code, so
+       goal_pack_code holds a pack_id instead (see Packs.tsx) -- matching the
+       goal by pack_code alone would never find it again. */
+    mount(
+      [pack({ pack_id: '569901', pack_code: null, pack_name: 'Promotion card' })],
+      { goal_pack_code: '569901', goal_language: 'en' },
+    )
+    expect(await screen.findByText('Objectif')).toBeTruthy()
+    expect(screen.getByText('Promotion card')).toBeTruthy()
   })
 })

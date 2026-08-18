@@ -140,6 +140,29 @@ def test_an_unknown_sort_falls_back_instead_of_failing(client):
     assert search(client, account, sort="nonsense").status_code == 200
 
 
+def test_sorting_by_price_puts_the_unpriced_last_in_either_direction(client):
+    """Unpriced is not "cheapest" -- a card nobody has priced yet must not lead
+    an ascending sort just because absence sorts low."""
+    account = register(client)
+    seed_extra()
+    conn = db.connect()
+    conn.executemany(
+        "INSERT INTO price_history (card_id, language, source, price, currency,"
+        " captured_at) VALUES (?, 'en', 'test', ?, 'EUR', '2026-08-15')",
+        [("OP02-001", 40.0), ("OP02-002", 5.0), ("EB01-001", 15.0)],
+    )
+    conn.commit()
+    conn.close()
+
+    ascending = ids(search(client, account, sort="price_asc", language="en", limit=200))
+    descending = ids(search(client, account, sort="price_desc", language="en", limit=200))
+
+    assert ascending[:3] == ["OP02-002", "EB01-001", "OP02-001"]
+    assert descending[:3] == ["OP02-001", "EB01-001", "OP02-002"]
+    # OP01-001/OP01-002/OP01-002_p1 have no price_history row: last, both ways.
+    assert ascending[3:] == descending[3:]
+
+
 # --- paging -----------------------------------------------------------------------
 
 def test_the_total_counts_the_whole_result_not_the_page(client):

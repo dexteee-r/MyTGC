@@ -14,23 +14,6 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
 
 Restent, dans l'ordre convenu :
-- **Tri par prix sur Chercher, Recherchées et Collection**, croissant/décroissant.
-  Demandé le 2026-08-16, à traiter par écran plutôt qu'en un seul mécanisme partagé —
-  chacun pose une question différente sur *quel* prix :
-  - **Chercher** : un seul prix possible, `Card.market_price`. Le tri est côté
-    serveur aujourd'hui (`/cards?sort=`), paginé sur 9 447 cartes — un tri client ne
-    marcherait pas, il faut un nouveau cas `price` dans `SORTS` (backend) et l'ajouter
-    à `Sort` dans `Filters.tsx`.
-  - **Recherchées** : deux prix distincts — `WishlistEntry.price` (saisi à la main,
-    « vu à ») et `card.market_price` (la cote). Trier « par prix » sans préciser
-    lequel serait ambigu ; probablement deux options de tri séparées, pas une.
-  - **Collection** : deux prix aussi — `card.market_price` (valeur actuelle) et
-    `acquisition_price` (payé), et la quantité s'en mêle : trier par prix unitaire ou
-    par valeur totale de la pile (quantité × prix) ? Cette question rejoint celle déjà
-    tranchée pour Doubles (possédées vs échangeables) — probablement la même réponse.
-  Aucune de ces pages ne trie aujourd'hui sur une colonne absente en base ou non
-  chargée, donc rien de bloquant côté données ; c'est uniquement une question de
-  conception à trancher avant de coder, comme demandé.
 - Passe d'accessibilité (clavier, focus visibles, contrastes) — en dernier, une fois
   que le reste ne bougera plus
 
@@ -45,13 +28,6 @@ Deux tâches ajoutées en cours de route, à faire après la liste ci-dessus :
   ou si le seuil doit être recalibré.
 - **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
   tests existants plutôt qu'en un seul balayage. Pas commencée.
-
-**Anomalie trouvée en cours de route, toujours pas corrigée** : les extensions sans
-code imprimé (les Promos) sont liées par leur `pack_id` numérique, que l'écran
-Extensions passe ensuite à `/cards` comme si c'était un `pack_code` — leur page se
-charge donc vide. La tâche "Objectif d'extension" a contourné le symptôme (le bouton
-« Définir comme objectif » ne s'affiche que si `setSize > 0`, donc jamais sur une page
-déjà cassée) sans toucher à la cause.
 
 ---
 
@@ -70,6 +46,60 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Anomalie des Promos corrigée.** Les extensions sans code imprimé n'ont pas
+  de `pack_code` en catalogue — seul `pack_id`, la clé numérique interne de
+  punk-records, les identifie. L'écran Extensions liait déjà ces pages par
+  `pack_id` (`pack.pack_code ?? pack.pack_id`), mais tout ce qui recevait
+  ensuite cette valeur — `/cards`, l'ajout en masse aux recherchées, l'objectif
+  du Classeur — la traitait comme un `pack_code` littéral, qui ne correspond à
+  rien pour ces extensions : page vide, ajout en masse muet, objectif qui ne se
+  raffiche jamais une fois choisi.
+  Un seul repère plutôt que quatre correctifs séparés : `SET_KEY` dans
+  `main.py`, `COALESCE(pack_code, pack_id)`, appliqué aux quatre endroits qui
+  filtraient jusqu'ici sur `pack_code` seul. Un même repli côté client dans
+  `Home.tsx` pour retrouver l'objectif une fois choisi.
+  Vérifié sur le vrai catalogue plutôt que supposé : « Promotion card »
+  (569901, 371 cartes) se charge, se choisit comme objectif — et se
+  raffiche bien sur le Classeur —, et « Ajouter les manquantes » annonce le
+  bon compte. Testé aussi que ça ne élargit pas une vraie extension : chercher
+  par `OP-01` ne se met pas à répondre aussi pour tout ce qui partagerait son
+  `pack_id`. 194 tests serveur (4 nouveaux), 108 tests client (1 nouveau).
+- **Tri par prix sur Chercher, Recherchées et Collection**, croissant/décroissant.
+  La question de conception posée le 2026-08-16 (« par écran, pas un mécanisme
+  partagé — chacune pose une question différente sur *quel* prix ») tranchée avant
+  de coder :
+  - **Chercher** : `market_price`, aucune ambiguïté possible (un seul prix
+    existe). Nouveau cas `price_asc`/`price_desc` dans `SORTS` (backend), tri
+    resté côté serveur — la page est paginée sur 9 447 cartes, un tri client
+    n'aurait pas marché. Les deux cas poussent les cartes non cotées en fin de
+    liste plutôt qu'en tête (`market_price IS NULL` d'abord dans l'`ORDER BY`),
+    dans les deux sens — l'absence de cote n'est pas un prix bas.
+  - **Recherchées** : `card.market_price` (la cote), jamais
+    `WishlistEntry.price` (le prix constaté saisi à la main) — tranché plutôt
+    que deviné. Tri resté côté client, comme le reste du filtrage de cette
+    page : la liste tient déjà en mémoire.
+  - **Collection** : `card.market_price` aussi, jamais `acquisition_price`
+    (payé) — et la **valeur totale de la pile** (quantité × cote), pas le prix
+    unitaire, la même réponse que celle déjà tranchée pour Doubles
+    (possédées/échangeables). Un double à 3 × 15 € passe donc devant un
+    exemplaire unique à 40 € : c'est la pile qui compte, pas la carte.
+  Une seconde rangée sous le sélecteur « Trier » de chaque écran plutôt que deux
+  segments de plus dans celui déjà là — six options dans une seule rangée
+  segmentée se seraient toutes retrouvées trop étroites pour rester lisibles sur
+  mobile. Aucun des segments existants ne se montre actif quand un tri par prix
+  est choisi : c'est une question différente des quatre autres, pas une
+  cinquième option parmi elles.
+  Vérifié en cassant chaque comparateur exprès (prix unitaire au lieu de la pile
+  sur Collection, le mauvais champ de prix sur Recherchées), les deux nouveaux
+  tests le rattrapant avant d'être rétablis, puis sur le vrai catalogue et la
+  vraie collection du compte de développement : Chercher va de 4 149,74 € à
+  0,02 € et retour, Recherchées classe Tony Tony.Chopper (24,74 €) avant Yamato
+  (0,20 €) sur la cote et pas sur un prix constaté délibérément inverse posé
+  pour le test, Collection place Luffy-Tarou (3 × 3,29 € = 9,87 €) devant
+  Franky (3 × 0,32 € = 0,96 €) — la pile, pas l'unité — et les cartes non
+  cotées restent en fin de liste dans les deux sens, sur les trois écrans. 1
+  nouveau test serveur (187 au total), 4 nouveaux tests client (112 au
+  total), typecheck, lint et build propres.
 - **Nettoyer le projet.** Cherché plutôt que supposé : un
   export compté une seule fois dans tout l'arbre (sa propre déclaration) est
   mort, et un handler FastAPI jamais `include_router()`-é ne répond à rien,

@@ -162,10 +162,11 @@ export function PackDetail() {
           <div style={{ width: setSize ? `${(ownedTotal / setSize) * 100}%` : 0 }} />
         </div>
 
-        {/* setSize > 0 rather than always shown: a set with no cards resolved is the
-            symptom of the unrelated pack_code/pack_id mismatch on sets without a
-            printed code (the Promos), and offering to chase an already-broken page
-            would only add a second failure on top of the first. */}
+        {/* setSize > 0 rather than always shown: an id typed straight into the URL
+            can still resolve to nothing, and offering to chase an empty page would
+            only add a second failure on top of the first. (Not the Promos anymore
+            -- SET_KEY in main.py now falls back to pack_id wherever pack_code is
+            null, so a real Promos set does resolve.) */}
         {setSize > 0 && (
           <button
             onClick={toggleGoal}

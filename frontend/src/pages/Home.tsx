@@ -38,12 +38,18 @@ export function Home() {
 
   /* Chosen, not ranked — the one set someone decided to finish, set from its own
      page (PackDetail). Everything else on this screen is either a total or an
-     automatic ranking; this is the one thing here that is someone's intent. */
+     automatic ranking; this is the one thing here that is someone's intent.
+
+     Matched on pack_code, falling back to pack_id: PackDetail stores whichever
+     one its own route was opened with (see Packs.tsx: a Promos set, with no
+     printed code, links by pack_id instead), so the goal has to be looked up
+     the same way or it would never find a Promos set again once chosen. */
   const goal = useMemo(
     () =>
       user?.goal_pack_code && user?.goal_language
         ? ((packs ?? []).find(
-            (p) => p.pack_code === user.goal_pack_code && p.language === user.goal_language,
+            (p) => (p.pack_code ?? p.pack_id) === user.goal_pack_code
+              && p.language === user.goal_language,
           ) ?? null)
         : null,
     [packs, user],

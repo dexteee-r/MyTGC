@@ -96,8 +96,10 @@ export interface CardQuery {
   color?: string[]
   owned?: boolean
   /* `set` orders by the printed code, `date` by the real release date -- the two
-     differ, because the set codes of the OP, EB and PRB families interleave in time. */
-  sort?: 'code' | 'set' | 'name' | 'date'
+     differ, because the set codes of the OP, EB and PRB families interleave in time.
+     `price_asc`/`price_desc` sort on market_price, unpriced last either way (SORTS
+     in main.py). */
+  sort?: 'code' | 'set' | 'name' | 'date' | 'price_asc' | 'price_desc'
   offset?: number
   limit?: number
 }

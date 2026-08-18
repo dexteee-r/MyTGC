@@ -79,6 +79,25 @@ export function Wishlist() {
          sorts above every real date, which would put the promos at the top. */
       date: (a: WishlistEntry, b: WishlistEntry) =>
         (b.card?.release_date ?? '').localeCompare(a.card?.release_date ?? ''),
+      /* The cote (market_price), not the price constaté hand-typed on the poster --
+         asked and confirmed: "par prix" here means the market's number, the same one
+         the catalogue already sorts by, not what someone jotted down themselves.
+         Unpriced sinks to the bottom either direction, same reasoning as SORTS in
+         main.py: absence is not a low price. */
+      price_asc: (a: WishlistEntry, b: WishlistEntry) => {
+        const pa = a.card?.market_price
+        const pb = b.card?.market_price
+        if (pa == null) return pb == null ? 0 : 1
+        if (pb == null) return -1
+        return pa - pb
+      },
+      price_desc: (a: WishlistEntry, b: WishlistEntry) => {
+        const pa = a.card?.market_price
+        const pb = b.card?.market_price
+        if (pa == null) return pb == null ? 0 : 1
+        if (pb == null) return -1
+        return pb - pa
+      },
     }[filters.sort]
     return [...list].sort(by)
   }, [entries, filters])

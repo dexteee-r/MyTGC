@@ -152,3 +152,41 @@ describe('la vue doubles', () => {
     expect(await screen.findByText("Aucun double pour l'instant")).toBeTruthy()
   })
 })
+
+/* Sorting by "value" means the pile, not the card: quantity × cote, the same total
+   Doubles already uses to tell possédées from échangeables -- decided rather than
+   guessed, since a unit price would rank a lone expensive card over a cheaper stack
+   worth more overall. */
+describe('tri par valeur de la pile', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  it('classe la pile, pas la carte à l’unité', async () => {
+    // OP01-001: 1 × 40 € = 40 € ; OP01-002: 3 × 15 € = 45 € -- the stack outranks
+    // the pricier single card once quantity is counted in.
+    mount(
+      [entry('OP01-001', 'en', 1, 40), entry('OP01-002', 'en', 3, 15)],
+      stats({ total_quantity: 4, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Valeur décroissante' }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-002')
+    expect(names[1]).toContain('OP01-001')
+  })
+
+  it('laisse les cartes non cotées en dernier, dans les deux sens', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, null), entry('OP01-002', 'en', 1, 5)],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await screen.findByRole('button', { name: 'Valeur croissante' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Valeur croissante' }))
+    expect(cardNames().at(-1)).toContain('OP01-001')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Valeur décroissante' }))
+    expect(cardNames().at(-1)).toContain('OP01-001')
+  })
+})

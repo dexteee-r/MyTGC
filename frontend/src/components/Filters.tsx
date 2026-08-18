@@ -19,7 +19,7 @@ export const RARITIES = [
   'Promo',
 ]
 
-export type Sort = 'code' | 'set' | 'name' | 'date'
+export type Sort = 'code' | 'set' | 'name' | 'date' | 'price_asc' | 'price_desc'
 
 export interface FilterState {
   /* null is both editions. The catalogue holds each card twice and searching a name
@@ -169,17 +169,30 @@ export function FilterSheet({
         </Group>
 
         <Group label="Trier">
-          <Segmented
+          <Segmented<Sort>
             value={state.sort}
             options={[
-              { value: 'code' as const, label: 'Par code' },
-              { value: 'set' as const, label: 'Par extension' },
-              { value: 'date' as const, label: 'Plus récentes' },
-              { value: 'name' as const, label: 'A → Z' },
+              { value: 'code', label: 'Par code' },
+              { value: 'set', label: 'Par extension' },
+              { value: 'date', label: 'Plus récentes' },
+              { value: 'name', label: 'A → Z' },
             ]}
             onChange={(next) => set('sort', next)}
             label="Trier"
           />
+          {/* A second row rather than two more segments squeezed into the one above:
+              six options in a row this narrow would each shrink to a sliver. Neither
+              chip reflecting the segment above as active is correct, not a bug — a
+              price sort is a different choice from those four, not a fifth one among
+              them. */}
+          <div className="flex gap-2 pt-2">
+            <Chip active={state.sort === 'price_desc'} onClick={() => set('sort', 'price_desc')}>
+              Prix décroissant
+            </Chip>
+            <Chip active={state.sort === 'price_asc'} onClick={() => set('sort', 'price_asc')}>
+              Prix croissant
+            </Chip>
+          </div>
         </Group>
 
         {columns && (

@@ -5,6 +5,7 @@ import { PriceChart } from '../components/PriceChart'
 import { ShareDialog } from '../components/ShareDialog'
 import {
   Button,
+  Chip,
   Dialog,
   EmptyState,
   PageHeader,
@@ -17,8 +18,18 @@ import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
 import type { CollectionEntry, ValuePoint } from '../lib/types'
 
-type Sort = 'recent' | 'set' | 'name'
+type Sort = 'recent' | 'set' | 'name' | 'price_asc' | 'price_desc'
 type View = 'all' | 'doubles'
+
+/* The pile, not the card: quantity × market_price, the same total "Doubles" already
+   uses to tell possédées from échangeables. A unit price would rank a lone 40 €
+   card above a stack of three 15 € ones, which is not what "worth the most" means
+   here. Unpriced sinks to the bottom either direction -- absence is not a low
+   price. */
+function pileValue(entry: CollectionEntry): number | null {
+  const price = entry.card?.market_price
+  return price == null ? null : entry.quantity * price
+}
 
 /* ── The plate ──────────────────────────────────────────────────────────────
    The collection as an object rather than as an inventory. A list row gives one card
@@ -76,6 +87,14 @@ export function Collection() {
       sorted.sort((a, b) => (a.card?.name ?? a.card_id).localeCompare(b.card?.name ?? b.card_id))
     } else if (sort === 'set') {
       sorted.sort((a, b) => (a.card?.pack_code ?? 'zz').localeCompare(b.card?.pack_code ?? 'zz'))
+    } else if (sort === 'price_asc' || sort === 'price_desc') {
+      sorted.sort((a, b) => {
+        const va = pileValue(a)
+        const vb = pileValue(b)
+        if (va == null) return vb == null ? 0 : 1
+        if (vb == null) return -1
+        return sort === 'price_asc' ? va - vb : vb - va
+      })
     }
     if (sort !== 'set') return [{ key: '', items: sorted }]
 
@@ -148,8 +167,10 @@ export function Collection() {
           </p>
           <p>
             <strong style={{ color: 'var(--text-primary)' }}>Trier</strong> ordonne la
-            liste par date d'ajout, par extension, ou alphabétiquement. Ça ne change
-            jamais quelles cartes sont affichées, seulement leur ordre.
+            liste par date d'ajout, par extension, alphabétiquement, ou par valeur —
+            quantité × cote actuelle, pas le prix payé, et une carte non cotée reste
+            toujours en fin de liste. Ça ne change jamais quelles cartes sont
+            affichées, seulement leur ordre.
           </p>
           <p>
             La <strong style={{ color: 'var(--text-primary)' }}>valeur estimée</strong> vient
@@ -276,6 +297,18 @@ export function Collection() {
             onChange={setSort}
             label="Trier"
           />
+          {/* A price sort is a different question from the three above, not a fifth
+              among them -- same reasoning as Filters.tsx's own price row. Neither of
+              those three segments reflecting as active while a price sort is chosen
+              is correct, not a bug. */}
+          <div className="flex gap-2 px-5 pt-2 pb-1">
+            <Chip active={sort === 'price_desc'} onClick={() => setSort('price_desc')}>
+              Valeur décroissante
+            </Chip>
+            <Chip active={sort === 'price_asc'} onClick={() => setSort('price_asc')}>
+              Valeur croissante
+            </Chip>
+          </div>
 
           {view === 'doubles' && doubles.length === 0 ? (
             <div className="pt-4">

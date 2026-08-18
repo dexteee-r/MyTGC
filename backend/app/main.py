@@ -55,6 +55,16 @@ CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, cate
                 "  AND h.language = cards.language"
                 "  ORDER BY h.captured_at DESC, h.id DESC LIMIT 1) AS market_price")
 
+# The Promos anomaly (BACKLOG.md): those cards carry no printed set code, so
+# pack_code is null on every one of them -- only pack_id, punk-records' own
+# numeric key, ever names which Promos batch a card belongs to. Any query that
+# means "which set" rather than "what's printed on the card" has to fall back
+# to pack_id exactly when pack_code is absent, and it can do that against a
+# single value either way: the Extensions screen already links to a Promos set
+# by its pack_id (Packs.tsx, Home.tsx: `pack.pack_code ?? pack.pack_id`), so
+# whatever arrives here is already the right one to try against both columns.
+SET_KEY = "COALESCE(pack_code, pack_id)"
+
 
 def running_commit() -> str | None:
     """The commit actually serving requests.
@@ -320,7 +330,7 @@ def update_profile(conn: Conn, user: User, patch: ProfileUpdate):
     if ("goal_pack_code" in fields) != ("goal_language" in fields):
         raise HTTPException(422, "goal_pack_code and goal_language must be set together")
     if fields.get("goal_pack_code") and not conn.execute(
-        "SELECT 1 FROM cards WHERE pack_code = ? AND language = ?",
+        f"SELECT 1 FROM cards WHERE {SET_KEY} = ? AND language = ?",
         (fields["goal_pack_code"], fields["goal_language"]),
     ).fetchone():
         raise HTTPException(404, f"{fields['goal_pack_code']} not found in "
@@ -398,6 +408,11 @@ SORTS = {
     "set": "pack_code IS NULL, pack_code DESC, id",
     "name": "name COLLATE NOCASE, id",
     "date": "release_date IS NULL, release_date DESC, id",
+    # Unpriced cards sort last regardless of direction -- "no price" is not a
+    # low price, and a person asking for cheapest-first does not mean "cards
+    # nobody has priced yet" to lead the list.
+    "price_asc": "market_price IS NULL, market_price ASC, id",
+    "price_desc": "market_price IS NULL, market_price DESC, id",
 }
 
 
@@ -412,7 +427,7 @@ def search_cards(
     category: str | None = None,
     color: list[str] | None = Query(None, description="repeatable; any of them matches"),
     owned: bool | None = Query(None, description="restrict to cards in the collection"),
-    sort: str = Query("code", description="code | set | name | date"),
+    sort: str = Query("code", description="code | set | name | date | price_asc | price_desc"),
     offset: int = Query(0, ge=0),
     limit: int = Query(60, ge=1, le=200),
 ):
@@ -424,11 +439,13 @@ def search_cards(
         for word in q.split():
             where.append("(name LIKE ? OR id LIKE ?)")
             params += [f"%{word}%", f"%{word}%"]
-    for column, value in (("language", language), ("pack_code", pack_code),
-                          ("category", category)):
+    for column, value in (("language", language), ("category", category)):
         if value:
             where.append(f"{column} = ?")
             params.append(value)
+    if pack_code:
+        where.append(f"{SET_KEY} = ?")
+        params.append(pack_code)
     # Several rarities or several colours read as "any of these", the way a filter
     # panel reads: ticking Rare and SuperRare should widen the result, not empty it.
     if rarity:
@@ -940,7 +957,7 @@ def add_to_wishlist(conn: Conn, user: User, entry: WishlistCreate):
 # about it rather than claiming to have added 150 cards it did not add.
 _MISSING_FROM_PACK = """
     FROM cards
-    WHERE cards.pack_code = ? AND cards.language = ?
+    WHERE COALESCE(cards.pack_code, cards.pack_id) = ? AND cards.language = ?
       AND NOT EXISTS (SELECT 1 FROM collection c
                       WHERE c.card_id = cards.id AND c.language = cards.language
                         AND c.user_id = ?)
@@ -949,7 +966,7 @@ _MISSING_FROM_PACK = """
 
 @app.post("/wishlist/bulk", response_model=WishlistBulkResult, status_code=201)
 def add_missing_to_wishlist(conn: Conn, user: User, body: WishlistBulk):
-    if not conn.execute("SELECT 1 FROM cards WHERE pack_code = ? AND language = ?",
+    if not conn.execute(f"SELECT 1 FROM cards WHERE {SET_KEY} = ? AND language = ?",
                         (body.pack_code, body.language)).fetchone():
         raise HTTPException(404, f"{body.pack_code} not found in {body.language}")
 
