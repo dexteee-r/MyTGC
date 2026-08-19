@@ -24,8 +24,6 @@ Deux tâches ajoutées en cours de route :
   `measure_watermark.py`) gardés — ce sont des outils de mesure qu'on rejouerait
   légitimement si le catalogue grossit, si le pipeline de reconnaissance change,
   ou si le seuil doit être recalibré.
-- **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
-  tests existants plutôt qu'en un seul balayage. Pas commencée.
 - **Chercher une carte à partir d'une image** (importée depuis l'appareil, ou
   collée depuis le presse-papiers) sur la page Chercher. Demandé le 2026-08-18,
   pas encore commencé. Probablement pas une brique neuve : Scan identifie déjà
@@ -53,6 +51,39 @@ quand celui-ci remontera dans les priorités.
 ---
 
 ## Fait
+
+- **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
+  tests existants (187 backend, 147 frontend, toujours verts à chaque étape) plutôt
+  qu'en un seul balayage. Beaucoup de fichiers déjà propres, laissés tels quels —
+  le but n'était pas d'inventer des changements. Ce qui restait :
+  - **Dédoublonnage** : `_apply_patch`, `_share_status`/`_enable_share`/
+    `_disable_share`, `_entry_from_row`/`_wish_from_row` dans `main.py` ;
+    `stamp()` dans `auth.py` (sauf `search_history.searched_at`, qui a besoin
+    de la précision à la microseconde — deux tests l'ont confirmé en cassant
+    quand la précision a été réduite à la seconde comme ailleurs) ;
+    `OverlayBackdrop`/`OverlayHeader` dans `ui.tsx` ; `patchEntry` dans
+    `collection.tsx`, qui remplace quatre fonctions presque identiques
+    (`setPrice`/`setCondition`/`setNotes`/`setDateAdded`).
+  - **Deux vrais bugs trouvés en lisant le code**, aucun couvert par un test
+    existant : dans `PackDetail.tsx` et `Search.tsx`, le bouton « réessayer »
+    d'un chargement en échec appelait `setState` avec la valeur déjà en
+    place — React ignore un état inchangé, donc le nouvel essai ne
+    redéclenchait jamais la requête. Corrigés en extrayant le fetch dans une
+    fonction nommée réutilisée par l'effet et par le bouton, comme le fait
+    déjà `Packs.tsx`/`Home.tsx`.
+  - **Commentaires obsolètes ou contradictoires** nettoyés plutôt que le
+    code qu'ils décrivent mal : dans `App.tsx`, deux commentaires voisins
+    s'opposaient sur la force du voile de la page de connexion ; dans
+    `Help.tsx`/`Legal.tsx`, le commentaire de `Term` prétendait "sans
+    gras" alors que le code applique `font-semibold` ; `Filters.tsx` et
+    `Wishlist.tsx` portaient chacun une note numérotée façon patch note
+    plutôt qu'un commentaire.
+  - `SearchHistoryUI.tsx` aligné sur le reste du code (plus de `React.FC`,
+    plus de point-virgules, plus d'import React inutile — le projet utilise
+    le JSX runtime moderne). Aucune classe visuelle touchée.
+  - `SharedCollection.tsx`/`SharedWishlist.tsx` partagent une bonne partie de
+    leur structure mais n'ont pas de test : laissés en l'état plutôt que
+    factoriser sans filet.
 
 - **Passe d'accessibilité** (clavier, focus visibles, contrastes), la dernière
   tâche de la liste V1. Auditée d'abord plutôt que devinée — les points
