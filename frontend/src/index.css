@@ -257,6 +257,33 @@ body {
   scrollbar-width: none;
 }
 
+/* Collection asked specifically for a visible rail on desktop web -- every other
+   screen keeps the app's usual chromeless scroll, carried over from the phone this
+   app is mostly used on. A binder long enough to need scrolling reads as a native
+   desktop list with a rail; nothing below 1024px changes; the .no-scrollbar half of
+   the selector wins the specificity tie against the class above regardless of
+   source order, so this can never depend on which import runs last. */
+@media (min-width: 1024px) {
+  .no-scrollbar.scrollbar-desktop {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-rail) transparent;
+  }
+  .no-scrollbar.scrollbar-desktop::-webkit-scrollbar {
+    display: block;
+    width: 10px;
+  }
+  .no-scrollbar.scrollbar-desktop::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .no-scrollbar.scrollbar-desktop::-webkit-scrollbar-thumb {
+    background: var(--surface-rail);
+    border-radius: 999px;
+  }
+  .no-scrollbar.scrollbar-desktop::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+  }
+}
+
 /* ── Motion ─────────────────────────────────────────────────────────────────── */
 
 /* The world moves on its own: the sun breathes, the swell rolls, the clouds cross.

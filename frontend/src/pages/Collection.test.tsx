@@ -29,6 +29,45 @@ function entry(
   }
 }
 
+function entryWithRarity(id: string, rarity: string | null): CollectionEntry {
+  const card: Card = {
+    id, language: 'en', name: id, pack_id: '1', pack_code: null, pack_name: null,
+    rarity, category: null, colors: [], cost: null, power: null, counter: null,
+    attributes: [], types: [], effect: null, trigger: null, release_date: null,
+    market_price: null, image_url: null, printings: [],
+  }
+  return {
+    id: id.length, card_id: id, language: 'en', quantity: 1, condition: null,
+    date_added: '2026-01-01', acquisition_price: null, notes: null, card,
+  }
+}
+
+function entryInSet(cardId: string, packCode: string | null): CollectionEntry {
+  const card: Card = {
+    id: cardId, language: 'en', name: cardId, pack_id: '1', pack_code: packCode, pack_name: null,
+    rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
+    attributes: [], types: [], effect: null, trigger: null, release_date: null,
+    market_price: null, image_url: null, printings: [],
+  }
+  return {
+    id: cardId.length, card_id: cardId, language: 'en', quantity: 1, condition: null,
+    date_added: '2026-01-01', acquisition_price: null, notes: null, card,
+  }
+}
+
+function entryOnDate(cardId: string, dateAdded: string): CollectionEntry {
+  const card: Card = {
+    id: cardId, language: 'en', name: cardId, pack_id: '1', pack_code: null, pack_name: null,
+    rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
+    attributes: [], types: [], effect: null, trigger: null, release_date: null,
+    market_price: null, image_url: null, printings: [],
+  }
+  return {
+    id: cardId.length, card_id: cardId, language: 'en', quantity: 1, condition: null,
+    date_added: dateAdded, acquisition_price: null, notes: null, card,
+  }
+}
+
 function stats(over: Partial<CollectionStats> = {}): CollectionStats {
   return {
     distinct_cards: 2, total_quantity: 2, by_language: {}, by_rarity: {},
@@ -99,6 +138,7 @@ describe('la vue doubles', () => {
   beforeEach(() => vi.unstubAllGlobals())
 
   const openDoubles = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
     fireEvent.click(await screen.findByRole('tab', { name: 'Doubles' }))
   }
 
@@ -170,6 +210,7 @@ describe('tri par valeur de la pile', () => {
       [entry('OP01-001', 'en', 1, 40), entry('OP01-002', 'en', 3, 15)],
       stats({ total_quantity: 4, distinct_cards: 2 }),
     )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Valeur décroissante' }))
     const names = cardNames()
     expect(names[0]).toContain('OP01-002')
@@ -181,6 +222,7 @@ describe('tri par valeur de la pile', () => {
       [entry('OP01-001', 'en', 1, null), entry('OP01-002', 'en', 1, 5)],
       stats({ total_quantity: 2, distinct_cards: 2 }),
     )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
     await screen.findByRole('button', { name: 'Valeur croissante' })
 
     fireEvent.click(screen.getByRole('button', { name: 'Valeur croissante' }))
@@ -188,5 +230,265 @@ describe('tri par valeur de la pile', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Valeur décroissante' }))
     expect(cardNames().at(-1)).toContain('OP01-001')
+  })
+})
+
+/* Rareté sorts on the game's own ladder (Common < Uncommon < Rare < SuperRare <
+   SecretRare), not the alphabet -- "SuperRare" and "SecretRare" would tie under a
+   naive string compare, and "Common" would outrank both. Leader/Promo/Special/
+   TreasureRare sit outside the five-step ladder, placed after SecretRare as the
+   rarest tier, TreasureRare last as the game's actual chase rarity. */
+describe('tri par rareté', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  it('suit l’échelle du jeu, pas l’ordre alphabétique', async () => {
+    // Alphabetically "Common" < "SuperRare", the opposite of the game's own ladder.
+    mount(
+      [entryWithRarity('OP01-001', 'SuperRare'), entryWithRarity('OP01-002', 'Common')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Plus rare' }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-001')
+    expect(names[1]).toContain('OP01-002')
+  })
+
+  it('place TreasureRare après SecretRare, comme le palier le plus rare', async () => {
+    mount(
+      [entryWithRarity('OP01-001', 'TreasureRare'), entryWithRarity('OP01-002', 'SecretRare')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Plus rare' }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-001')
+    expect(names[1]).toContain('OP01-002')
+  })
+
+  it('laisse les cartes sans rareté connue en dernier, dans les deux sens', async () => {
+    mount(
+      [entryWithRarity('OP01-001', null), entryWithRarity('OP01-002', 'Rare')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Moins rare' }))
+    expect(cardNames().at(-1)).toContain('OP01-001')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Plus rare' }))
+    expect(cardNames().at(-1)).toContain('OP01-001')
+  })
+})
+
+/* "Doublons d'abord" reorders without hiding anything -- unlike the "Doubles" view
+   above, which drops every unique card from the list entirely. Highest stack first
+   rather than a plain double/unique split, so a 5x lands ahead of a 2x. */
+describe('tri par doublon', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  it('met les cartes possédées en plusieurs exemplaires devant les uniques', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1), entry('OP01-002', 'en', 3)],
+      stats({ total_quantity: 4, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: "Doublons d'abord" }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-002')
+    expect(names[1]).toContain('OP01-001')
+  })
+
+  it('classe une pile plus haute avant une pile plus basse, pas seulement double contre unique', async () => {
+    mount(
+      [entry('OP01-001', 'en', 2), entry('OP01-002', 'en', 5)],
+      stats({ total_quantity: 7, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: "Doublons d'abord" }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-002')
+    expect(names[1]).toContain('OP01-001')
+  })
+
+  it('ne masque aucune carte, contrairement à la vue Doubles', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1), entry('OP01-002', 'en', 2)],
+      stats({ total_quantity: 3, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: "Doublons d'abord" }))
+    expect(cardNames()).toHaveLength(2)
+  })
+})
+
+/* "Récentes" became two directional chips -- date_desc (newest first, the default)
+   and date_asc (oldest first) -- the same shape as every other sort on this page. */
+describe("tri par date d'ajout", () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  it("« Date d'ajout + » met la plus récente en premier", async () => {
+    mount(
+      [entryOnDate('OP01-001', '2026-01-01'), entryOnDate('OP01-002', '2026-06-15')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: "Date d'ajout +" }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-002')
+    expect(names[1]).toContain('OP01-001')
+  })
+
+  it("« Date d'ajout - » met la plus ancienne en premier", async () => {
+    mount(
+      [entryOnDate('OP01-001', '2026-01-01'), entryOnDate('OP01-002', '2026-06-15')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: "Date d'ajout -" }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-001')
+    expect(names[1]).toContain('OP01-002')
+  })
+})
+
+/* Extension puis numéro, dans le même sens -- flipping the direction flips both
+   levels together, the way turning a real binder over does: the last set and its
+   last card lead, not the first set with its numbers reversed. */
+describe('tri par extension et numéro', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  it('trie par numéro, pas par ordre alphabétique de l’id', async () => {
+    // Unpadded on purpose: "9" < "10" as numbers but "10" < "9" as strings, the
+    // exact case a naive string compare gets wrong.
+    mount(
+      [entryInSet('OP01-10', 'OP-01'), entryInSet('OP01-9', 'OP-01')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Extension croissante' }))
+    const names = cardNames()
+    expect(names[0]).toContain('OP01-9')
+    expect(names[1]).toContain('OP01-10')
+  })
+
+  it('inverse l’extension et le numéro ensemble en décroissant', async () => {
+    mount(
+      [
+        entryInSet('OP01-001', 'OP-01'),
+        entryInSet('OP01-002', 'OP-01'),
+        entryInSet('OP02-001', 'OP-02'),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Extension décroissante' }))
+    expect(cardNames()).toEqual([
+      expect.stringContaining('OP02-001'),
+      expect.stringContaining('OP01-002'),
+      expect.stringContaining('OP01-001'),
+    ])
+  })
+
+  it('laisse les cartes sans extension connue en dernier, dans les deux sens', async () => {
+    mount(
+      [entryInSet('OP01-001', null), entryInSet('OP02-001', 'OP-02')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Extension croissante' }))
+    expect(cardNames().at(-1)).toContain('OP01-001')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Extension décroissante' }))
+    expect(cardNames().at(-1)).toContain('OP01-001')
+  })
+})
+
+/* Édition restricts which cards are on the table at all -- before Vue and before
+   Trier even get a say. The header meta and "Valeur estimée" stay account-wide on
+   purpose (same choice already made for the Doubles view), but Doubles itself has
+   to respect the filter: a doubles total that counted both editions while the list
+   below showed only one would disagree with itself. */
+describe("filtre d'édition sur la page collection", () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  it('restreint la liste à l’édition choisie', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1), entry('OP01-001', 'jp', 1)],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: /^JP/ }))
+    expect(cardNames()).toHaveLength(1)
+  })
+
+  it('scope aussi la vue Doubles, liste et total ensemble', async () => {
+    mount(
+      [entry('OP01-001', 'en', 3, 10), entry('OP01-002', 'jp', 3, 10)],
+      stats({ total_quantity: 6, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: /^JP/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Doubles' }))
+
+    // Only the JP double is listed, and its own value -- not the EN one too --
+    // is what "possédées" totals.
+    expect(cardNames()).toHaveLength(1)
+    expect(await screen.findByText('30 €')).toBeTruthy()
+  })
+
+  it('revient à « Les deux » avec Tout effacer', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1), entry('OP01-002', 'jp', 1)],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: /^JP/ }))
+    expect(cardNames()).toHaveLength(1)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Tout effacer' })[0])
+    expect(cardNames()).toHaveLength(2)
+  })
+})
+
+/* Vue and Trier used to sit directly on the page as their own segmented rows; both
+   now live behind one filter button, the same shape Chercher and Recherchées already
+   use -- a control you cannot see from the closed button is one you forget you set,
+   so the button itself has to say when something other than the default is chosen. */
+describe('le bouton filtres sur la page collection', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('ne signale rien tant que Vue et Trier sont sur leur valeur par défaut', async () => {
+    mount([entry('OP01-001', 'en', 1, 10)], stats({ total_quantity: 1, distinct_cards: 1 }))
+    expect(await screen.findByRole('button', { name: 'Filtres' })).toBeTruthy()
+  })
+
+  it('signale Doubles une fois choisi, et l’efface avec Tout effacer', async () => {
+    mount([entry('OP01-001', 'en', 2, 10)], stats({ total_quantity: 2, distinct_cards: 1 }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtres' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Doubles' }))
+
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : Doubles' })).toBeTruthy()
+
+    // Two "Tout effacer" buttons exist while the sheet is open: the applied-filters
+    // row behind it, and the sheet's own footer. Either clears the same state.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Tout effacer' })[0])
+    expect(await screen.findByRole('button', { name: 'Filtres' })).toBeTruthy()
   })
 })

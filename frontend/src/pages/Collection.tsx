@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Edition } from '../components/Edition'
 import { InfoIcon, LinkIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
 import { ShareDialog } from '../components/ShareDialog'
@@ -11,14 +12,24 @@ import {
   PageHeader,
   Screen,
   Segmented,
+  Sheet,
   Sounding,
 } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
-import type { CollectionEntry, ValuePoint } from '../lib/types'
+import type { CollectionEntry, Language, ValuePoint } from '../lib/types'
 
-type Sort = 'recent' | 'set' | 'name' | 'price_asc' | 'price_desc'
+type Sort =
+  | 'date_desc'
+  | 'date_asc'
+  | 'set_asc'
+  | 'set_desc'
+  | 'price_asc'
+  | 'price_desc'
+  | 'rarity_asc'
+  | 'rarity_desc'
+  | 'doublon'
 type View = 'all' | 'doubles'
 
 /* The pile, not the card: quantity × market_price, the same total "Doubles" already
@@ -29,6 +40,31 @@ type View = 'all' | 'doubles'
 function pileValue(entry: CollectionEntry): number | null {
   const price = entry.card?.market_price
   return price == null ? null : entry.quantity * price
+}
+
+/* The game's own ladder (Common < Uncommon < Rare < SuperRare < SecretRare), decided
+   over the app's own filter-chip order when the two disagreed. Leader, Promo, Special
+   and TreasureRare sit outside that ladder entirely -- every deck holds exactly one
+   Leader, and Promo spans free giveaways to tournament prizes -- so they are placed
+   after SecretRare as the rarest tier rather than folded into the five-step scale,
+   Treasure Rare last as the game's actual chase rarity. */
+const RARITY_RANK: Record<string, number> = {
+  Common: 0, Uncommon: 1, Rare: 2, SuperRare: 3, SecretRare: 4,
+  Leader: 5, Promo: 6, Special: 7, TreasureRare: 8,
+}
+
+function rarityRank(entry: CollectionEntry): number | null {
+  const rarity = entry.card?.rarity
+  return rarity != null && rarity in RARITY_RANK ? RARITY_RANK[rarity] : null
+}
+
+/* The printed number, not the id string as a whole -- "OP01-010" has to land after
+   "OP01-009", which a plain string compare would get wrong the moment a set passes
+   nine cards. Variant suffixes (_p1, _r2) share their base card's number on purpose,
+   the same printing rather than a different slot in the set. */
+function cardNumber(entry: CollectionEntry): number {
+  const match = entry.card_id.match(/-(\d+)/)
+  return match ? parseInt(match[1], 10) : Number.POSITIVE_INFINITY
 }
 
 /* ── The plate ──────────────────────────────────────────────────────────────
@@ -43,11 +79,33 @@ function pileValue(entry: CollectionEntry): number | null {
 
 export function Collection() {
   const { entries, stats, ready } = useCollection()
-  const [sort, setSort] = useState<Sort>('recent')
+  const [sort, setSort] = useState<Sort>('date_desc')
   const [view, setView] = useState<View>('all')
+  const [language, setLanguage] = useState<Language | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
+
+  // What is on, in words, for the trigger that opens the sheet -- same reasoning as
+  // appliedLabels in Filters.tsx: a filter you cannot see from the closed button is
+  // one you forget you set.
+  const applied = [
+    language === 'en' ? 'INT' : language === 'jp' ? 'JP' : null,
+    view === 'doubles' ? 'Doubles' : null,
+    // date_desc is the default -- newest first, same as before this sort had a
+    // name of its own -- so only its opposite reads as a choice worth surfacing.
+    sort === 'date_asc' ? "Date d'ajout -" : null,
+    sort === 'set_asc' ? 'Extension croissante' : sort === 'set_desc' ? 'Extension décroissante' : null,
+    sort === 'price_desc' ? 'Valeur décroissante' : sort === 'price_asc' ? 'Valeur croissante' : null,
+    sort === 'rarity_desc' ? 'Plus rare' : sort === 'rarity_asc' ? 'Moins rare' : null,
+    sort === 'doublon' ? "Doublons d'abord" : null,
+  ].filter(Boolean) as string[]
+  const resetFilters = () => {
+    setView('all')
+    setSort('date_desc')
+    setLanguage(null)
+  }
 
   // Its own request rather than folded into useCollection: every other screen that
   // context feeds has no use for a time series, and a failure here should leave the
@@ -56,10 +114,22 @@ export function Collection() {
     api.collectionValueHistory().then(setValueHistory).catch(() => {})
   }, [])
 
+  // Applied before Vue and before Trier: which language is on the table decides
+  // what there is to view or sort in the first place. The header meta and the
+  // "Valeur estimée" total under Tout stay account-wide regardless -- the same
+  // choice already made for the Doubles view, which doesn't rescale them either.
+  const languageFiltered = useMemo(
+    () => (language ? entries.filter((entry) => entry.language === language) : entries),
+    [entries, language],
+  )
+
   /* What is worth trading: every card held more than once. The card you'd keep is
      never in this count — a stack of three shows two, because the base of a trade
      is what you can give away without emptying your own binder. */
-  const doubles = useMemo(() => entries.filter((entry) => entry.quantity > 1), [entries])
+  const doubles = useMemo(
+    () => languageFiltered.filter((entry) => entry.quantity > 1),
+    [languageFiltered],
+  )
 
   /* Both figures the doubles view needs, computed here rather than on the server:
      the collection is already loaded whole for every screen, and this is the only
@@ -79,14 +149,33 @@ export function Collection() {
     return { held, trade, priced }
   }, [doubles])
 
-  const source = view === 'doubles' ? doubles : entries
+  const source = view === 'doubles' ? doubles : languageFiltered
+
+  const isSet = sort === 'set_asc' || sort === 'set_desc'
 
   const groups = useMemo(() => {
     const sorted = [...source]
-    if (sort === 'name') {
-      sorted.sort((a, b) => (a.card?.name ?? a.card_id).localeCompare(b.card?.name ?? b.card_id))
-    } else if (sort === 'set') {
-      sorted.sort((a, b) => (a.card?.pack_code ?? 'zz').localeCompare(b.card?.pack_code ?? 'zz'))
+    if (sort === 'date_asc' || sort === 'date_desc') {
+      // date_added is never null -- every entry carries the day it landed in the
+      // binder -- so no absence case to push to the end here, unlike price/rareté.
+      sorted.sort((a, b) =>
+        sort === 'date_asc'
+          ? a.date_added.localeCompare(b.date_added)
+          : b.date_added.localeCompare(a.date_added),
+      )
+    } else if (isSet) {
+      // Extension first, then the printed number within it -- and the same
+      // direction flips both, the way flipping a real binder does: the last set
+      // and its last card lead, not the first set with its numbers reversed.
+      const dir = sort === 'set_asc' ? 1 : -1
+      sorted.sort((a, b) => {
+        const pa = a.card?.pack_code
+        const pb = b.card?.pack_code
+        if (pa == null) return pb == null ? 0 : 1
+        if (pb == null) return -1
+        const byPack = pa.localeCompare(pb) * dir
+        return byPack !== 0 ? byPack : (cardNumber(a) - cardNumber(b)) * dir
+      })
     } else if (sort === 'price_asc' || sort === 'price_desc') {
       sorted.sort((a, b) => {
         const va = pileValue(a)
@@ -95,8 +184,22 @@ export function Collection() {
         if (vb == null) return -1
         return sort === 'price_asc' ? va - vb : vb - va
       })
+    } else if (sort === 'rarity_asc' || sort === 'rarity_desc') {
+      sorted.sort((a, b) => {
+        const ra = rarityRank(a)
+        const rb = rarityRank(b)
+        if (ra == null) return rb == null ? 0 : 1
+        if (rb == null) return -1
+        return sort === 'rarity_asc' ? ra - rb : rb - ra
+      })
+    } else if (sort === 'doublon') {
+      // Highest stack first, not just a binary doubles-then-uniques split: a card
+      // held five times is more of a double than one held twice, and quantity
+      // descending already puts every quantity-1 entry last on its own -- no
+      // separate tie-break needed to get "doublons d'abord" right.
+      sorted.sort((a, b) => b.quantity - a.quantity)
     }
-    if (sort !== 'set') return [{ key: '', items: sorted }]
+    if (!isSet) return [{ key: '', items: sorted }]
 
     const buckets = new Map<string, typeof sorted>()
     for (const entry of sorted) {
@@ -105,12 +208,12 @@ export function Collection() {
       buckets.get(key)!.push(entry)
     }
     return [...buckets].map(([key, items]) => ({ key, items }))
-  }, [source, sort])
+  }, [source, sort, isSet])
 
   if (!ready) return <div className="pt-10"><Sounding label="Ouverture du journal" /></div>
 
   return (
-    <Screen>
+    <Screen className="scrollbar-desktop">
       <PageHeader
         title="Collection"
         meta={
@@ -119,13 +222,25 @@ export function Collection() {
             : undefined
         }
         action={
-          <div className="flex shrink-0">
+          <div className="flex shrink-0 gap-2">
             <button
               onClick={() => setShareOpen(true)}
               aria-label="Partager ma collection"
               className="flex size-11 items-center justify-center rounded-full text-[var(--text-secondary)]"
             >
               <LinkIcon className="size-5" />
+            </button>
+            <button
+              onClick={() => setFiltersOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'}
+              className="flex size-11 items-center justify-center rounded-full"
+              style={{
+                background: applied.length ? 'var(--gradient-sun)' : 'transparent',
+                color: applied.length ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
+              }}
+            >
+              <FilterIcon className="size-[18px]" />
             </button>
             <button
               onClick={() => setInfoOpen(true)}
@@ -137,6 +252,15 @@ export function Collection() {
           </div>
         }
       />
+
+      {applied.length > 0 && (
+        <div className="flex items-center gap-2 px-5 pb-2">
+          <p className="t-code min-w-0 flex-1 truncate">{applied.join(' · ')}</p>
+          <button onClick={resetFilters} className="t-code min-h-[var(--touch)] shrink-0 px-2">
+            Tout effacer
+          </button>
+        </div>
+      )}
 
       <ShareDialog
         open={shareOpen}
@@ -159,6 +283,12 @@ export function Collection() {
             que tu possèdes.
           </p>
           <p>
+            <strong style={{ color: 'var(--text-primary)' }}>Édition</strong> restreint
+            la liste à l'international, au japonais, ou aux deux. Le nombre de cartes en
+            haut de page et la valeur estimée restent ceux de tout le classeur, quelle
+            que soit l'édition choisie ici.
+          </p>
+          <p>
             <strong style={{ color: 'var(--text-primary)' }}>Tout / Doubles</strong> change
             quelles cartes sont listées. « Doubles » ne garde que celles possédées en
             plusieurs exemplaires, avec deux totaux distincts : <em>possédées</em> compte
@@ -167,10 +297,17 @@ export function Collection() {
           </p>
           <p>
             <strong style={{ color: 'var(--text-primary)' }}>Trier</strong> ordonne la
-            liste par date d'ajout, par extension, alphabétiquement, ou par valeur —
-            quantité × cote actuelle, pas le prix payé, et une carte non cotée reste
-            toujours en fin de liste. Ça ne change jamais quelles cartes sont
-            affichées, seulement leur ordre.
+            liste par date d'ajout, par extension puis numéro, par valeur —
+            quantité × cote actuelle, pas le prix payé —, ou par rareté, sur
+            l'échelle du jeu (Common à SecretRare, puis
+            Leader/Promo/Special/TreasureRare comme le palier le plus rare) — dans
+            les deux sens à chaque fois. « Doublons d'abord » met les piles les
+            plus hautes en tête sans rien cacher, à la différence de la vue
+            « Doubles » ci-dessus qui retire les exemplaires uniques de la liste.
+            Une carte sans extension connue, non
+            cotée, ou sans rareté connue reste toujours en fin de liste, quel que
+            soit le sens. Ça ne change jamais quelles cartes sont affichées,
+            seulement leur ordre.
           </p>
           <p>
             La <strong style={{ color: 'var(--text-primary)' }}>valeur estimée</strong> vient
@@ -204,20 +341,6 @@ export function Collection() {
         </div>
       ) : (
         <>
-          {/* A second axis from the sort below it, the way PackDetail's own view
-              selector sits apart from nothing to sort within a single set — here it
-              decides which cards are on the table at all before sort decides their
-              order. */}
-          <Segmented
-            value={view}
-            options={[
-              { value: 'all' as const, label: 'Tout' },
-              { value: 'doubles' as const, label: 'Doubles' },
-            ]}
-            onChange={setView}
-            label="Vue"
-          />
-
           {view === 'all' ? (
             /* What the shelf is worth, on the shelf itself. The log book carries the
                same figure beside what it cost and with the full caveat; here it is the
@@ -287,29 +410,6 @@ export function Collection() {
             )
           )}
 
-          <Segmented
-            value={sort}
-            options={[
-              { value: 'recent', label: 'Récentes' },
-              { value: 'set', label: 'Par extension' },
-              { value: 'name', label: 'A → Z' },
-            ]}
-            onChange={setSort}
-            label="Trier"
-          />
-          {/* A price sort is a different question from the three above, not a fifth
-              among them -- same reasoning as Filters.tsx's own price row. Neither of
-              those three segments reflecting as active while a price sort is chosen
-              is correct, not a bug. */}
-          <div className="flex gap-2 px-5 pt-2 pb-1">
-            <Chip active={sort === 'price_desc'} onClick={() => setSort('price_desc')}>
-              Valeur décroissante
-            </Chip>
-            <Chip active={sort === 'price_asc'} onClick={() => setSort('price_asc')}>
-              Valeur croissante
-            </Chip>
-          </div>
-
           {view === 'doubles' && doubles.length === 0 ? (
             <div className="pt-4">
               <EmptyState title="Aucun double pour l'instant">
@@ -337,7 +437,109 @@ export function Collection() {
           )}
         </>
       )}
+
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filtres"
+        footer={
+          <div className="flex gap-2">
+            <div className="shrink-0">
+              <Button variant="quiet" onClick={resetFilters} disabled={!applied.length}>
+                Tout effacer
+              </Button>
+            </div>
+            <Button full onClick={() => setFiltersOpen(false)}>
+              Voir {source.length.toLocaleString('fr')} carte{source.length > 1 ? 's' : ''}
+            </Button>
+          </div>
+        }
+      >
+        <Group label="Édition">
+          <Segmented
+            value={language ?? 'all'}
+            options={[
+              { value: 'all' as const, label: 'Les deux' },
+              { value: 'en' as const, label: <Edition language="en" /> },
+              { value: 'jp' as const, label: <Edition language="jp" /> },
+            ]}
+            onChange={(next) => setLanguage(next === 'all' ? null : (next as Language))}
+            label="Édition"
+          />
+        </Group>
+
+        <Group label="Vue">
+          <Segmented
+            value={view}
+            options={[
+              { value: 'all' as const, label: 'Tout' },
+              { value: 'doubles' as const, label: 'Doubles' },
+            ]}
+            onChange={setView}
+            label="Vue"
+          />
+        </Group>
+
+        {/* Every direction shares one flat row of chips rather than a segmented
+            control -- nine values, four opposite pairs and one on its own, and a
+            segmented control built for nine entries would each shrink to a
+            sliver. All nine share the same `sort` state, so only one is ever
+            active regardless of how they're grouped visually. */}
+        <Group label="Trier">
+          <Chip active={sort === 'date_desc'} onClick={() => setSort('date_desc')}>
+            Date d'ajout +
+          </Chip>
+          <Chip active={sort === 'date_asc'} onClick={() => setSort('date_asc')}>
+            Date d'ajout -
+          </Chip>
+          <Chip active={sort === 'set_asc'} onClick={() => setSort('set_asc')}>
+            Extension croissante
+          </Chip>
+          <Chip active={sort === 'set_desc'} onClick={() => setSort('set_desc')}>
+            Extension décroissante
+          </Chip>
+          <Chip active={sort === 'price_desc'} onClick={() => setSort('price_desc')}>
+            Valeur décroissante
+          </Chip>
+          <Chip active={sort === 'price_asc'} onClick={() => setSort('price_asc')}>
+            Valeur croissante
+          </Chip>
+          <Chip active={sort === 'rarity_desc'} onClick={() => setSort('rarity_desc')}>
+            Plus rare
+          </Chip>
+          <Chip active={sort === 'rarity_asc'} onClick={() => setSort('rarity_asc')}>
+            Moins rare
+          </Chip>
+          <Chip active={sort === 'doublon'} onClick={() => setSort('doublon')}>
+            Doublons d'abord
+          </Chip>
+        </Group>
+      </Sheet>
     </Screen>
+  )
+}
+
+/* Wrapped rather than scrolled sideways, the same reasoning as Filters.tsx's own
+   Group: in a sheet there is room to show every option at once. */
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="pt-5 first:pt-2">
+      <h3 className="t-eyebrow pb-2.5">{label}</h3>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </section>
+  )
+}
+
+function FilterIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
+      <path
+        d="M3 5h14M6 10h8M8.5 15h3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 

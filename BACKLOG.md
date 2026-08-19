@@ -28,6 +28,16 @@ Deux tâches ajoutées en cours de route, à faire après la liste ci-dessus :
   ou si le seuil doit être recalibré.
 - **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
   tests existants plutôt qu'en un seul balayage. Pas commencée.
+- **Chercher une carte à partir d'une image** (importée depuis l'appareil, ou
+  collée depuis le presse-papiers) sur la page Chercher. Demandé le 2026-08-18,
+  pas encore commencé. Probablement pas une brique neuve : Scan identifie déjà
+  une carte par pHash calculé séparément sur R/G/B (`RECHERCHE-SCAN.md`), ce qui
+  manque ici n'est qu'une deuxième entrée vers la même reconnaissance — un
+  fichier choisi ou collé plutôt qu'une capture caméra en direct — qui retombe
+  sur Chercher avec le résultat plutôt que sur un ajout direct à la collection.
+  À vérifier avant de coder : si le point d'entrée serveur du scan suppose une
+  image caméra (recadrage, format) d'une façon qu'un import ou un collage ne
+  respecterait pas forcément.
 
 ---
 
@@ -46,6 +56,43 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Refonte de la page Collection.** Liste de huit demandes le 2026-08-19, traitée
+  une tâche à la fois avec validation avant de passer à la suivante :
+  - Filtre alphabétique (« A → Z ») supprimé.
+  - Tous les contrôles (Édition, Vue, Trier) regroupés derrière un bouton
+    Filtres qui ouvre une feuille, la même forme que Chercher et Recherchées —
+    Vue et Trier vivaient jusque-là en rangées fixes sur la page.
+  - **Tri par rareté** (« Plus rare » / « Moins rare »), sur l'échelle du jeu
+    tranchée par question posée : Common < Uncommon < Rare < SuperRare <
+    SecretRare, puis Leader/Promo/Special/TreasureRare comme palier le plus
+    rare, TreasureRare en dernier.
+  - **Tri par extension et numéro**, dans les deux sens à la fois : le numéro
+    imprimé est extrait de l'id (`cardNumber`) et comparé numériquement, pas en
+    chaîne — « OP01-010 » ne passait pas toujours après « OP01-009 » sinon, dès
+    qu'un set dépasse neuf cartes. Inverser le sens retourne l'extension et le
+    numéro ensemble, comme on retournerait un vrai classeur.
+  - « Récentes » devient **« Date d'ajout + » / « Date d'ajout - »**, le même
+    principe bidirectionnel que les autres tris.
+  - **Tri « Doublons d'abord »** : pile la plus haute en tête, sans rien
+    masquer — à la différence de la vue Doubles déjà existante, qui retire les
+    exemplaires uniques de la liste.
+  - **Filtre Édition** (INT / JP / les deux). Décision prise et tenue : le
+    nombre de cartes en en-tête et la « Valeur estimée » sous Tout restent
+    ceux de tout le classeur quelle que soit l'édition choisie, le même choix
+    déjà fait pour la vue Doubles qui ne les recalcule pas non plus. La vue
+    Doubles elle-même doit en revanche respecter le filtre — sa liste ET son
+    total sont calculés côté client à partir de ce qui est réellement affiché,
+    sans quoi les deux se seraient mis à se contredire.
+  - **Scrollbar visible sur la version web** (≥ 1024px), sur cette page
+    seulement — une classe `scrollbar-desktop` combinée à `.no-scrollbar`
+    plutôt qu'un changement du composant `Screen` partagé par tout le reste de
+    l'app, pour ne rien changer ailleurs.
+  Chaque comparateur cassé exprès (sens inversé, prix unitaire au lieu de la
+  pile, mauvais champ) pour confirmer qu'un test le rattrape, avant d'être
+  rétabli. 128 tests client (16 nouveaux sur cette page), typecheck, lint et
+  build propres. Vérifié en direct sur la vraie collection du compte de
+  développement à chaque étape, scrollbar comprise (visible à 1280px, absente
+  à 375px et sur les autres pages).
 - **Anomalie des Promos corrigée.** Les extensions sans code imprimé n'ont pas
   de `pack_code` en catalogue — seul `pack_id`, la clé numérique interne de
   punk-records, les identifie. L'écran Extensions liait déjà ces pages par
