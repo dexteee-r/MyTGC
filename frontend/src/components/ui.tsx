@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useSkyScroll } from '../App'
 
 const CARD_COLOR: Record<string, string> = {
@@ -226,7 +226,15 @@ export function Stepper({
   )
 }
 
-/* A pill on the deck. The chosen one is lit; the others sit in the water. */
+/* A pill on the deck. The chosen one is lit; the others sit in the water.
+
+   Roving tabindex, per the ARIA APG Tabs pattern: only the selected pill is a Tab
+   stop, so landing here from outside costs one Tab press regardless of how many
+   options exist, and the arrow keys move (and, for a control this immediate,
+   select) among the rest -- the same automatic-activation model a native macOS
+   or iOS segmented control uses, matching the click handler's own immediate
+   effect rather than requiring a separate confirm step arrow-key movement
+   would not otherwise have. */
 export function Segmented<T extends string>({
   value,
   options,
@@ -238,6 +246,27 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void
   label?: string
 }) {
+  const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const current = options.findIndex((option) => option.value === value)
+    let next: number | null = null
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      next = (current + 1) % options.length
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      next = (current - 1 + options.length) % options.length
+    } else if (event.key === 'Home') {
+      next = 0
+    } else if (event.key === 'End') {
+      next = options.length - 1
+    }
+    if (next === null) return
+    event.preventDefault()
+    onChange(options[next].value)
+    const tabs = event.currentTarget
+      .closest('[role="tablist"]')
+      ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+    tabs?.[next]?.focus()
+  }
+
   return (
     <div
       role="tablist"
@@ -252,7 +281,9 @@ export function Segmented<T extends string>({
             key={option.value}
             role="tab"
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
             onClick={() => onChange(option.value)}
+            onKeyDown={onKeyDown}
             style={{
               background: active ? 'var(--color-paper-100)' : 'transparent',
               color: active ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
@@ -309,25 +340,67 @@ export function Chip({
    What it holds is secondary to what is behind it, which is why it is a sheet and
    not a permanent strip: a control touched occasionally should not spend the rest
    of the session taking up the space the results need. */
-/* Escape-to-close and the scroll lock, shared by every full-screen overlay. Kept in
-   one place because Sheet and Dialog would otherwise drift — one gaining a fix the
-   other never gets, discovered only when whichever screen uses the other breaks. */
-function useOverlayBehavior(open: boolean, onClose: () => void) {
+/* Escape-to-close, the scroll lock, and focus management, shared by every
+   full-screen overlay. Kept in one place because Sheet and Dialog would otherwise
+   drift — one gaining a fix the other never gets, discovered only when whichever
+   screen uses the other breaks.
+
+   `aria-modal="true"` on the container is a promise: focus starts inside, Tab
+   never reaches the page underneath, and closing gives the trigger its focus
+   back. Without this a keyboard user who opens a sheet keeps tabbing through
+   whatever the overlay is covering, dimmed but still in the tab order. */
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]),' +
+  ' select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function useOverlayBehavior(
+  open: boolean,
+  onClose: () => void,
+  containerRef: RefObject<HTMLElement | null>,
+) {
   useEffect(() => {
     if (!open) return
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const container = containerRef.current
+      if (!container) return
+      const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      // Wrap at the ends rather than letting Tab escape the overlay -- that
+      // escape is exactly what "modal" means to promise and not deliver.
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
+
+    // The container itself, not its first button -- a Sheet's meaningful first
+    // stop is its title, read out immediately via aria-label, not whichever
+    // control happens to come first in the markup.
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    containerRef.current?.focus()
+
     // The page behind must not scroll under the overlay — on a phone that reads as
     // the page having jumped once it closes.
-    const previous = document.body.style.overflow
+    const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previous
+      document.body.style.overflow = previousOverflow
+      previouslyFocused?.focus()
     }
-  }, [open, onClose])
+  }, [open, onClose, containerRef])
 }
 
 // The theme-isolation variables every overlay's card needs, regardless of where it
@@ -353,7 +426,8 @@ export function Sheet({
   children: ReactNode
   footer?: ReactNode
 }) {
-  useOverlayBehavior(open, onClose)
+  const containerRef = useRef<HTMLDivElement>(null)
+  useOverlayBehavior(open, onClose, containerRef)
 
   if (!open) return null
 
@@ -361,10 +435,12 @@ export function Sheet({
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="hz-enter relative max-h-[82%] overflow-y-auto rounded-t-[22px] pb-[env(safe-area-inset-bottom)]"
+        tabIndex={-1}
+        className="hz-enter relative max-h-[82%] overflow-y-auto rounded-t-[22px] pb-[env(safe-area-inset-bottom)] outline-none"
         style={{ background: 'var(--color-sea-900)', boxShadow: 'var(--shadow-deck)', ...OVERLAY_THEME }}
       >
         <header
@@ -413,7 +489,8 @@ export function Dialog({
   title: string
   children: ReactNode
 }) {
-  useOverlayBehavior(open, onClose)
+  const containerRef = useRef<HTMLDivElement>(null)
+  useOverlayBehavior(open, onClose, containerRef)
 
   if (!open) return null
 
@@ -421,10 +498,12 @@ export function Dialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
       <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="hz-enter relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-[22px] p-5"
+        tabIndex={-1}
+        className="hz-enter relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-[22px] p-5 outline-none"
         style={{ background: 'var(--color-sea-900)', boxShadow: 'var(--shadow-deck)', ...OVERLAY_THEME }}
       >
         <div className="flex items-center justify-between gap-4 pb-3">

@@ -208,13 +208,33 @@ function Shell() {
              across the viewport reads as a layout that ran out. */
           className="flex h-full flex-col"
         >
+          {/* TabBar sits before main in the DOM on every screen (needed on desktop,
+              where lg:order-first puts it above main visually too) -- on a phone,
+              where CSS alone moves it to the bottom, a keyboard user would still
+              tab through all six links before ever reaching the page. This is the
+              standard bypass for that: invisible until it holds focus, then the
+              first stop of all, jumping straight to main. */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-full focus:px-4 focus:py-2 focus:text-sm focus:font-semibold"
+            style={{ background: 'var(--gradient-sun)', color: 'var(--color-paper-ink)' }}
+          >
+            Aller au contenu
+          </a>
           <TabBar />
           {/* Keyed by pathname, so a crash caught here resets the moment someone taps
               a different tab: ErrorBoundary's own state lives on this element, and
               the key change unmounts and remounts it along with everything else,
-              which is what "Réessayer" would otherwise have to do by hand. */}
+              which is what "Réessayer" would otherwise have to do by hand.
+
+              tabIndex={-1}: a fragment link scrolls to an element but does not focus
+              it unless the target can take focus itself -- without this, the skip
+              link would jump the page down without moving where Tab resumes from,
+              defeating the point. */}
           <main
             key={pathname}
+            id="main-content"
+            tabIndex={-1}
             className="hz-enter mx-auto min-h-0 w-full min-w-0 max-w-2xl flex-1 pt-[env(safe-area-inset-top)] lg:max-w-5xl lg:pt-0"
           >
             <ErrorBoundary>

@@ -13,11 +13,9 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 **Vers une V1 complète.** Liste longue proposée le 2026-08-16, traitée une tâche à la
 fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
 
-Restent, dans l'ordre convenu :
-- Passe d'accessibilité (clavier, focus visibles, contrastes) — en dernier, une fois
-  que le reste ne bougera plus
+Passe d'accessibilité faite le 2026-08-19, voir « Fait ». Restent :
 
-Deux tâches ajoutées en cours de route, à faire après la liste ci-dessus :
+Deux tâches ajoutées en cours de route :
 - **Nettoyer le projet** : code mort, fichiers inutiles. Fait le 2026-08-17, voir
   « Fait » — les scripts d'analyse et de calibration sous `backend/scripts/`
   passés en revue un par un : `migrate_multiuser.py` supprimé (migration one-shot
@@ -56,6 +54,45 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Passe d'accessibilité** (clavier, focus visibles, contrastes), la dernière
+  tâche de la liste V1. Auditée d'abord plutôt que devinée — les points
+  marqués « à vérifier » par l'audit recalculés à la main avant de coder quoi
+  que ce soit, pour ne pas corriger des faux positifs : le contraste du texte
+  secondaire dans les feuilles de filtres (5,16:1) et le voile « soft » des
+  pages en variante `deep` (14:1 dans le pire cas) passent largement le seuil
+  AA, et `outline-none` sur 17 champs de formulaire ne supprime en fait rien
+  — la règle `:focus-visible` globale n'est dans aucun `@layer`, et les
+  cascade layers CSS garantissent qu'une règle hors-layer l'emporte toujours
+  sur une règle Tailwind, quel que soit l'ordre. Quatre correctifs réels
+  restaient :
+  - **Feuilles de filtres et fenêtres modales** (`Sheet`/`Dialog` dans
+    `ui.tsx`) : le focus ne se déplaçait jamais à l'ouverture, n'était jamais
+    restitué au déclencheur à la fermeture, et rien n'empêchait Tab de sortir
+    vers le contenu masqué derrière — `aria-modal="true"` promettait un
+    comportement que le code ne fournissait pas. Un seul correctif dans
+    `useOverlayBehavior` profite à tout ce qui l'utilise (Collection,
+    Chercher, Recherchées, partage).
+  - **Lien d'évitement** « Aller au contenu », invisible jusqu'au focus,
+    sautant directement au contenu de la page en contournant les 6 liens de
+    navigation.
+  - **Bouton imbriqué dans un lien** (`CardGrid.tsx`) : le bouton « Ajouter
+    aux recherchées » vivait à l'intérieur du lien qui ouvre la fiche carte —
+    HTML invalide (contenu interactif dans contenu interactif), source de
+    confusion pour un lecteur d'écran. Devenu un frère du lien plutôt qu'un
+    enfant.
+  - **Navigation aux flèches dans les onglets** (`Segmented`) : tabindex
+    tournant (un seul onglet actif est un arrêt de tabulation) et flèches
+    gauche/droite/haut/bas qui déplacent et sélectionnent immédiatement,
+    Début/Fin compris, conforme au patron ARIA APG Tabs.
+  15 nouveaux tests, chaque comportement cassé exprès puis rétabli pour
+  confirmer qu'un test le rattrape. Deux vérifications restées honnêtement
+  incertaines en direct : ce navigateur automatisé n'a pas de vrai focus de
+  fenêtre (`document.hasFocus()` renvoie `false`), donc `:focus` ne s'y
+  déclenche jamais quel que soit le code — le lien d'évitement et le suivi
+  visuel du focus dans les onglets sont prouvés corrects par les tests
+  unitaires (qui vérifient `document.activeElement` de façon fiable en
+  environnement isolé) plutôt que par une capture d'écran, en attendant une
+  confirmation manuelle.
 - **Les filtres de la Collection survivent à un aller-retour vers une fiche
   carte.** Bug remonté le 2026-08-19 : ouvrir une carte depuis la Collection
   puis faire « Retour » revenait bien sur `/collection`, mais Édition, Vue et

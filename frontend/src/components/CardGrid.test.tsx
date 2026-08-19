@@ -85,4 +85,17 @@ describe('card tile', () => {
       '/card/OP01-001?language=en',
     )
   })
+
+  it('le bouton « ajouter aux recherchées » n’est pas imbriqué dans le lien de la carte', async () => {
+    // Interactive content inside interactive content -- a button inside an anchor
+    // -- is invalid HTML, and leaves a screen reader with no good way to say
+    // which one it just announced. The button has to be a sibling of the link,
+    // never a descendant of it.
+    mount([])
+    const link = await screen.findByRole('link')
+    expect(link.querySelector('button')).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Ajouter Monkey.D.Luffy aux recherchées' }),
+    ).toBeInTheDocument()
+  })
 })
