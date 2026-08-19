@@ -56,6 +56,19 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Les filtres de la Collection survivent à un aller-retour vers une fiche
+  carte.** Bug remonté le 2026-08-19 : ouvrir une carte depuis la Collection
+  puis faire « Retour » revenait bien sur `/collection`, mais Édition, Vue et
+  la combinaison de tris repartaient à zéro — React Router démonte l'écran en
+  quittant la page et le remonte au retour, et ce state vivait uniquement
+  dans des `useState` locaux. Même mécanisme que Chercher et Extensions
+  (`Packs.tsx`) : une variable de module (`left`) qui survit au
+  démontage/remontage tant que l'onglet reste ouvert, sans rien persister
+  au-delà. 2 nouveaux tests, dont un qui démonte puis remonte le composant
+  pour de vrai plutôt que de ne rester que dans un seul montage — le seul
+  moyen de faire échouer ce genre de correctif s'il avait été codé sans
+  effet. Vérifié en direct : JP + Doublons d'abord appliqués, ouverture d'une
+  carte, Retour, toujours filtré.
 - **Tri par date d'ajout regroupé en rangées, et tris combinables sur la page
   Collection.** Deux demandes le 2026-08-19, après la refonte ci-dessous.
   Trier par date d'ajout regroupe désormais la liste en rangées, une par jour

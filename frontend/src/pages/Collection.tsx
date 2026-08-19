@@ -148,15 +148,59 @@ function compareCriterion(c: SortCriterion, a: CollectionEntry, b: CollectionEnt
    material, not a defect to crop out, and it is the full portrait silhouette that
    makes a plate read as a page rather than as a row of tiles.                       */
 
+/* Where you were a moment ago, not something to remember about you — so a module
+   variable, the way Chercher keeps its query and Extensions keeps its family and
+   order. It dies with the tab, and anything worth persisting properly lives on
+   the account instead.
+
+   Opening a card unmounts this screen, and coming back from it with "Retour" is
+   the whole point of the filters: narrow the collection, open a card, come back
+   to the same narrowed list. Without this the filters silently reset on every
+   return trip, which is to say exactly when they were being used. */
+let left: { view: View; language: Language | null; sortChain: SortCriterion[] } = {
+  view: 'all',
+  language: null,
+  sortChain: DEFAULT_SORT,
+}
+
+/* Test-only: a fresh `render()` in Vitest still shares this module's `left` with
+   every earlier test in the same file, unlike a real reload -- without resetting
+   it between tests, whichever filters the previous test left active would leak
+   into the next one's starting state. */
+export function resetCollectionMemory() {
+  left = { view: 'all', language: null, sortChain: DEFAULT_SORT }
+}
+
 export function Collection() {
   const { entries, stats, ready } = useCollection()
-  const [sortChain, setSortChain] = useState<SortCriterion[]>(DEFAULT_SORT)
-  const [view, setView] = useState<View>('all')
-  const [language, setLanguage] = useState<Language | null>(null)
+  const [sortChain, setSortChainState] = useState<SortCriterion[]>(left.sortChain)
+  const [view, setViewState] = useState<View>(left.view)
+  const [language, setLanguageState] = useState<Language | null>(left.language)
   const [infoOpen, setInfoOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
+
+  /* Written on the way through rather than in an effect: StrictMode mounts
+     effects twice in dev, and this only ever needs to record a choice as it is
+     made. */
+  const setView = (next: View) => {
+    left.view = next
+    setViewState(next)
+  }
+  const setLanguage = (next: Language | null) => {
+    left.language = next
+    setLanguageState(next)
+  }
+  const setSortChain = (
+    update: SortCriterion[] | ((chain: SortCriterion[]) => SortCriterion[]),
+  ) => {
+    setSortChainState((chain) => {
+      const next = typeof update === 'function' ? update(chain) : update
+      left.sortChain = next
+      return next
+    })
+  }
 
   /* Clicking a chip that isn't in the chain yet appends it -- lowest priority,
      joining an existing combo rather than displacing it. Clicking the SAME
@@ -579,11 +623,6 @@ export function Collection() {
             belong to a different one entirely (any number can hold at once).
             The number on an active chip is its rank in the chain, shown only
             once there is more than one to rank. */}
-        <p className="t-code pb-1 text-[var(--text-secondary)]">
-          Active plusieurs critères pour les combiner : le premier choisi est
-          prioritaire, les suivants ne départagent que ses égalités.
-        </p>
-
         <Group label="Date d'ajout">
           {sortChip('date', 'desc', "Date d'ajout +")}
           {sortChip('date', 'asc', "Date d'ajout -")}

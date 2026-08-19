@@ -6,7 +6,14 @@ import { CollectionProvider } from '../lib/collection'
 import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
 import type { Card, CollectionEntry, CollectionStats } from '../lib/types'
-import { Collection } from './Collection'
+import { Collection, resetCollectionMemory } from './Collection'
+
+// The filters now survive a real unmount/remount (so "Retour" from a card comes
+// back to the same narrowed list) via a module-level variable -- which a fresh
+// `render()` in the same test file does not get for free the way a real page
+// load would. Reset before every test so one test's filters can never leak into
+// the next one's starting state.
+beforeEach(() => resetCollectionMemory())
 
 /* The shelf shows what it is worth. The figure never covers the whole binder — the
    Japanese printing has no price feed and some alternate arts are deliberately
@@ -606,6 +613,31 @@ describe('combiner plusieurs tris', () => {
     // The only active criterion, turned off -- not left with nothing to sort by.
     fireEvent.click(dialog.getByRole('button', { name: /Extension croissante/ }))
     expect(cardNames()[0]).toContain('OP01-002') // back to newest first, the default
+  })
+})
+
+/* Opening a card from here unmounts this screen -- React Router's own behaviour,
+   not something this page can opt out of -- and "Retour" on the card sheet comes
+   back to a freshly-mounted Collection. Before the module-level `left` variable,
+   every filter reset silently on that trip, right when they were most in the
+   way: narrow the list, open a card, come back to the unfiltered whole again. */
+describe('les filtres survivent à un aller-retour sur une fiche carte', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('un aller-retour vers une fiche carte ne réinitialise pas les filtres', async () => {
+    const { unmount } = mount(
+      [entry('OP01-001', 'jp', 1)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: /^JP/ }))
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : JP' })).toBeTruthy()
+
+    // The unmount/remount a real "open a card, then Retour" round trip causes.
+    unmount()
+    mount([entry('OP01-001', 'jp', 1)], stats({ total_quantity: 1, distinct_cards: 1 }))
+
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : JP' })).toBeTruthy()
   })
 })
 
