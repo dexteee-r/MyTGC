@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../lib/auth'
@@ -52,6 +52,27 @@ function entryInSet(cardId: string, packCode: string | null): CollectionEntry {
   return {
     id: cardId.length, card_id: cardId, language: 'en', quantity: 1, condition: null,
     date_added: '2026-01-01', acquisition_price: null, notes: null, card,
+  }
+}
+
+function comboEntry(over: {
+  id: string
+  packCode?: string | null
+  quantity?: number
+  marketPrice?: number | null
+  dateAdded?: string
+}): CollectionEntry {
+  const card: Card = {
+    id: over.id, language: 'en', name: over.id, pack_id: '1',
+    pack_code: over.packCode ?? null, pack_name: null,
+    rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
+    attributes: [], types: [], effect: null, trigger: null, release_date: null,
+    market_price: over.marketPrice ?? null, image_url: null, printings: [],
+  }
+  return {
+    id: over.id.length, card_id: over.id, language: 'en', quantity: over.quantity ?? 1,
+    condition: null, date_added: over.dateAdded ?? '2026-01-01', acquisition_price: null,
+    notes: null, card,
   }
 }
 
@@ -359,6 +380,29 @@ describe("tri par date d'ajout", () => {
     expect(names[0]).toContain('OP01-001')
     expect(names[1]).toContain('OP01-002')
   })
+
+  it('regroupe la liste en rangées, une par jour, deux cartes du même jour dans la même rangée', async () => {
+    mount(
+      [
+        entryOnDate('OP01-001', '2026-06-15'),
+        entryOnDate('OP01-002', '2026-06-15'),
+        entryOnDate('OP01-003', '2026-01-01'),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('button', { name: "Date d'ajout +" }))
+
+    expect(await screen.findByText('15 juin 2026')).toBeTruthy()
+    expect(screen.getByText('1 janvier 2026')).toBeTruthy()
+
+    const rows = [...document.querySelectorAll('section')].filter(
+      (section) => section.querySelector('a[aria-label*="en collection"]'),
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0].querySelectorAll('a[aria-label*="en collection"]')).toHaveLength(2)
+    expect(rows[1].querySelectorAll('a[aria-label*="en collection"]')).toHaveLength(1)
+  })
 })
 
 /* Extension puis numéro, dans le même sens -- flipping the direction flips both
@@ -414,6 +458,154 @@ describe('tri par extension et numéro', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Extension décroissante' }))
     expect(cardNames().at(-1)).toContain('OP01-001')
+  })
+})
+
+/* Each sort dimension is now independent rather than mutually exclusive -- asked
+   specifically so several could combine, first-activated as the primary key and
+   later ones only breaking its ties, a spreadsheet-style multi-column sort. */
+describe('combiner plusieurs tris', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const cardNames = () =>
+    screen.getAllByRole('link', { name: /en collection/ }).map((el) => el.getAttribute('aria-label'))
+
+  // Scoped to the sheet: once several criteria are active, the filter TRIGGER
+  // button's own aria-label lists them too ("Filtres actifs : ..."), and an
+  // unscoped query would match both it and the chip.
+  const openFilters = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    return within(await screen.findByRole('dialog'))
+  }
+
+  it('le premier critère activé classe, le second ne départage que ses égalités', async () => {
+    // A single, B and C doubled -- "Doublons d'abord" alone ties B and C, and
+    // "Date d'ajout -" as the second criterion breaks that tie: oldest first.
+    mount(
+      [
+        comboEntry({ id: 'OP01-001', quantity: 1, dateAdded: '2026-06-01' }),
+        comboEntry({ id: 'OP01-002', quantity: 3, dateAdded: '2026-06-01' }),
+        comboEntry({ id: 'OP01-003', quantity: 3, dateAdded: '2026-01-01' }),
+      ],
+      stats({ total_quantity: 7, distinct_cards: 3 }),
+    )
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Doublons d'abord/ }))
+    fireEvent.click(dialog.getByRole('button', { name: /Date d'ajout -/ }))
+
+    expect(cardNames()).toEqual([
+      expect.stringContaining('OP01-003'), // double, older
+      expect.stringContaining('OP01-002'), // double, newer
+      expect.stringContaining('OP01-001'), // the single, last regardless
+    ])
+  })
+
+  it("changer le sens d'un critère déjà actif le laisse à sa place dans la combinaison", async () => {
+    mount(
+      [
+        comboEntry({ id: 'OP01-001', packCode: 'OP-01', marketPrice: 5 }),
+        comboEntry({ id: 'OP01-002', packCode: 'OP-01', marketPrice: 20 }),
+        comboEntry({ id: 'OP02-001', packCode: 'OP-02', marketPrice: 1 }),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Extension croissante/ }))
+    fireEvent.click(dialog.getByRole('button', { name: /Valeur décroissante/ }))
+    // Extension still primary, ascending: OP-01's two cards (by value within)
+    // lead, OP-02 trails.
+    expect(cardNames()).toEqual([
+      expect.stringContaining('OP01-002'),
+      expect.stringContaining('OP01-001'),
+      expect.stringContaining('OP02-001'),
+    ])
+
+    // Flipping the already-active Extension criterion to décroissant keeps it
+    // primary -- it reorders which extension leads, but Valeur still only
+    // breaks ties inside each one.
+    fireEvent.click(dialog.getByRole('button', { name: /Extension décroissante/ }))
+    expect(cardNames()).toEqual([
+      expect.stringContaining('OP02-001'),
+      expect.stringContaining('OP01-002'),
+      expect.stringContaining('OP01-001'),
+    ])
+  })
+
+  it('les rangées groupées disparaissent dès qu’un second critère rejoint la combinaison', async () => {
+    mount(
+      [
+        comboEntry({ id: 'OP01-001', packCode: 'OP-01', marketPrice: 5 }),
+        comboEntry({ id: 'OP01-002', packCode: 'OP-01', marketPrice: 20 }),
+        comboEntry({ id: 'OP02-001', packCode: 'OP-02', marketPrice: 1 }),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Extension croissante/ }))
+    expect(await screen.findByText('OP-01')).toBeTruthy()
+
+    fireEvent.click(dialog.getByRole('button', { name: /Valeur décroissante/ }))
+    expect(screen.queryByText('OP-01')).toBeNull()
+    expect(cardNames()).toEqual([
+      expect.stringContaining('OP01-002'),
+      expect.stringContaining('OP01-001'),
+      expect.stringContaining('OP02-001'),
+    ])
+  })
+
+  it('désactiver un critère de la combinaison laisse l’autre actif', async () => {
+    mount(
+      [
+        comboEntry({ id: 'OP01-001', quantity: 1, dateAdded: '2026-06-01' }),
+        comboEntry({ id: 'OP01-002', quantity: 3, dateAdded: '2026-01-01' }),
+      ],
+      stats({ total_quantity: 4, distinct_cards: 2 }),
+    )
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Doublons d'abord/ }))
+    fireEvent.click(dialog.getByRole('button', { name: /Date d'ajout -/ }))
+    expect(cardNames()[0]).toContain('OP01-002')
+
+    // Turning Doublons back off leaves Date d'ajout - alone in the chain,
+    // rather than resetting everything to the default.
+    fireEvent.click(dialog.getByRole('button', { name: /Doublons d'abord/ }))
+    expect(cardNames()[0]).toContain('OP01-002') // still the older card, first
+  })
+
+  it('le badge de priorité apparaît seulement à partir de deux critères actifs', async () => {
+    mount(
+      [comboEntry({ id: 'OP01-001', quantity: 3 })],
+      stats({ total_quantity: 3, distinct_cards: 1 }),
+    )
+    const dialog = await openFilters()
+    const doublon = dialog.getByRole('button', { name: /Doublons d'abord/ })
+    fireEvent.click(doublon)
+    expect(doublon.textContent).toBe("Doublons d'abord")
+
+    fireEvent.click(dialog.getByRole('button', { name: /Date d'ajout -/ }))
+    expect(doublon.textContent).toBe("Doublons d'abord1")
+  })
+
+  it('désactiver le seul critère actif ramène au tri par défaut plutôt qu’à un ordre vide', async () => {
+    // Card numbers deliberately disagree with the dates: OP01-001 (the lower
+    // number) is the OLDER card. A regression that left the chain empty instead
+    // of falling back to the default would still sort by the number tiebreak
+    // alone and land on OP01-001 here too, hiding behind a coincidence -- this
+    // is why the number and the date cannot agree on the same winner.
+    mount(
+      [
+        comboEntry({ id: 'OP01-002', packCode: 'OP-02', dateAdded: '2026-06-01' }),
+        comboEntry({ id: 'OP01-001', packCode: 'OP-01', dateAdded: '2026-01-01' }),
+      ],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Extension croissante/ }))
+    expect(cardNames()[0]).toContain('OP01-001') // OP-01 leads, ascending
+
+    // The only active criterion, turned off -- not left with nothing to sort by.
+    fireEvent.click(dialog.getByRole('button', { name: /Extension croissante/ }))
+    expect(cardNames()[0]).toContain('OP01-002') // back to newest first, the default
   })
 })
 

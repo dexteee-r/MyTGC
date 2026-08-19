@@ -56,6 +56,36 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Tri par date d'ajout regroupé en rangées, et tris combinables sur la page
+  Collection.** Deux demandes le 2026-08-19, après la refonte ci-dessous.
+  Trier par date d'ajout regroupe désormais la liste en rangées, une par jour
+  — même mécanique que « Par extension », même format de date que « Ajoutée
+  le » sur la fiche carte (jour, mois en toutes lettres, année), pour ne pas
+  inventer une deuxième convention pour le même fait.
+  Chaque catégorie de tri (Date d'ajout, Extension, Valeur, Rareté, Doublons)
+  a sa propre rangée dans la feuille de filtres, et plusieurs peuvent être
+  actives à la fois — demandé explicitement pour construire des combinaisons.
+  Tranché par question posée : le premier critère activé classe la liste, les
+  suivants ne départagent que ses égalités, dans l'ordre où ils ont été
+  choisis (pas un ordre fixe) ; les rangées groupées (extension ou date)
+  n'apparaissent que quand ce critère est seul actif, une section qu'un
+  deuxième critère réordonnerait en douce à l'intérieur aurait affiché un
+  regroupement qui mentait sur son propre tri. Un badge de rang (1, 2…)
+  apparaît sur les puces actives, mais seulement à partir de deux critères —
+  un badge « 1 » sur une puce seule n'aurait rien dit d'utile.
+  Un vrai bug trouvé en construisant les combinaisons, pas visible avant :
+  « Extension croissante/décroissante » triait déjà par numéro de carte à
+  l'intérieur de son propre critère, ce qui aurait empêché toute combinaison
+  de fonctionner (le critère suivant n'aurait jamais eu l'occasion de
+  départager quoi que ce soit). Le numéro devient un dernier départage
+  implicite de toute la chaîne plutôt qu'une partie du critère Extension.
+  Chaque correctif cassé exprès puis rétabli pour confirmer qu'un test le
+  rattrape : le repli par défaut quand le dernier critère actif est désactivé
+  (sans quoi la liste se serait retrouvée sans aucun ordre), le remplacement
+  du tri par défaut au premier clic plutôt qu'un ajout dessus, et le
+  départage par numéro extrait de son critère d'origine. 135 tests client (6
+  nouveaux), typecheck et build propres, vérifié en direct sur la vraie
+  collection du compte de développement à chaque étape.
 - **Refonte de la page Collection.** Liste de huit demandes le 2026-08-19, traitée
   une tâche à la fois avec validation avant de passer à la suivante :
   - Filtre alphabétique (« A → Z ») supprimé.

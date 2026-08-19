@@ -20,16 +20,35 @@ import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
 import type { CollectionEntry, Language, ValuePoint } from '../lib/types'
 
-type Sort =
-  | 'date_desc'
-  | 'date_asc'
-  | 'set_asc'
-  | 'set_desc'
-  | 'price_asc'
-  | 'price_desc'
-  | 'rarity_asc'
-  | 'rarity_desc'
-  | 'doublon'
+/* Every sort dimension is now independent rather than one mutually-exclusive value:
+   asked specifically so several could combine into a spreadsheet-style multi-column
+   sort -- extension first, value second to break the ties within it, say. `doublon`
+   has no opposite direction (there is only "highest pile first"), so its own
+   direction field is never read; it exists only so the chain and the toggle
+   function share one shape instead of a special case for one entry. */
+type SortKey = 'date' | 'set' | 'price' | 'rarity' | 'doublon'
+type Direction = 'asc' | 'desc'
+interface SortCriterion {
+  key: SortKey
+  direction: Direction
+}
+
+// Newest first, alone -- the same default this page has always opened on, from
+// before "Récentes" even had two directions of its own.
+const DEFAULT_SORT: SortCriterion[] = [{ key: 'date', direction: 'desc' }]
+
+function isDefaultSort(chain: SortCriterion[]): boolean {
+  return chain.length === 1 && chain[0].key === 'date' && chain[0].direction === 'desc'
+}
+
+const SORT_LABEL: Record<SortKey, Record<Direction, string>> = {
+  date: { desc: "Date d'ajout +", asc: "Date d'ajout -" },
+  set: { asc: 'Extension croissante', desc: 'Extension décroissante' },
+  price: { desc: 'Valeur décroissante', asc: 'Valeur croissante' },
+  rarity: { desc: 'Plus rare', asc: 'Moins rare' },
+  doublon: { desc: "Doublons d'abord", asc: "Doublons d'abord" },
+}
+
 type View = 'all' | 'doubles'
 
 /* The pile, not the card: quantity × market_price, the same total "Doubles" already
@@ -67,6 +86,58 @@ function cardNumber(entry: CollectionEntry): number {
   return match ? parseInt(match[1], 10) : Number.POSITIVE_INFINITY
 }
 
+/* Spelled out, the same format the card sheet already uses for "Ajoutée le" --
+   one date format for the same fact everywhere it appears, not a second one
+   invented for this row header. */
+function formatDateHeader(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('fr', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+/* One criterion's own comparison, absence-last where absence is possible -- date
+   never is, every entry carries the day it landed in the binder. Chained by the
+   caller: the chain tries each criterion in priority order and stops at the first
+   one that actually tells the two apart, the way a multi-column spreadsheet sort
+   works. */
+function compareCriterion(c: SortCriterion, a: CollectionEntry, b: CollectionEntry): number {
+  switch (c.key) {
+    case 'date':
+      return c.direction === 'asc'
+        ? a.date_added.localeCompare(b.date_added)
+        : b.date_added.localeCompare(a.date_added)
+    case 'set': {
+      const pa = a.card?.pack_code
+      const pb = b.card?.pack_code
+      if (pa == null) return pb == null ? 0 : 1
+      if (pb == null) return -1
+      // The printed number is deliberately not compared here -- it is the
+      // chain's final, implicit tiebreak (see groups below), not part of this
+      // criterion itself, so an explicit second criterion in a combo still gets
+      // a turn at breaking the tie before the card number ever does.
+      return pa.localeCompare(pb) * (c.direction === 'asc' ? 1 : -1)
+    }
+    case 'price': {
+      const va = pileValue(a)
+      const vb = pileValue(b)
+      if (va == null) return vb == null ? 0 : 1
+      if (vb == null) return -1
+      return c.direction === 'asc' ? va - vb : vb - va
+    }
+    case 'rarity': {
+      const ra = rarityRank(a)
+      const rb = rarityRank(b)
+      if (ra == null) return rb == null ? 0 : 1
+      if (rb == null) return -1
+      return c.direction === 'asc' ? ra - rb : rb - ra
+    }
+    case 'doublon':
+      return b.quantity - a.quantity
+  }
+}
+
 /* ── The plate ──────────────────────────────────────────────────────────────
    The collection as an object rather than as an inventory. A list row gives one card
    145px of screen to say a name and a number you already know; three across gives
@@ -79,7 +150,7 @@ function cardNumber(entry: CollectionEntry): number {
 
 export function Collection() {
   const { entries, stats, ready } = useCollection()
-  const [sort, setSort] = useState<Sort>('date_desc')
+  const [sortChain, setSortChain] = useState<SortCriterion[]>(DEFAULT_SORT)
   const [view, setView] = useState<View>('all')
   const [language, setLanguage] = useState<Language | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
@@ -87,23 +158,52 @@ export function Collection() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
 
+  /* Clicking a chip that isn't in the chain yet appends it -- lowest priority,
+     joining an existing combo rather than displacing it. Clicking the SAME
+     direction again removes it: the chip is a toggle, not a one-way switch.
+     Clicking its opposite direction flips it in place, keeping its priority slot
+     -- changing your mind about a criterion's direction is not the same as
+     re-ranking it to the back of the queue. */
+  const toggleSort = (key: SortKey, direction: Direction) => {
+    setSortChain((chain) => {
+      // The untouched default is a placeholder, not a first choice someone made
+      // -- the first chip anyone actually clicks should become the sole,
+      // solo-grouped criterion in its own right, not a second entry tacked onto
+      // "newest first" nobody asked to keep. Once a real choice exists, further
+      // clicks genuinely extend the chain instead.
+      const base = isDefaultSort(chain) ? [] : chain
+      const idx = base.findIndex((c) => c.key === key)
+      if (idx === -1) return [...base, { key, direction }]
+      if (base[idx].direction === direction) {
+        // Turning off the last remaining criterion would leave the list with no
+        // order at all, which is never a state this page should reach on its
+        // own -- it falls back to the same baseline "Tout effacer" resets to,
+        // rather than an unsorted list nobody asked for.
+        const next = base.filter((c) => c.key !== key)
+        return next.length === 0 ? DEFAULT_SORT : next
+      }
+      return base.map((c, i) => (i === idx ? { key, direction } : c))
+    })
+  }
+  const priorityOf = (key: SortKey, direction: Direction): number | null => {
+    const idx = sortChain.findIndex((c) => c.key === key && c.direction === direction)
+    return idx === -1 ? null : idx + 1
+  }
+
   // What is on, in words, for the trigger that opens the sheet -- same reasoning as
   // appliedLabels in Filters.tsx: a filter you cannot see from the closed button is
   // one you forget you set.
   const applied = [
     language === 'en' ? 'INT' : language === 'jp' ? 'JP' : null,
     view === 'doubles' ? 'Doubles' : null,
-    // date_desc is the default -- newest first, same as before this sort had a
-    // name of its own -- so only its opposite reads as a choice worth surfacing.
-    sort === 'date_asc' ? "Date d'ajout -" : null,
-    sort === 'set_asc' ? 'Extension croissante' : sort === 'set_desc' ? 'Extension décroissante' : null,
-    sort === 'price_desc' ? 'Valeur décroissante' : sort === 'price_asc' ? 'Valeur croissante' : null,
-    sort === 'rarity_desc' ? 'Plus rare' : sort === 'rarity_asc' ? 'Moins rare' : null,
-    sort === 'doublon' ? "Doublons d'abord" : null,
+    // The lone default (newest first) reads as nothing chosen, same as before this
+    // sort had two directions of its own -- everything else, including that same
+    // criterion once it joins a combo, is a choice worth surfacing.
+    ...(isDefaultSort(sortChain) ? [] : sortChain.map((c) => SORT_LABEL[c.key][c.direction])),
   ].filter(Boolean) as string[]
   const resetFilters = () => {
     setView('all')
-    setSort('date_desc')
+    setSortChain(DEFAULT_SORT)
     setLanguage(null)
   }
 
@@ -151,64 +251,53 @@ export function Collection() {
 
   const source = view === 'doubles' ? doubles : languageFiltered
 
-  const isSet = sort === 'set_asc' || sort === 'set_desc'
-
   const groups = useMemo(() => {
-    const sorted = [...source]
-    if (sort === 'date_asc' || sort === 'date_desc') {
-      // date_added is never null -- every entry carries the day it landed in the
-      // binder -- so no absence case to push to the end here, unlike price/rareté.
-      sorted.sort((a, b) =>
-        sort === 'date_asc'
-          ? a.date_added.localeCompare(b.date_added)
-          : b.date_added.localeCompare(a.date_added),
-      )
-    } else if (isSet) {
-      // Extension first, then the printed number within it -- and the same
-      // direction flips both, the way flipping a real binder does: the last set
-      // and its last card lead, not the first set with its numbers reversed.
-      const dir = sort === 'set_asc' ? 1 : -1
-      sorted.sort((a, b) => {
-        const pa = a.card?.pack_code
-        const pb = b.card?.pack_code
-        if (pa == null) return pb == null ? 0 : 1
-        if (pb == null) return -1
-        const byPack = pa.localeCompare(pb) * dir
-        return byPack !== 0 ? byPack : (cardNumber(a) - cardNumber(b)) * dir
-      })
-    } else if (sort === 'price_asc' || sort === 'price_desc') {
-      sorted.sort((a, b) => {
-        const va = pileValue(a)
-        const vb = pileValue(b)
-        if (va == null) return vb == null ? 0 : 1
-        if (vb == null) return -1
-        return sort === 'price_asc' ? va - vb : vb - va
-      })
-    } else if (sort === 'rarity_asc' || sort === 'rarity_desc') {
-      sorted.sort((a, b) => {
-        const ra = rarityRank(a)
-        const rb = rarityRank(b)
-        if (ra == null) return rb == null ? 0 : 1
-        if (rb == null) return -1
-        return sort === 'rarity_asc' ? ra - rb : rb - ra
-      })
-    } else if (sort === 'doublon') {
-      // Highest stack first, not just a binary doubles-then-uniques split: a card
-      // held five times is more of a double than one held twice, and quantity
-      // descending already puts every quantity-1 entry last on its own -- no
-      // separate tie-break needed to get "doublons d'abord" right.
-      sorted.sort((a, b) => b.quantity - a.quantity)
-    }
-    if (!isSet) return [{ key: '', items: sorted }]
+    // The printed number is the chain's standing, implicit last word -- it is
+    // what "Extension croissante" alone has always meant (extension, then the
+    // number within it), and a harmless, stable tiebreak the rest of the time
+    // rather than leaving ties to whatever order the collection happened to load
+    // in. Direction follows Extension's own when it is part of the chain.
+    const numberDir = sortChain.find((c) => c.key === 'set')?.direction === 'desc' ? -1 : 1
+    const sorted = [...source].sort((a, b) => {
+      for (const criterion of sortChain) {
+        const cmp = compareCriterion(criterion, a, b)
+        if (cmp !== 0) return cmp
+      }
+      return (cardNumber(a) - cardNumber(b)) * numberDir
+    })
+
+    // Row headers only make sense when extension or date is the WHOLE story --
+    // a section per extension with a second criterion silently reordering cards
+    // inside it would look like the section itself was sorted wrong. The moment
+    // a second criterion joins the chain, the sections step aside and the combo
+    // still applies, just as a flat list.
+    const solo = sortChain.length === 1 ? sortChain[0] : null
+    if (solo?.key !== 'set' && solo?.key !== 'date') return [{ key: '', items: sorted }]
 
     const buckets = new Map<string, typeof sorted>()
     for (const entry of sorted) {
-      const key = entry.card?.pack_code ?? 'Sans extension'
+      const key =
+        solo.key === 'date' ? formatDateHeader(entry.date_added) : (entry.card?.pack_code ?? 'Sans extension')
       if (!buckets.has(key)) buckets.set(key, [])
       buckets.get(key)!.push(entry)
     }
     return [...buckets].map(([key, items]) => ({ key, items }))
-  }, [source, sort, isSet])
+  }, [source, sortChain])
+
+  // The rank badge only earns its place once there is a chain to rank -- a lone
+  // active chip needs no "1" next to it, the same reasoning as isDefaultSort
+  // above keeping a single default criterion out of `applied`.
+  const sortChip = (key: SortKey, direction: Direction, label: string) => {
+    const priority = priorityOf(key, direction)
+    return (
+      <Chip active={priority != null} onClick={() => toggleSort(key, direction)}>
+        {label}
+        {priority != null && sortChain.length > 1 && (
+          <span className="t-numeral text-[0.7rem] opacity-70">{priority}</span>
+        )}
+      </Chip>
+    )
+  }
 
   if (!ready) return <div className="pt-10"><Sounding label="Ouverture du journal" /></div>
 
@@ -301,13 +390,17 @@ export function Collection() {
             quantité × cote actuelle, pas le prix payé —, ou par rareté, sur
             l'échelle du jeu (Common à SecretRare, puis
             Leader/Promo/Special/TreasureRare comme le palier le plus rare) — dans
-            les deux sens à chaque fois. « Doublons d'abord » met les piles les
-            plus hautes en tête sans rien cacher, à la différence de la vue
-            « Doubles » ci-dessus qui retire les exemplaires uniques de la liste.
-            Une carte sans extension connue, non
-            cotée, ou sans rareté connue reste toujours en fin de liste, quel que
-            soit le sens. Ça ne change jamais quelles cartes sont affichées,
-            seulement leur ordre.
+            les deux sens à chaque fois, et plusieurs à la fois : le premier choisi
+            classe la liste, les suivants ne départagent que ses égalités, dans
+            l'ordre où ils ont été activés. Une seule rangée par jour ou par
+            extension apparaît quand ce critère est seul actif ; dès qu'un
+            deuxième s'y ajoute, la liste redevient une seule rangée, triée selon
+            la combinaison entière. « Doublons d'abord » met les piles les plus
+            hautes en tête sans rien cacher, à la différence de la vue « Doubles »
+            ci-dessus qui retire les exemplaires uniques de la liste. Une carte
+            sans extension connue, non cotée, ou sans rareté connue reste
+            toujours en fin de liste, quel que soit le sens. Ça ne change jamais
+            quelles cartes sont affichées, seulement leur ordre.
           </p>
           <p>
             La <strong style={{ color: 'var(--text-primary)' }}>valeur estimée</strong> vient
@@ -480,39 +573,39 @@ export function Collection() {
           />
         </Group>
 
-        {/* Every direction shares one flat row of chips rather than a segmented
-            control -- nine values, four opposite pairs and one on its own, and a
-            segmented control built for nine entries would each shrink to a
-            sliver. All nine share the same `sort` state, so only one is ever
-            active regardless of how they're grouped visually. */}
-        <Group label="Trier">
-          <Chip active={sort === 'date_desc'} onClick={() => setSort('date_desc')}>
-            Date d'ajout +
-          </Chip>
-          <Chip active={sort === 'date_asc'} onClick={() => setSort('date_asc')}>
-            Date d'ajout -
-          </Chip>
-          <Chip active={sort === 'set_asc'} onClick={() => setSort('set_asc')}>
-            Extension croissante
-          </Chip>
-          <Chip active={sort === 'set_desc'} onClick={() => setSort('set_desc')}>
-            Extension décroissante
-          </Chip>
-          <Chip active={sort === 'price_desc'} onClick={() => setSort('price_desc')}>
-            Valeur décroissante
-          </Chip>
-          <Chip active={sort === 'price_asc'} onClick={() => setSort('price_asc')}>
-            Valeur croissante
-          </Chip>
-          <Chip active={sort === 'rarity_desc'} onClick={() => setSort('rarity_desc')}>
-            Plus rare
-          </Chip>
-          <Chip active={sort === 'rarity_asc'} onClick={() => setSort('rarity_asc')}>
-            Moins rare
-          </Chip>
-          <Chip active={sort === 'doublon'} onClick={() => setSort('doublon')}>
-            Doublons d'abord
-          </Chip>
+        {/* Each dimension gets its own group instead of one flat row -- separating
+            them is what makes combining them legible: which chips belong to the
+            same choice (only one of a pair can hold at a time) versus which
+            belong to a different one entirely (any number can hold at once).
+            The number on an active chip is its rank in the chain, shown only
+            once there is more than one to rank. */}
+        <p className="t-code pb-1 text-[var(--text-secondary)]">
+          Active plusieurs critères pour les combiner : le premier choisi est
+          prioritaire, les suivants ne départagent que ses égalités.
+        </p>
+
+        <Group label="Date d'ajout">
+          {sortChip('date', 'desc', "Date d'ajout +")}
+          {sortChip('date', 'asc', "Date d'ajout -")}
+        </Group>
+
+        <Group label="Extension">
+          {sortChip('set', 'asc', 'Extension croissante')}
+          {sortChip('set', 'desc', 'Extension décroissante')}
+        </Group>
+
+        <Group label="Valeur">
+          {sortChip('price', 'desc', 'Valeur décroissante')}
+          {sortChip('price', 'asc', 'Valeur croissante')}
+        </Group>
+
+        <Group label="Rareté">
+          {sortChip('rarity', 'desc', 'Plus rare')}
+          {sortChip('rarity', 'asc', 'Moins rare')}
+        </Group>
+
+        <Group label="Doublons">
+          {sortChip('doublon', 'desc', "Doublons d'abord")}
         </Group>
       </Sheet>
     </Screen>
