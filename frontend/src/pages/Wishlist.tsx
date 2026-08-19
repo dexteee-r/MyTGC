@@ -227,10 +227,10 @@ return (
         )}
       </Screen>
 
-      {/* 
-        1. Le FilterSheet est sorti du Screen pour éviter les conflits de z-index
-        2. La div text-white force le retour au texte clair pour écraser la couleur INK de la page 
-      */}
+      {/* Sorti de Screen : celui-ci scrolle avec overflow-y-auto, un terrain connu pour
+          piéger un position:fixed sur iOS Safari, et le sheet en est un. La div
+          text-white qui l'enveloppe ramène le texte clair, pour ne pas hériter la
+          couleur INK des posters de la page. */}
       <div className="text-white">
         <FilterSheet
           open={filtersOpen}

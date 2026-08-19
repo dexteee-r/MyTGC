@@ -66,6 +66,13 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def stamp() -> str:
+    """`now()`, formatted the way every timestamp column in this app is written and
+    compared -- to the second, never finer. One function so a stray microsecond
+    cannot creep into one column while the rest of the schema stays truncated."""
+    return now().isoformat(timespec="seconds")
+
+
 def hash_password(password: str) -> str:
     return hasher.hash(password)
 
@@ -124,8 +131,7 @@ def issue_refresh_token(conn: sqlite3.Connection, user_id: int, family: str | No
     conn.execute(
         "INSERT INTO refresh_tokens (user_id, token_hash, family, issued_at,"
         " expires_at, user_agent) VALUES (?, ?, ?, ?, ?, ?)",
-        (user_id, _digest(token), family or secrets.token_hex(16),
-         now().isoformat(timespec="seconds"),
+        (user_id, _digest(token), family or secrets.token_hex(16), stamp(),
          (now() + REFRESH_TTL).isoformat(timespec="seconds"), user_agent),
     )
     conn.commit()
@@ -151,7 +157,7 @@ def rotate_refresh_token(conn: sqlite3.Connection, token: str,
         raise HTTPException(401, "refresh token expired")
 
     conn.execute("UPDATE refresh_tokens SET revoked_at = ? WHERE id = ?",
-                 (now().isoformat(timespec="seconds"), row["id"]))
+                 (stamp(), row["id"]))
     conn.commit()
     return row["user_id"], issue_refresh_token(conn, row["user_id"], row["family"],
                                                user_agent)
@@ -161,7 +167,7 @@ def revoke_token(conn: sqlite3.Connection, token: str) -> None:
     conn.execute(
         "UPDATE refresh_tokens SET revoked_at = ? WHERE token_hash = ?"
         " AND revoked_at IS NULL",
-        (now().isoformat(timespec="seconds"), _digest(token)),
+        (stamp(), _digest(token)),
     )
     conn.commit()
 
@@ -169,7 +175,7 @@ def revoke_token(conn: sqlite3.Connection, token: str) -> None:
 def revoke_family(conn: sqlite3.Connection, family: str) -> None:
     conn.execute(
         "UPDATE refresh_tokens SET revoked_at = ? WHERE family = ? AND revoked_at IS NULL",
-        (now().isoformat(timespec="seconds"), family),
+        (stamp(), family),
     )
     conn.commit()
 
@@ -177,7 +183,7 @@ def revoke_family(conn: sqlite3.Connection, family: str) -> None:
 def revoke_all(conn: sqlite3.Connection, user_id: int) -> None:
     conn.execute(
         "UPDATE refresh_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
-        (now().isoformat(timespec="seconds"), user_id),
+        (stamp(), user_id),
     )
     conn.commit()
 
@@ -193,7 +199,7 @@ def list_sessions(conn: sqlite3.Connection, user_id: int) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT * FROM refresh_tokens WHERE user_id = ? AND revoked_at IS NULL"
         " AND expires_at > ? ORDER BY issued_at DESC",
-        (user_id, now().isoformat(timespec="seconds")),
+        (user_id, stamp()),
     ).fetchall()
 
 
@@ -204,7 +210,7 @@ def revoke_session(conn: sqlite3.Connection, user_id: int, session_id: int) -> b
     cursor = conn.execute(
         "UPDATE refresh_tokens SET revoked_at = ? WHERE id = ? AND user_id = ?"
         " AND revoked_at IS NULL",
-        (now().isoformat(timespec="seconds"), session_id, user_id),
+        (stamp(), session_id, user_id),
     )
     conn.commit()
     return cursor.rowcount > 0
@@ -261,7 +267,7 @@ def create_invite(conn: sqlite3.Connection, created_by: int, note: str | None,
     cursor = conn.execute(
         "INSERT INTO invites (code_hash, note, created_by, created_at, expires_at)"
         " VALUES (?, ?, ?, ?, ?)",
-        (_digest(code), note, created_by, now().isoformat(timespec="seconds"),
+        (_digest(code), note, created_by, stamp(),
          (now() + ttl).isoformat(timespec="seconds")),
     )
     conn.commit()
@@ -287,7 +293,7 @@ def redeem_invite(conn: sqlite3.Connection, code: str) -> int:
 
     cursor = conn.execute(
         "UPDATE invites SET used_at = ? WHERE id = ? AND used_at IS NULL",
-        (now().isoformat(timespec="seconds"), row["id"]),
+        (stamp(), row["id"]),
     )
     if cursor.rowcount == 0:
         raise HTTPException(403, "ce code d'invitation a déjà été utilisé")

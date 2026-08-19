@@ -1,12 +1,11 @@
-import React from 'react';
-
-interface SearchHistoryUIProps {
-  history: string[];
-  onSelectHistory: (query: string) => void;
-}
-
-export const SearchHistoryUI: React.FC<SearchHistoryUIProps> = ({ history, onSelectHistory }) => {
-  if (history.length === 0) return null;
+export function SearchHistoryUI({
+  history,
+  onSelectHistory,
+}: {
+  history: string[]
+  onSelectHistory: (query: string) => void
+}) {
+  if (history.length === 0) return null
 
   return (
     <div className="mt-6">
@@ -16,7 +15,7 @@ export const SearchHistoryUI: React.FC<SearchHistoryUIProps> = ({ history, onSel
       <ul className="flex flex-col gap-1">
         {history.map((query) => (
           <li key={query}>
-            <button 
+            <button
               onClick={() => onSelectHistory(query)}
               className="w-full text-left px-4 py-3 bg-zinc-900/50 text-white rounded active:bg-zinc-800 transition-colors flex items-center min-h-[44px]"
             >
@@ -26,5 +25,5 @@ export const SearchHistoryUI: React.FC<SearchHistoryUIProps> = ({ history, onSel
         ))}
       </ul>
     </div>
-  );
-};
+  )
+}

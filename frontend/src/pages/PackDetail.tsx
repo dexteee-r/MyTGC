@@ -63,7 +63,7 @@ export function PackDetail() {
     ...(view === 'all' ? {} : { owned: view === 'owned' }),
   }
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true)
     setFailed(false)
     setCards([])
@@ -75,8 +75,9 @@ export function PackDetail() {
       })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [packCode, language, view])
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, [packCode, language, view])
 
   useEffect(() => {
     Promise.all([
@@ -210,7 +211,7 @@ export function PackDetail() {
       )}
 
       {failed ? (
-        <div className="pt-8"><Adrift onRetry={() => setView(view)} /></div>
+        <div className="pt-8"><Adrift onRetry={load} /></div>
       ) : loading ? (
         <div className="pt-8"><Sounding label={`Sondage de ${packCode}`} /></div>
       ) : cards.length === 0 ? (

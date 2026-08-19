@@ -28,7 +28,7 @@ export function SignIn() {
   }, [])
 
   const needsCode = policy?.mode === 'invite'
-  const signUpClosed = policy?.mode === 'closed' 
+  const signUpClosed = policy?.mode === 'closed'
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 

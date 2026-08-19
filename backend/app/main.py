@@ -156,6 +156,23 @@ def current_user(
 User = Annotated[auth.CurrentUser, Depends(current_user)]
 
 
+def _apply_patch(conn: sqlite3.Connection, table: str, entry_id: int | str,
+                 fields: dict) -> None:
+    """UPDATE {table} SET <each field> WHERE id = ?, committed. A no-op if empty.
+
+    Column names come from `fields.keys()`, which is always a Pydantic model's own
+    field names (`model_dump(exclude_unset=True)`), never raw request input -- the
+    same trust boundary the three call sites already relied on before this was
+    pulled out from under each of them.
+    """
+    if not fields:
+        return
+    assignments = ", ".join(f"{k} = ?" for k in fields)
+    conn.execute(f"UPDATE {table} SET {assignments} WHERE id = ?",
+                [*fields.values(), entry_id])
+    conn.commit()
+
+
 # --- accounts -------------------------------------------------------------------
 
 def _profile(row) -> UserProfile:
@@ -207,7 +224,7 @@ def register(conn: Conn, response: Response, request: Request, body: RegisterReq
         "INSERT INTO users (email, email_lower, display_name, password_hash, created_at)"
         " VALUES (?, ?, ?, ?, ?)",
         (email, email.lower(), body.display_name or email.split("@")[0],
-         auth.hash_password(body.password), auth.now().isoformat(timespec="seconds")),
+         auth.hash_password(body.password), auth.stamp()),
     )
     if invite_id is not None:
         conn.execute("UPDATE invites SET used_by = ? WHERE id = ?",
@@ -240,7 +257,7 @@ def login(conn: Conn, response: Response, request: Request, body: LoginRequest):
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
                      (auth.hash_password(body.password), row["id"]))
     conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?",
-                 (auth.now().isoformat(timespec="seconds"), row["id"]))
+                 (auth.stamp(), row["id"]))
     conn.commit()
     return _session(conn, response, request, row)
 
@@ -336,11 +353,7 @@ def update_profile(conn: Conn, user: User, patch: ProfileUpdate):
         raise HTTPException(404, f"{fields['goal_pack_code']} not found in "
                                  f"{fields['goal_language']}")
 
-    if fields:
-        assignments = ", ".join(f"{k} = ?" for k in fields)
-        conn.execute(f"UPDATE users SET {assignments} WHERE id = ?",
-                     [*fields.values(), user.id])
-        conn.commit()
+    _apply_patch(conn, "users", user.id, fields)
     return _profile(conn.execute("SELECT * FROM users WHERE id = ?", (user.id,)).fetchone())
 
 
@@ -680,11 +693,7 @@ def list_collection(conn: Conn, user: User, language: Language | None = None):
     rows = conn.execute(
         f"SELECT * FROM collection {where} ORDER BY date_added DESC, id DESC", params,
     ).fetchall()
-    return [
-        CollectionEntry(**dict(row),
-                        card=_card_for(conn, row["card_id"], row["language"]))
-        for row in rows
-    ]
+    return [_entry_from_row(conn, row) for row in rows]
 
 
 @app.post("/collection", response_model=CollectionEntry, status_code=201)
@@ -744,20 +753,19 @@ def add_to_collection(conn: Conn, user: User, entry: CollectionCreate):
 # purpose, and this is the opposite: an account has to be able to look its own
 # link back up and hand it out more than once. See schema.sql for the fuller
 # version of this same reasoning.
+#
+# Collection and wishlist sharing are otherwise identical, one token column apart
+# -- these three take the column name rather than being written twice.
 
-@app.get("/collection/share", response_model=ShareStatus)
-def get_collection_share(conn: Conn, user: User):
-    row = conn.execute("SELECT share_collection_token FROM users WHERE id = ?",
-                       (user.id,)).fetchone()
-    token = row["share_collection_token"]
+def _share_status(conn: sqlite3.Connection, user: auth.CurrentUser, column: str) -> ShareStatus:
+    row = conn.execute(f"SELECT {column} FROM users WHERE id = ?", (user.id,)).fetchone()
+    token = row[column]
     return ShareStatus(enabled=token is not None, token=token)
 
 
-@app.post("/collection/share", response_model=ShareStatus, status_code=201)
-def enable_collection_share(conn: Conn, user: User):
-    row = conn.execute("SELECT share_collection_token FROM users WHERE id = ?",
-                       (user.id,)).fetchone()
-    token = row["share_collection_token"]
+def _enable_share(conn: sqlite3.Connection, user: auth.CurrentUser, column: str) -> ShareStatus:
+    row = conn.execute(f"SELECT {column} FROM users WHERE id = ?", (user.id,)).fetchone()
+    token = row[column]
     if token is None:
         # Collisions are astronomically unlikely at this many bits of entropy, but
         # the unique index is the actual guarantee -- this loop is what turns that
@@ -766,8 +774,7 @@ def enable_collection_share(conn: Conn, user: User):
         for _ in range(5):
             token = secrets.token_urlsafe(24)
             try:
-                conn.execute("UPDATE users SET share_collection_token = ? WHERE id = ?",
-                            (token, user.id))
+                conn.execute(f"UPDATE users SET {column} = ? WHERE id = ?", (token, user.id))
                 conn.commit()
                 break
             except sqlite3.IntegrityError:
@@ -777,10 +784,24 @@ def enable_collection_share(conn: Conn, user: User):
     return ShareStatus(enabled=True, token=token)
 
 
+def _disable_share(conn: sqlite3.Connection, user: auth.CurrentUser, column: str) -> None:
+    conn.execute(f"UPDATE users SET {column} = NULL WHERE id = ?", (user.id,))
+    conn.commit()
+
+
+@app.get("/collection/share", response_model=ShareStatus)
+def get_collection_share(conn: Conn, user: User):
+    return _share_status(conn, user, "share_collection_token")
+
+
+@app.post("/collection/share", response_model=ShareStatus, status_code=201)
+def enable_collection_share(conn: Conn, user: User):
+    return _enable_share(conn, user, "share_collection_token")
+
+
 @app.delete("/collection/share", status_code=204)
 def disable_collection_share(conn: Conn, user: User):
-    conn.execute("UPDATE users SET share_collection_token = NULL WHERE id = ?", (user.id,))
-    conn.commit()
+    _disable_share(conn, user, "share_collection_token")
 
 
 @app.get("/shared/collection/{token}", response_model=SharedCollection)
@@ -833,11 +854,7 @@ def update_collection(conn: Conn, user: User, entry_id: int, patch: CollectionUp
         conn.commit()
         raise HTTPException(204, "entry removed: quantity reached zero")
 
-    if fields:
-        assignments = ", ".join(f"{k} = ?" for k in fields)
-        conn.execute(f"UPDATE collection SET {assignments} WHERE id = ?",
-                     [*fields.values(), entry_id])
-        conn.commit()
+    _apply_patch(conn, "collection", entry_id, fields)
     return _entry(conn, entry_id)
 
 
@@ -872,6 +889,11 @@ def add_history(conn: Conn, user: User, entry: HistoryCreate):
     conn.execute(
         "INSERT INTO search_history (user_id, query, searched_at) VALUES (?, ?, ?)"
         " ON CONFLICT (user_id, query) DO UPDATE SET searched_at = excluded.searched_at",
+        # Full precision, unlike auth.stamp() everywhere else: several searches can
+        # land in the same second, and "most recent first" (list_history's ORDER BY
+        # searched_at DESC) needs to actually tell them apart -- confirmed by two
+        # tests going red the moment this was truncated to the second like every
+        # other timestamp in the app.
         (user.id, query, auth.now().isoformat()),
     )
     # Trimmed here rather than by a job: the list is short and this is the only place
@@ -897,10 +919,14 @@ WISHLIST_ENTRY_FIELDS = ("id", "card_id", "language", "priority", "alert_thresho
                         "price", "notes")
 
 
-def _wish(conn: sqlite3.Connection, entry_id: int) -> WishlistEntry:
-    row = conn.execute("SELECT * FROM wishlist WHERE id = ?", (entry_id,)).fetchone()
+def _wish_from_row(conn: sqlite3.Connection, row) -> WishlistEntry:
     return WishlistEntry(**{k: row[k] for k in WISHLIST_ENTRY_FIELDS},
                          card=_card_for(conn, row["card_id"], row["language"]))
+
+
+def _wish(conn: sqlite3.Connection, entry_id: int) -> WishlistEntry:
+    row = conn.execute("SELECT * FROM wishlist WHERE id = ?", (entry_id,)).fetchone()
+    return _wish_from_row(conn, row)
 
 
 @app.get("/wishlist", response_model=list[WishlistEntry])
@@ -908,11 +934,7 @@ def list_wishlist(conn: Conn, user: User):
     rows = conn.execute(
         "SELECT * FROM wishlist WHERE user_id = ? ORDER BY priority, id DESC", (user.id,)
     ).fetchall()
-    return [
-        WishlistEntry(**{k: r[k] for k in WISHLIST_ENTRY_FIELDS},
-                      card=_card_for(conn, r["card_id"], r["language"]))
-        for r in rows
-    ]
+    return [_wish_from_row(conn, r) for r in rows]
 
 
 @app.post("/wishlist", response_model=WishlistEntry, status_code=201)
@@ -997,36 +1019,17 @@ def add_missing_to_wishlist(conn: Conn, user: User, body: WishlistBulk):
 
 @app.get("/wishlist/share", response_model=ShareStatus)
 def get_wishlist_share(conn: Conn, user: User):
-    row = conn.execute("SELECT share_wishlist_token FROM users WHERE id = ?",
-                       (user.id,)).fetchone()
-    token = row["share_wishlist_token"]
-    return ShareStatus(enabled=token is not None, token=token)
+    return _share_status(conn, user, "share_wishlist_token")
 
 
 @app.post("/wishlist/share", response_model=ShareStatus, status_code=201)
 def enable_wishlist_share(conn: Conn, user: User):
-    row = conn.execute("SELECT share_wishlist_token FROM users WHERE id = ?",
-                       (user.id,)).fetchone()
-    token = row["share_wishlist_token"]
-    if token is None:
-        for _ in range(5):
-            token = secrets.token_urlsafe(24)
-            try:
-                conn.execute("UPDATE users SET share_wishlist_token = ? WHERE id = ?",
-                            (token, user.id))
-                conn.commit()
-                break
-            except sqlite3.IntegrityError:
-                continue
-        else:
-            raise HTTPException(500, "could not mint a unique share token")
-    return ShareStatus(enabled=True, token=token)
+    return _enable_share(conn, user, "share_wishlist_token")
 
 
 @app.delete("/wishlist/share", status_code=204)
 def disable_wishlist_share(conn: Conn, user: User):
-    conn.execute("UPDATE users SET share_wishlist_token = NULL WHERE id = ?", (user.id,))
-    conn.commit()
+    _disable_share(conn, user, "share_wishlist_token")
 
 
 @app.get("/shared/wishlist/{token}", response_model=SharedWishlist)
@@ -1056,11 +1059,7 @@ def update_wishlist(conn: Conn, user: User, entry_id: int, patch: WishlistUpdate
         raise HTTPException(404, "entry not found")
 
     fields = patch.model_dump(exclude_unset=True)
-    if fields:
-        assignments = ", ".join(f"{k} = ?" for k in fields)
-        conn.execute(f"UPDATE wishlist SET {assignments} WHERE id = ?",
-                     [*fields.values(), entry_id])
-        conn.commit()
+    _apply_patch(conn, "wishlist", entry_id, fields)
     return _wish(conn, entry_id)
 
 
@@ -1139,11 +1138,15 @@ def get_collection_value_history(conn: Conn, user: User):
     return [ValuePoint(captured_at=r["captured_at"], total=round(r["total"], 2)) for r in rows]
 
 
+def _entry_from_row(conn: sqlite3.Connection, row) -> CollectionEntry:
+    return CollectionEntry(**dict(row),
+                           card=_card_for(conn, row["card_id"], row["language"]))
+
+
 def _entry(conn: sqlite3.Connection, entry_id: int) -> CollectionEntry:
     row = conn.execute("SELECT * FROM collection WHERE id = ?", (entry_id,)).fetchone()
     # Callers have already checked ownership; this only shapes the response.
-    return CollectionEntry(**dict(row),
-                           card=_card_for(conn, row["card_id"], row["language"]))
+    return _entry_from_row(conn, row)
 
 
 @app.get("/health")

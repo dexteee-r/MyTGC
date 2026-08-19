@@ -413,6 +413,29 @@ const OVERLAY_THEME = {
   '--surface-recessed': 'rgba(0, 0, 0, 0.25)',
 } as React.CSSProperties
 
+// The rest of an overlay's shell -- title, close button, the tap-out backdrop --
+// pulled out for the same reason useOverlayBehavior was: Sheet and Dialog would
+// otherwise drift, one gaining a fix (a longer tap target, a relabelled button)
+// the other never gets.
+function OverlayBackdrop({ onClose }: { onClose: () => void }) {
+  return <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
+}
+
+function OverlayHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <>
+      <h2 className="t-display text-[1.35rem]">{title}</h2>
+      <button
+        onClick={onClose}
+        className="t-code -mr-2 min-h-[var(--touch)] px-2"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        Fermer
+      </button>
+    </>
+  )
+}
+
 export function Sheet({
   open,
   onClose,
@@ -433,7 +456,7 @@ export function Sheet({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={containerRef}
         role="dialog"
@@ -447,14 +470,7 @@ export function Sheet({
           className="sticky top-0 z-10 flex items-center justify-between gap-4 px-5 pt-5 pb-3"
           style={{ background: 'var(--color-sea-900)' }}
         >
-          <h2 className="t-display text-[1.35rem]">{title}</h2>
-          <button 
-            onClick={onClose} 
-            className="t-code -mr-2 min-h-[var(--touch)] px-2"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Fermer
-          </button>
+          <OverlayHeader title={title} onClose={onClose} />
         </header>
         <div className="px-5 pb-4">{children}</div>
         {footer && (
@@ -496,7 +512,7 @@ export function Dialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
-      <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={containerRef}
         role="dialog"
@@ -507,14 +523,7 @@ export function Dialog({
         style={{ background: 'var(--color-sea-900)', boxShadow: 'var(--shadow-deck)', ...OVERLAY_THEME }}
       >
         <div className="flex items-center justify-between gap-4 pb-3">
-          <h2 className="t-display text-[1.35rem]">{title}</h2>
-          <button
-            onClick={onClose}
-            className="t-code -mr-2 min-h-[var(--touch)] px-2"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Fermer
-          </button>
+          <OverlayHeader title={title} onClose={onClose} />
         </div>
         {children}
       </div>

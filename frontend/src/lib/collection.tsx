@@ -152,65 +152,58 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     [entries, index, reload],
   )
 
-  const setPrice = useCallback(
-    async (cardId: string, language: Language, price: number | null) => {
-      const key = `${language}:${cardId}`
-      const existing = index.byCard.get(key)
+  /* setPrice, setCondition, setNotes and setDateAdded are the same shape: patch one
+     field on one entry, optimistically, roll back if the server refuses. Pulled into
+     one function taking the field name so the four cannot drift -- e.g. one gaining a
+     rollback fix the other three never get. Only setDateAdded needs the rejection
+     surfaced to its caller (the server refuses a future date, which the card screen
+     reports back), so that stays a per-call choice rather than a fifth field this
+     helper would have to infer. */
+  const patchEntry = useCallback(
+    async <K extends 'acquisition_price' | 'condition' | 'notes' | 'date_added'>(
+      cardId: string,
+      language: Language,
+      field: K,
+      value: CollectionEntry[K],
+      { rethrow = false }: { rethrow?: boolean } = {},
+    ) => {
+      const existing = index.byCard.get(`${language}:${cardId}`)
       if (!existing) return
 
       const previous = entries
       setEntries((current) =>
-        current.map((e) => (e.id === existing.entryId ? { ...e, acquisition_price: price } : e)),
+        current.map((e) => (e.id === existing.entryId ? { ...e, [field]: value } : e)),
       )
       try {
-        await api.updateCollection(existing.entryId, { acquisition_price: price })
+        await api.updateCollection(existing.entryId, { [field]: value })
         await reload()
-      } catch {
+      } catch (error) {
         setEntries(previous)
+        if (rethrow) throw error
       }
     },
     [entries, index, reload],
+  )
+
+  const setPrice = useCallback(
+    (cardId: string, language: Language, price: number | null) =>
+      patchEntry(cardId, language, 'acquisition_price', price),
+    [patchEntry],
   )
 
   /* The card screen sets this after the fact now: its condition picker used to sit
      on the add button, and the add button is gone. Without this the state of a
      holding could never be corrected once it was filed. */
   const setCondition = useCallback(
-    async (cardId: string, language: Language, condition: Condition) => {
-      const existing = index.byCard.get(`${language}:${cardId}`)
-      if (!existing) return
-
-      const previous = entries
-      setEntries((current) =>
-        current.map((e) => (e.id === existing.entryId ? { ...e, condition } : e)),
-      )
-      try {
-        await api.updateCollection(existing.entryId, { condition })
-        await reload()
-      } catch {
-        setEntries(previous)
-      }
-    },
-    [entries, index, reload],
+    (cardId: string, language: Language, condition: Condition) =>
+      patchEntry(cardId, language, 'condition', condition),
+    [patchEntry],
   )
 
   const setNotes = useCallback(
-    async (cardId: string, language: Language, notes: string | null) => {
-      const existing = index.byCard.get(`${language}:${cardId}`)
-      if (!existing) return
-
-      const previous = entries
-      setEntries((current) =>
-        current.map((e) => (e.id === existing.entryId ? { ...e, notes } : e)),
-      )
-      try {
-        await api.updateCollection(existing.entryId, { notes })
-        await reload()
-      } catch {
-        setEntries(previous)
-      }
-    },
-    [entries, index, reload],
+    (cardId: string, language: Language, notes: string | null) =>
+      patchEntry(cardId, language, 'notes', notes),
+    [patchEntry],
   )
 
   /* Corrects the day a holding was logged, not when it happened to be typed in.
@@ -218,23 +211,9 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
      so a rejection here is left for the caller to surface, same as setPrice leaves
      validation to the server rather than duplicating its rules on this side. */
   const setDateAdded = useCallback(
-    async (cardId: string, language: Language, dateAdded: string) => {
-      const existing = index.byCard.get(`${language}:${cardId}`)
-      if (!existing) return
-
-      const previous = entries
-      setEntries((current) =>
-        current.map((e) => (e.id === existing.entryId ? { ...e, date_added: dateAdded } : e)),
-      )
-      try {
-        await api.updateCollection(existing.entryId, { date_added: dateAdded })
-        await reload()
-      } catch (error) {
-        setEntries(previous)
-        throw error
-      }
-    },
-    [entries, index, reload],
+    (cardId: string, language: Language, dateAdded: string) =>
+      patchEntry(cardId, language, 'date_added', dateAdded, { rethrow: true }),
+    [patchEntry],
   )
 
   const value: CollectionState = {

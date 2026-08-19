@@ -152,8 +152,6 @@ function Gate() {
                   static content whatever the DOM order — without a stacking context of its
                   own the whole sign-in form ended up underneath the sky. Every screen that
                   sits over Sky needs this; the Scrim carries it for the rest of the app. */}
-              {/* Same veil as every other screen: the wordmark and the labels sit on the
-                  brightest band of the sky, which is where bare text measures 1.08:1. */}
               {/* Soft here, and only here: the video carries its own veil, and stacking the
                   full one on top of it buries the ship the screen exists to show. The form
                   sits at the foot, where the video's own gradient is already at .88. */}

@@ -65,11 +65,13 @@ function headers(init?: RequestInit): HeadersInit {
 }
 
 async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
+  // headers(init) last, after ...init: no caller here ever sets its own headers,
+  // but this is what guarantees Authorization and Content-Type always win if one
+  // ever does, rather than only when a body happens to be present.
   const response = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
-    headers: headers(init),
     ...init,
-    ...(init?.body ? { headers: headers(init) } : {}),
+    headers: headers(init),
   })
 
   // A 15-minute access token will expire mid-session by design. Renew once and

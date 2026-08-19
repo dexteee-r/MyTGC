@@ -129,8 +129,8 @@ function P({ children }: { children: React.ReactNode }) {
   )
 }
 
-/* Lead-ins are lifted out of the body colour rather than bolded, same as Legal.tsx:
-   bold on a paragraph this dense reads as shouting, a lighter value reads as a label. */
+/* Lead-ins are lifted out of the body colour and weight, same as Legal.tsx: a plain
+   bold on a paragraph this dense reads as shouting, colour plus weight reads as a label. */
 function Term({ children }: { children: React.ReactNode }) {
   return <span className="font-semibold text-[var(--text-primary)]">{children}</span>
 }

@@ -333,7 +333,6 @@ function Outcome({
     <div className="animate-seat">
       <Match candidate={top} onAdd={onAdd} onSkip={onSkip} primary confident={result.confident} />
 
-
       {rest.length > 0 && (
         <>
           <p className="t-code px-5 pt-7 pb-2">Ou l'une de celles-ci</p>

@@ -111,7 +111,6 @@ export function FilterSheet({
         </div>
       }
     >
-      {/* 2. Ajout d'une div globale text-white pour tout le contenu intérieur */}
       <div className="text-white">
         <Group label="Édition">
           <Segmented

@@ -17,8 +17,6 @@ import type { Card } from '../lib/types'
 import { SearchHistoryUI } from '../components/SearchHistoryUI'
 import { useSearchHistory } from '../lib/useSearchHistory'
 
-
-
 const PAGE = 60
 
 /* Where the search was left. Opening a card unmounts this screen — it is a route, and
@@ -82,24 +80,26 @@ export function Search() {
     limit: PAGE,
   })
 
+  const runSearch = () => {
+    setLoading(true)
+    setFailed(false)
+    api
+      .cards(params())
+      .then((page) => {
+        setCards(page.items)
+        setTotal(page.total)
+      })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
     if (returning.current) {
       returning.current = false
       return
     }
     // Debounced: a keystroke should not fire a query against 9,447 rows.
-    const timer = setTimeout(() => {
-      setLoading(true)
-      setFailed(false)
-      api
-        .cards(params())
-        .then((page) => {
-          setCards(page.items)
-          setTotal(page.total)
-        })
-        .catch(() => setFailed(true))
-        .finally(() => setLoading(false))
-    }, 220)
+    const timer = setTimeout(runSearch, 220)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filters])
@@ -146,7 +146,6 @@ export function Search() {
           style={{ background: 'var(--surface-recessed)' }}
         >
           <SearchIcon className="size-4 shrink-0 text-[var(--text-faint)]" />
-          
           <input
             value={query}
             onChange={(event) => {
@@ -154,7 +153,9 @@ export function Search() {
               setTyping(true)
             }}
             onFocus={() => setTyping(true)}
-            onBlur={() => setTimeout(() => setTyping(false), 200)} // Masque quand on clique ailleurs
+            // Le blur ferme après un court délai, pour laisser un clic sur une
+            // suggestion ou un item de l'historique se produire avant.
+            onBlur={() => setTimeout(() => setTyping(false), 200)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && query.trim()) {
                 addSearch(query)
@@ -209,18 +210,18 @@ export function Search() {
 
       {typing && query.trim().length === 0 ? (
         <div className="px-5">
-          <SearchHistoryUI 
-            history={history} 
+          <SearchHistoryUI
+            history={history}
             onSelectHistory={(q) => {
               setQuery(q)
               addSearch(q)
               setTyping(false)
-            }} 
+            }}
           />
         </div>
       ) : failed ? (
         <div className="pt-8">
-          <Adrift onRetry={() => setQuery((q) => q)} />
+          <Adrift onRetry={runSearch} />
         </div>
       ) : loading && cards.length === 0 ? (
         <div className="pt-8">
