@@ -654,10 +654,18 @@ async def scan(
                 best = result
 
     if best is None or not best.candidates:
-        # The frame held a card and the catalogue does not know it: a set too new, a
-        # promo, a foreign printing. Nothing about the photo needs fixing, so this is
-        # never diagnosed as blur or glare.
-        return ScanResult(detected=True, confident=False, reason="unknown",
+        # Either the catalogue genuinely does not know this card (a set too new, a
+        # promo, a foreign printing) or the photo itself pulled the hash too far from
+        # its own reference to land within DEFAULT_MAX_DISTANCE -- diagnosed on the
+        # rectified card, the actual region the hash was computed from, rather than
+        # the raw frame. Reported live: Leader and SuperRare cards -- which this game
+        # prints on foil -- came back "unknown" far more than Common ones did, while
+        # every one of them is fully hashed in the catalogue (verified directly).
+        # Blaming every miss here on an uncatalogued card was an assumption, not a
+        # fact, and it silently hid whatever a real capture problem would have said.
+        cause = diagnosis.diagnose(rectified)
+        return ScanResult(detected=True, confident=False,
+                          reason=cause if cause != "none" else "unknown",
                           message="Carte détectée mais non reconnue. Réessaie en "
                                   "cadrant mieux, ou passe par la recherche.")
 
