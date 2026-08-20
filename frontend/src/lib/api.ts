@@ -29,6 +29,8 @@ export function imageUrl(card: Pick<Card, 'image_url'>): string | null {
   return card.image_url ? `${API_BASE}${card.image_url}` : null
 }
 
+const SCAN_TIMEOUT_MS = 15000
+
 // Written out rather than using constructor parameter properties: tsconfig sets
 // erasableSyntaxOnly, so TypeScript-only syntax that emits runtime code is rejected.
 /* The access token lives in a module variable, never in localStorage: anything
@@ -287,16 +289,26 @@ export const api = {
     // No Content-Type header: the browser must set the multipart boundary itself.
     const params = new URLSearchParams({ source })
     if (language) params.set('language', language)
+    /* Bounded rather than left open-ended: the live scanner fires this every one to
+       three seconds and has nothing else to fall back on if a single attempt hangs
+       -- reported live, the caption stayed on "Lecture…" with no way out. Fifteen
+       seconds is well past the ~300ms this normally takes, so a legitimately slow
+       box under load still gets to finish before a client gives up on it. */
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), SCAN_TIMEOUT_MS)
     return fetch(`${API_BASE}/scan?${params}`, {
       method: 'POST',
       credentials: 'include',
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
       body,
-    }).then(async (response) => {
-      if (!response.ok) {
-        throw new ApiError(response.status, await response.text().catch(() => ''))
-      }
-      return (await response.json()) as ScanResult
+      signal: controller.signal,
     })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new ApiError(response.status, await response.text().catch(() => ''))
+        }
+        return (await response.json()) as ScanResult
+      })
+      .finally(() => clearTimeout(timer))
   },
 }

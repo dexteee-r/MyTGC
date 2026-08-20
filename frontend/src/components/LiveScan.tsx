@@ -19,15 +19,32 @@ const PROBE = 40 // grid used for the stillness test
 const IDLE_MS = 420 // how long the view must hold still before a frame is sent
 const COOLDOWN_MS = 1200 // minimum gap between two requests, before the server has its say
 
-/* A hand rarely holds a phone perfectly still, and on some devices sensor noise or
-   continuous autofocus hunting alone can keep the frame-to-frame diff above the
-   movement threshold indefinitely -- reported live: the camera opened and stayed on
-   "Aligne la carte... garde la main immobile" forever, never once sending a frame,
-   on a device the movement threshold was never tuned against. Past this long spent
-   continuously "moving", the wait for stillness is abandoned and a frame goes out
-   regardless: a slightly motion-blurred attempt beats a scanner that silently never
-   tries at all. */
+/* Out of 255, on the R channel of a 40x56 probe. Reported live: scanning is a hand
+   holding a phone, and a hand is never perfectly still -- there is always some
+   tremor. 6 (the original value here) was tight enough that ordinary tremor alone
+   read as continuous movement on a real phone, not the occasional edge case the
+   FORCE_STILL_MS escape hatch below was meant to catch. Raised well past what
+   tremor plausibly produces at this resolution -- the probe is already a heavy
+   downsample, which itself area-averages out a good deal of raw sensor noise --
+   while staying well under what actually panning the phone to a new subject
+   produces. */
+const MOVE_THRESHOLD = 16
+
+/* However well MOVE_THRESHOLD is tuned, it cannot fit every hand and every device,
+   and on one where the frame-to-frame diff still keeps reading as movement, the
+   camera opened and stayed on "Aligne la carte... garde la main immobile" forever
+   without this, never once sending a frame. Past this long spent continuously
+   "moving", the wait for stillness is abandoned and a frame goes out regardless:
+   a slightly motion-blurred attempt beats a scanner that silently never tries. */
 const FORCE_STILL_MS = 3000
+
+/* Reported live, a third time: even once missHint started surfacing a real cause,
+   nothing ever seemed to show -- because on a device that rarely reads as truly
+   still, the very next tick (180ms later) detects "moved" again and the plain
+   `if (gate.wait)` branch below silently overwrote that caption back to the hold
+   prompt before anyone could read it. A diagnostic caption now has to stay up this
+   long before a fresh bout of motion is allowed to clear it. */
+const HINT_HOLD_MS = 1600
 
 /* Pulled out of the tick loop so the one thing genuinely easy to get wrong here --
    the escape hatch that stops the scanner waiting for stillness forever -- is pinned
@@ -101,6 +118,7 @@ export function LiveScan({
   const probeRef = useRef<Uint8ClampedArray | null>(null)
   const stillSince = useRef<number>(0)
   const movingSince = useRef<number>(0)
+  const hintUntil = useRef<number>(0)
   const lastSent = useRef<number>(0)
   const inFlight = useRef(false)
   const backoffUntil = useRef(0)
@@ -182,14 +200,16 @@ export function LiveScan({
       if (!previous) return
       let diff = 0
       for (let i = 0; i < current.length; i += 4) diff += Math.abs(current[i] - previous[i])
-      const moved = diff / (current.length / 4) > 6
+      const moved = diff / (current.length / 4) > MOVE_THRESHOLD
 
       const now = Date.now()
       const gate = stillnessGate(moved, movingSince.current, now)
       movingSince.current = gate.movingSince
       if (gate.wait) {
         stillSince.current = 0
-        setState((s) => (s.kind === 'running' && s.hint !== 'hold' ? { kind: 'running', hint: 'hold' } : s))
+        if (now >= hintUntil.current) {
+          setState((s) => (s.kind === 'running' && s.hint !== 'hold' ? { kind: 'running', hint: 'hold' } : s))
+        }
         return
       }
       if (!stillSince.current) stillSince.current = now
@@ -229,7 +249,9 @@ export function LiveScan({
           onResult(result)
           setState({ kind: 'running', hint: 'hold' })
         } else {
-          setState({ kind: 'running', hint: missHint(result) })
+          const hint = missHint(result)
+          if (hint !== 'hold') hintUntil.current = Date.now() + HINT_HOLD_MS
+          setState({ kind: 'running', hint })
         }
       } catch (error) {
         /* A dropped frame is not worth interrupting the run for — but being turned
