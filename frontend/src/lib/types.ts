@@ -112,6 +112,10 @@ export interface CollectionStats {
 
 export interface Health {
   status: string
+  commit: string | null
+  // The commit's own date, not "now" -- a stalled auto-deploy still shows the true,
+  // ageing date rather than quietly updating on every process restart.
+  commit_at: string | null
   catalogue: Record<string, number>
   hashed_cards: number
   scan_enabled: boolean

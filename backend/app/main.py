@@ -75,9 +75,27 @@ def running_commit() -> str | None:
         return None
 
 
+def running_commit_date() -> str | None:
+    """When that commit actually landed -- its own committer date, not "now", so a
+    stalled auto-deploy still shows the true, ageing date rather than quietly
+    updating every time the process happens to restart. ISO 8601 with the offset
+    (%cI), so the client can format it in the reader's own timezone instead of the
+    server's."""
+    if not shutil.which("git"):
+        return None
+    try:
+        return subprocess.run(
+            ["git", "-C", str(BACKEND_DIR.parent), "log", "-1", "--format=%cI"],
+            capture_output=True, text=True, timeout=5, check=True,
+        ).stdout.strip() or None
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.commit = running_commit()
+    app.state.commit_at = running_commit_date()
     connection = db.connect()
     db.init_schema(connection)
     # The hashed catalogue is ~9,400 x 192 bits, well under a megabyte, so it is built
@@ -1158,7 +1176,7 @@ def health(conn: Conn):
             conn.execute("SELECT language, card_count FROM catalogue_meta")}
     hashed = conn.execute(
         "SELECT COUNT(*) FROM cards WHERE r_phash IS NOT NULL").fetchone()[0]
-    return {"status": "ok", "commit": app.state.commit,
+    return {"status": "ok", "commit": app.state.commit, "commit_at": app.state.commit_at,
             "catalogue": meta, "hashed_cards": hashed,
             "registration": auth.REGISTRATION_MODE,
             # Published so the live scanner paces itself from the real limit rather

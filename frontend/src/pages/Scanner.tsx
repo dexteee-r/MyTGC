@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LiveScan } from '../components/LiveScan'
 import { CameraIcon } from '../components/icons'
@@ -18,7 +18,7 @@ import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
-import type { Language, Pack, ScanCandidate, ScanResult } from '../lib/types'
+import type { Health, Language, Pack, ScanCandidate, ScanResult } from '../lib/types'
 import type { ScanFailure } from '../components/ui'
 import { Edition, EditionName } from '../components/Edition'
 
@@ -69,7 +69,16 @@ export function Scanner() {
   const [session, setSession] = useState(0)
   const [moment, setMoment] = useState<{ kind: MomentKind; line: string; at: number } | null>(null)
   const [missed, setMissed] = useState<ScanFailure | null>(null)
+  const [health, setHealth] = useState<Health | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  /* When this deploy actually landed, not when the process happened to boot: a
+     stalled auto-deploy should read as an ageing date, not a fresh one. Its own
+     request, on the one screen someone reaches for right after asking for a fix
+     here specifically -- a quick way to tell "am I on the new build yet". */
+  useEffect(() => {
+    api.health().then(setHealth).catch(() => {})
+  }, [])
 
   const capture = () => inputRef.current?.click()
 
@@ -289,8 +298,21 @@ export function Scanner() {
           onDone={() => setMoment(null)}
         />
       )}
+
+      {health?.commit_at && (
+        <p className="px-5 pt-8 pb-4 text-center text-xs text-[var(--text-faint)] italic">
+          maj à {formatCommitDate(health.commit_at)}
+        </p>
+      )}
     </Screen>
   )
+}
+
+function formatCommitDate(iso: string): string {
+  const date = new Date(iso)
+  const day = date.toLocaleDateString('fr', { day: 'numeric', month: 'long', year: 'numeric' })
+  const time = date.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })
+  return `${day} à ${time}`
 }
 
 function Outcome({
