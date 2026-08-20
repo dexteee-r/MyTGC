@@ -18,6 +18,32 @@ const PROBE = 40 // grid used for the stillness test
 const IDLE_MS = 420 // how long the view must hold still before a frame is sent
 const COOLDOWN_MS = 1200 // minimum gap between two requests, before the server has its say
 
+/* A hand rarely holds a phone perfectly still, and on some devices sensor noise or
+   continuous autofocus hunting alone can keep the frame-to-frame diff above the
+   movement threshold indefinitely -- reported live: the camera opened and stayed on
+   "Aligne la carte... garde la main immobile" forever, never once sending a frame,
+   on a device the movement threshold was never tuned against. Past this long spent
+   continuously "moving", the wait for stillness is abandoned and a frame goes out
+   regardless: a slightly motion-blurred attempt beats a scanner that silently never
+   tries at all. */
+const FORCE_STILL_MS = 3000
+
+/* Pulled out of the tick loop so the one thing genuinely easy to get wrong here --
+   the escape hatch that stops the scanner waiting for stillness forever -- is pinned
+   by a test, not just eyeballed once on a phone. Returns the next `movingSince` to
+   store (0 once genuinely still, so a later bout of motion starts its own fresh
+   FORCE_STILL_MS clock rather than inheriting this one's) alongside whether the
+   caller should keep waiting. */
+export function stillnessGate(
+  moved: boolean,
+  movingSince: number,
+  now: number,
+): { wait: boolean; movingSince: number } {
+  const nextMovingSince = moved ? movingSince || now : 0
+  const treatAsStill = !moved || now - nextMovingSince >= FORCE_STILL_MS
+  return { wait: !treatAsStill, movingSince: nextMovingSince }
+}
+
 /* Pace from the server's own limit rather than a constant of our own. A cooldown that
    outruns the rate limit spends the session collecting 429s — which is exactly how the
    scanner broke — and the two numbers live in different files, so the only way they
@@ -59,6 +85,7 @@ export function LiveScan({
   const streamRef = useRef<MediaStream | null>(null)
   const probeRef = useRef<Uint8ClampedArray | null>(null)
   const stillSince = useRef<number>(0)
+  const movingSince = useRef<number>(0)
   const lastSent = useRef<number>(0)
   const inFlight = useRef(false)
   const backoffUntil = useRef(0)
@@ -143,7 +170,9 @@ export function LiveScan({
       const moved = diff / (current.length / 4) > 6
 
       const now = Date.now()
-      if (moved) {
+      const gate = stillnessGate(moved, movingSince.current, now)
+      movingSince.current = gate.movingSince
+      if (gate.wait) {
         stillSince.current = 0
         setState((s) => (s.kind === 'running' && s.hint !== 'hold' ? { kind: 'running', hint: 'hold' } : s))
         return

@@ -33,6 +33,23 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Scan en continu bloqué indéfiniment sur « garde la main immobile »**, rapporté le
+  2026-08-20 : la caméra s'ouvrait mais aucune carte n'était jamais reconnue, même
+  bien cadrée. `LiveScan.tsx` n'envoie une image que quand la vue est jugée immobile
+  (différence moyenne de luminance entre deux sondes successives sous un seuil fixe),
+  et rien ne bornait combien de temps cette attente pouvait durer — sur un appareil
+  où le bruit du capteur ou la chasse à la mise au point automatique garde ce
+  différentiel au-dessus du seuil en continu, l'attente ne se termine jamais. Ce
+  seuil n'a jamais été calibré (contrairement aux seuils de `detection.py`, mesurés
+  via `synthetic_eval.py`/`gate_eval.py`), donc plutôt que de deviner un meilleur
+  chiffre sans pouvoir tester sur un vrai téléphone, `stillnessGate` (nouvelle
+  fonction pure, exportée et testée) abandonne l'attente après 3 secondes de
+  mouvement continu et envoie quand même une image — un essai légèrement flou vaut
+  mieux qu'un scanner qui n'essaie jamais. 6 tests (`LiveScan.test.tsx`), cassés puis
+  restaurés pour vérifier qu'ils attrapent bien la régression. **Corrigé mais pas
+  encore vérifié sur le téléphone d'origine du rapport** — aucune caméra réelle
+  disponible dans l'environnement de test ; à confirmer une fois en prod.
+
 - **Chercher une carte à partir d'une image** (importée depuis l'appareil, ou collée
   depuis le presse-papiers) sur la page Chercher. Un panneau de candidats s'affiche
   sous la barre de recherche — comme l'écran Scanner, mais sans ajout à la
