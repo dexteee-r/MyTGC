@@ -686,6 +686,13 @@ const CAUSE: Record<ScanFailure, { title: string; note: string }> = {
   },
 }
 
+/* Just the short half, for the live scanner's caption -- it repeats on every failed
+   attempt rather than being a single dead end like ScanMiss, so it has no room for
+   the longer note without crowding out the guide frame it sits under. */
+export function causeTitle(reason: ScanFailure): string {
+  return (CAUSE[reason] ?? CAUSE.none).title
+}
+
 /* A scanner that answers "error" sends the user back to an identical viewfinder
    having taught them nothing. Here the cause becomes an instruction, and manual
    entry stays open: an unreadable card must never be a dead end. That is the one

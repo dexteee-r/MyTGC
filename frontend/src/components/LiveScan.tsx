@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Language, ScanResult } from '../lib/types'
 import { ApiError, api } from '../lib/api'
 import { frameHasSubject } from '../lib/frame'
+import { causeTitle, type ScanFailure } from './ui'
 
 /* Continuous scanning: the camera stays open and frames are sent as they settle,
    so a card is identified by pointing at it rather than by taking a photo.
@@ -44,6 +45,20 @@ export function stillnessGate(
   return { wait: !treatAsStill, movingSince: nextMovingSince }
 }
 
+/* Pulled out for the same reason stillnessGate was: what the caption says after a
+   miss is easy to get backwards -- surfacing 'none' as if it were an actionable
+   cause, or losing a real reason back to the generic hold prompt -- without a test
+   to pin it. The frame that was just sent already passed frameHasSubject, so a miss
+   here is a real one, not the ordinary "nothing in view yet" the empty hint covers,
+   and it is worth saying why -- the same reason a photo capture gets a full
+   ScanMiss screen rather than a silent retry. 'none' (the diagnosis found nothing
+   wrong, there was just no card) folds back into the plain hold prompt: on this
+   path it is the rare edge case, not the common one, and does not need its own
+   caption. */
+export function missHint(result: ScanResult): 'hold' | ScanFailure {
+  return result.reason && result.reason !== 'none' ? result.reason : 'hold'
+}
+
 /* Pace from the server's own limit rather than a constant of our own. A cooldown that
    outruns the rate limit spends the session collecting 429s — which is exactly how the
    scanner broke — and the two numbers live in different files, so the only way they
@@ -68,7 +83,7 @@ export type LiveState =
   | { kind: 'starting' }
   | { kind: 'unsupported'; reason: string }
   | { kind: 'denied' }
-  | { kind: 'running'; hint: 'hold' | 'reading' | 'throttled' | 'empty' }
+  | { kind: 'running'; hint: 'hold' | 'reading' | 'throttled' | 'empty' | ScanFailure }
 
 export function LiveScan({
   language,
@@ -210,8 +225,12 @@ export function LiveScan({
       setState({ kind: 'running', hint: 'reading' })
       try {
         const result = await api.scan(new File([blob], 'frame.jpg', { type: 'image/jpeg' }), language)
-        if (result.detected && result.candidates.length > 0) onResult(result)
-        setState({ kind: 'running', hint: 'hold' })
+        if (result.detected && result.candidates.length > 0) {
+          onResult(result)
+          setState({ kind: 'running', hint: 'hold' })
+        } else {
+          setState({ kind: 'running', hint: missHint(result) })
+        }
       } catch (error) {
         /* A dropped frame is not worth interrupting the run for — but being turned
            away is. Swallowing a 429 left the camera running and identifying nothing,
@@ -270,7 +289,9 @@ export function LiveScan({
               ? 'Le serveur demande une pause. Reprise dans quelques secondes.'
               : state.hint === 'empty'
                 ? 'Rien dans le cadre — pose une carte devant l’objectif'
-                : 'Aligne la carte dans le cadre et garde la main immobile'}
+                : state.hint === 'hold'
+                  ? 'Aligne la carte dans le cadre et garde la main immobile'
+                  : causeTitle(state.hint)}
       </p>
     </div>
   )

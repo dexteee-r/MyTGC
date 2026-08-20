@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { stillnessGate } from './LiveScan'
+import type { ScanResult } from '../lib/types'
+import { missHint, stillnessGate } from './LiveScan'
 
 /* Reported live: the camera opened and stayed on "garde la main immobile" forever,
    never once sending a frame -- on a device where sensor noise or autofocus hunting
@@ -52,5 +53,34 @@ describe('stillnessGate', () => {
     const movingAgain = stillnessGate(true, settled.movingSince, 4050)
     expect(movingAgain.wait).toBe(true)
     expect(movingAgain.movingSince).toBe(4050)
+  })
+})
+
+/* Reported live, a second time: once stillnessGate stopped the scanner from getting
+   stuck, it started trying constantly instead -- "Lecture..." alternating with the
+   hold prompt, never once recognising a card. The server had been diagnosing why
+   (blur, darkness, glare...) on every one of those attempts, and the live scanner
+   was throwing that answer away and going back to the same generic prompt either
+   way -- unlike a photo capture, which shows the real reason on a miss. missHint is
+   what decides what the caption should say instead. */
+function scan(over: Partial<ScanResult> = {}): ScanResult {
+  return { detected: true, confident: false, margin: null, candidates: [], message: null, ...over }
+}
+
+describe('missHint', () => {
+  it('surfaces a real cause instead of the generic hold prompt', () => {
+    expect(missHint(scan({ reason: 'blur' }))).toBe('blur')
+    expect(missHint(scan({ reason: 'light' }))).toBe('light')
+    expect(missHint(scan({ reason: 'glare' }))).toBe('glare')
+    expect(missHint(scan({ detected: true, reason: 'unknown' }))).toBe('unknown')
+  })
+
+  it('falls back to the hold prompt when the diagnosis found nothing wrong', () => {
+    expect(missHint(scan({ detected: false, reason: 'none' }))).toBe('hold')
+  })
+
+  it('falls back to the hold prompt when no reason came back at all', () => {
+    expect(missHint(scan({ reason: undefined }))).toBe('hold')
+    expect(missHint(scan({ reason: null }))).toBe('hold')
   })
 })
