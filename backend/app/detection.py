@@ -175,6 +175,31 @@ def detect_and_deskew(image: np.ndarray) -> np.ndarray | None:
     return None if corners is None else deskew(image, corners)
 
 
+def whole_frame_as_card(image: np.ndarray) -> np.ndarray:
+    """Treat the entire image as an already-framed card rather than a photo to search
+    within it -- the fallback for an imported or pasted image, where find_card comes up
+    empty because there is no background to separate a card from. Center-cropped to the
+    card's own aspect ratio first, not stretched to it: hashing.py's ART_BOX assumes the
+    same proportions the catalogue's own reference images carry, and squashing a
+    differently-shaped source into that box would misalign the crop before the hash ever
+    runs. Never applied to a live camera frame -- there, finding nothing is the correct
+    "no card in view" signal, and this would turn an empty table into a confident-
+    looking false match instead of a legitimate "not detected"."""
+    height, width = image.shape[:2]
+    current_aspect = width / height
+    if current_aspect > CARD_ASPECT:
+        # Wider than a card: crop the sides.
+        target_width = int(height * CARD_ASPECT)
+        left = (width - target_width) // 2
+        image = image[:, left:left + target_width]
+    elif current_aspect < CARD_ASPECT:
+        # Taller than a card: crop top and bottom.
+        target_height = int(width / CARD_ASPECT)
+        top = (height - target_height) // 2
+        image = image[top:top + target_height, :]
+    return cv2.resize(image, (CANONICAL_WIDTH, CANONICAL_HEIGHT), interpolation=cv2.INTER_CUBIC)
+
+
 def orientations(card: np.ndarray) -> list[np.ndarray]:
     """The upright card and its 180-degree rotation.
 

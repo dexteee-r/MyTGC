@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CardGrid } from '../components/CardGrid'
+import { Edition } from '../components/Edition'
 import {
   EMPTY,
   FilterSheet,
@@ -7,13 +9,14 @@ import {
   isFiltered,
   type FilterState,
 } from '../components/Filters'
-import { SearchIcon } from '../components/icons'
+import { ImageIcon, SearchIcon } from '../components/icons'
 import { Suggestions } from '../components/Suggestions'
 import { Adrift, EmptyState, PageHeader, Sounding } from '../components/ui'
-import { api } from '../lib/api'
+import { api, imageUrl } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useLanguage } from '../lib/language'
-import type { Card } from '../lib/types'
+import { useToast } from '../lib/toast'
+import type { Card, ScanCandidate, ScanResult } from '../lib/types'
 import { SearchHistoryUI } from '../components/SearchHistoryUI'
 import { useSearchHistory } from '../lib/useSearchHistory'
 
@@ -36,10 +39,21 @@ let left: {
   scroll: number
 } | null = null
 
+/* Test-only: a fresh `render()` in Vitest still shares this module's `left` with
+   every earlier test in the same file, unlike a real reload -- without resetting
+   it between tests, whichever query or filters the previous test left active would
+   leak into the next one's starting state. Same reasoning as Collection.tsx's own
+   resetCollectionMemory. */
+export function resetSearchMemory() {
+  left = null
+}
+
 export function Search() {
   const { language } = useLanguage()
   const { user, setUser } = useAuth()
   const { history, addSearch } = useSearchHistory()
+  const { show } = useToast()
+  const navigate = useNavigate()
   const [query, setQuery] = useState(left?.query ?? '')
   const [cards, setCards] = useState<Card[]>(left?.cards ?? [])
   const [total, setTotal] = useState(left?.total ?? 0)
@@ -47,6 +61,9 @@ export function Search() {
   const [failed, setFailed] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [typing, setTyping] = useState(false)
+  const [imageBusy, setImageBusy] = useState(false)
+  const [imageResult, setImageResult] = useState<ScanResult | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   /* Seeded from the account: it opens on the edition set in the log book, and on the
      number of columns chosen there. Changing the edition here is a change of mind
@@ -103,6 +120,28 @@ export function Search() {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filters])
+
+  /* 'import': a picked or pasted image, not a live capture -- the server falls back
+     to treating the whole frame as the card when it finds nothing to detect within
+     it, the same distinction api.scan's own comment explains. The edition filter
+     already on this screen is what "which printing" means here too, including
+     "both" (null) when no filter is set. */
+  const runImageSearch = async (file: File) => {
+    setImageBusy(true)
+    setImageResult(null)
+    try {
+      setImageResult(await api.scan(file, filters.language, 'import'))
+    } catch {
+      show("La recherche par image n'a pas abouti.")
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
+  const pickCandidate = (candidate: ScanCandidate) => {
+    const cardId = candidate.printings[0]?.card_id ?? candidate.card_number
+    navigate(`/card/${encodeURIComponent(cardId)}?language=${candidate.language}`)
+  }
 
   const loadMore = () => {
     if (cards.length >= total || loading) return
@@ -162,6 +201,22 @@ export function Search() {
                 setTyping(false)
               }
             }}
+            /* A photo of the card itself, pasted straight in rather than typed
+               around -- the same recognition scan already runs, just entered from
+               the clipboard instead of a camera. Only intercepted when the
+               clipboard actually holds an image: a pasted date or a card code
+               copied from elsewhere has to keep landing in the text field as
+               normal. */
+            onPaste={(event) => {
+              const item = Array.from(event.clipboardData.items).find((i) =>
+                i.type.startsWith('image/'),
+              )
+              const file = item?.getAsFile()
+              if (file) {
+                event.preventDefault()
+                runImageSearch(file)
+              }
+            }}
             placeholder="Nom ou code (OP09-093)"
             aria-label="Rechercher une carte"
             className="min-w-0 flex-1 bg-transparent py-2.5 outline-none placeholder:text-[var(--text-faint)]"
@@ -179,6 +234,27 @@ export function Search() {
             </button>
           )}
         </div>
+
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) runImageSearch(file)
+            event.target.value = ''
+          }}
+        />
+        <button
+          onClick={() => imageInputRef.current?.click()}
+          aria-label="Chercher à partir d'une image"
+          disabled={imageBusy}
+          className="grid size-[46px] shrink-0 place-items-center rounded-full disabled:opacity-50"
+          style={{ background: 'var(--surface-recessed)', color: 'var(--text-secondary)' }}
+        >
+          <ImageIcon className="size-[18px]" />
+        </button>
 
         <button
           onClick={() => setFiltersOpen(true)}
@@ -198,6 +274,17 @@ export function Search() {
           <Suggestions cards={cards} query={query} onDismiss={() => setTyping(false)} />
         )}
       </div>
+
+      {(imageBusy || imageResult) && (
+        <div className="px-5 pb-3">
+          <ImageResultPanel
+            busy={imageBusy}
+            result={imageResult}
+            onDismiss={() => setImageResult(null)}
+            onPick={pickCandidate}
+          />
+        </div>
+      )}
 
       {applied.length > 0 && (
         <div className="flex items-center gap-2 px-5 pb-3">
@@ -256,6 +343,81 @@ export function Search() {
         total={total}
         loading={loading}
       />
+    </div>
+  )
+}
+
+/* A picked or pasted image can be lower quality than a live scan -- an odd crop,
+   a screenshot, a marketplace photo -- so this shows every candidate rather than
+   committing to the top one the way Scanner's live stream does. No "add" here: this
+   is Chercher, not Scanner, and tapping a candidate does what a text suggestion
+   already does -- opens its card -- rather than filing anything into the
+   collection. */
+function ImageResultPanel({
+  busy,
+  result,
+  onDismiss,
+  onPick,
+}: {
+  busy: boolean
+  result: ScanResult | null
+  onDismiss: () => void
+  onPick: (candidate: ScanCandidate) => void
+}) {
+  return (
+    <div className="rounded-[14px] p-3" style={{ background: 'var(--surface-recessed)' }}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="t-eyebrow">Recherche par image</p>
+        {!busy && (
+          <button
+            onClick={onDismiss}
+            aria-label="Fermer"
+            className="t-code -mr-1 flex size-8 items-center justify-center text-[var(--text-faint)]"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {busy ? (
+        <p className="t-code pt-2 text-[var(--text-faint)]">Lecture de l'image…</p>
+      ) : !result || !result.detected || result.candidates.length === 0 ? (
+        <p className="pt-2 text-sm text-[var(--text-secondary)]">
+          {result?.detected
+            ? 'Carte détectée mais non reconnue par le catalogue.'
+            : 'Aucune carte reconnaissable dans cette image.'}
+        </p>
+      ) : (
+        <ul className="pt-1">
+          {result.candidates.map((candidate) => {
+            const src = candidate.card ? imageUrl(candidate.card) : null
+            return (
+              <li key={`${candidate.language}-${candidate.card_number}`}>
+                <button
+                  onClick={() => onPick(candidate)}
+                  className="flex min-h-[var(--touch)] w-full items-center gap-3 py-2 text-left"
+                >
+                  {src ? (
+                    <img
+                      src={src}
+                      alt=""
+                      className="h-11 w-8 shrink-0 rounded-[2px] object-cover"
+                    />
+                  ) : (
+                    <span className="sunken h-11 w-8 shrink-0" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{candidate.name}</span>
+                    <span className="t-code flex items-center gap-1.5 pt-0.5">
+                      {candidate.card_number} · <Edition language={candidate.language} />
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }

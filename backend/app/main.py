@@ -1,14 +1,5 @@
 """MyTCG API.
 
-Build step 6, minus /scan. PROJECT_CONTEXT.md section 7 gates backend and UI work on
-the step-5 recognition measurement, and that gate still stands — but it guards the scan
-pipeline, and nothing here depends on it. Catalogue browsing, search and collection
-management work whether or not recognition does.
-
-/scan is deliberately absent rather than stubbed: an endpoint that returns something
-plausible would let a frontend be built against a pipeline nobody has measured, which
-is exactly what the gate exists to prevent.
-
 Run:
     .venv/Scripts/uvicorn --app-dir backend app.main:app --reload
 """
@@ -20,7 +11,7 @@ import sqlite3
 import subprocess
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 import cv2
 import numpy as np
@@ -595,6 +586,16 @@ async def scan(
                     "be read from the artwork, so the client must say which it is; "
                     "omitting it searches both and may return the wrong edition.",
     ),
+    source: Literal["camera", "import"] = Query(
+        "camera",
+        description="'camera' is a live/photo capture, where the card is somewhere "
+                    "within a larger frame -- detection looks for it there, and "
+                    "finding nothing is a legitimate 'no card in view'. 'import' is "
+                    "a picked or pasted image, most often already a tight crop of "
+                    "just the card -- there, finding no card-within-a-frame falls "
+                    "back to treating the whole image as the card rather than "
+                    "reporting a false 'nothing detected'.",
+    ),
 ):
     throttle.SCAN.check(f"user:{user.id}")
 
@@ -612,6 +613,8 @@ async def scan(
 
     with throttle.scan_slot():
         rectified = detection.detect_and_deskew(image)
+    if rectified is None and source == "import":
+        rectified = detection.whole_frame_as_card(image)
     if rectified is None:
         # Only on the empty path: a scan that worked pays nothing for this.
         return ScanResult(detected=False, confident=False,

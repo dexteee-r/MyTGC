@@ -52,6 +52,20 @@ export function CameraIcon(props: { className?: string }) {
   )
 }
 
+/* A picture already taken, not a camera about to take one -- distinct from
+   CameraIcon on purpose, for the one control on Chercher that imports or pastes an
+   existing image rather than capturing a new one. */
+export function ImageIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.4" />
+      <path d="m4 17.5 5.3-5.3a2 2 0 0 1 2.8 0L15.5 15.5" />
+      <path d="m13.5 14 1.7-1.7a2 2 0 0 1 2.8 0L20.5 15" />
+    </svg>
+  )
+}
+
 /* ── Onglets : objets du monde One Piece ───────────────────────────────────
    Chaque onglet porte l'objet qui correspond à sa fonction, pas une métaphore
    décorative : la boussole sert à viser, le journal de bord consigne ce qu'on a

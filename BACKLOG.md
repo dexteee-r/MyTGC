@@ -11,29 +11,10 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 ## En cours
 
 **Vers une V1 complète.** Liste longue proposée le 2026-08-16, traitée une tâche à la
-fois avec validation avant de passer à la suivante. Voir plus bas ce qui est déjà fait.
+fois avec validation avant de passer à la suivante.
 
-Passe d'accessibilité faite le 2026-08-19, voir « Fait ». Restent :
-
-Deux tâches ajoutées en cours de route :
-- **Nettoyer le projet** : code mort, fichiers inutiles. Fait le 2026-08-17, voir
-  « Fait » — les scripts d'analyse et de calibration sous `backend/scripts/`
-  passés en revue un par un : `migrate_multiuser.py` supprimé (migration one-shot
-  déjà jouée), les six autres (`analyze_separability.py`, `calibrate_threshold.py`,
-  `composite_eval.py`, `gate_eval.py`, `synthetic_eval.py`,
-  `measure_watermark.py`) gardés — ce sont des outils de mesure qu'on rejouerait
-  légitimement si le catalogue grossit, si le pipeline de reconnaissance change,
-  ou si le seuil doit être recalibré.
-- **Chercher une carte à partir d'une image** (importée depuis l'appareil, ou
-  collée depuis le presse-papiers) sur la page Chercher. Demandé le 2026-08-18,
-  pas encore commencé. Probablement pas une brique neuve : Scan identifie déjà
-  une carte par pHash calculé séparément sur R/G/B (`RECHERCHE-SCAN.md`), ce qui
-  manque ici n'est qu'une deuxième entrée vers la même reconnaissance — un
-  fichier choisi ou collé plutôt qu'une capture caméra en direct — qui retombe
-  sur Chercher avec le résultat plutôt que sur un ajout direct à la collection.
-  À vérifier avant de coder : si le point d'entrée serveur du scan suppose une
-  image caméra (recadrage, format) d'une façon qu'un import ou un collage ne
-  respecterait pas forcément.
+Toutes les tâches de cette liste, et les deux ajoutées en cours de route (nettoyer le
+projet, chercher par image), sont faites — voir « Fait ». Rien en cours pour l'instant.
 
 ---
 
@@ -51,6 +32,37 @@ quand celui-ci remontera dans les priorités.
 ---
 
 ## Fait
+
+- **Chercher une carte à partir d'une image** (importée depuis l'appareil, ou collée
+  depuis le presse-papiers) sur la page Chercher. Un panneau de candidats s'affiche
+  sous la barre de recherche — comme l'écran Scanner, mais sans ajout à la
+  collection : taper sur un candidat ouvre sa fiche, comme le ferait une suggestion
+  de recherche texte.
+  - **Vérifié avant de coder** : `find_card` (`detection.py`) cherche une carte
+    *dans* une photo plus grande — exactement l'inverse d'une image importée, déjà
+    recadrée serrée la plupart du temps, qui n'a pas de fond dans lequel chercher.
+    `/scan` accepte maintenant un paramètre `source` (`camera` par défaut,
+    `import` pour ce nouveau chemin) : sur `import`, quand `find_card` ne trouve
+    rien, `whole_frame_as_card` prend le relai et traite l'image entière comme la
+    carte, recadrée au centre sur le ratio d'une carte avant redimensionnement —
+    pas étirée dans ce ratio, ce qui désalignerait la zone `ART_BOX` que
+    `hashing.py` suppose déjà alignée sur les images de référence du catalogue.
+    Jamais appliqué à `camera` : là, ne rien trouver est le signal légitime
+    « aucune carte dans le cadre », et ce repli en ferait un faux positif sur une
+    table vide.
+  - 5 tests backend nouveaux (`test_detection.py`) sur `whole_frame_as_card` :
+    toujours la taille canonique en sortie, recadrage centré vérifié sur une image
+    synthétique (marge d'une valeur, carte d'une autre — rien de la marge ne doit
+    survivre). 6 tests frontend nouveaux (`Search.test.tsx`) sur le nouveau
+    panneau, dont un qui confirme que `source=import` part bien (cassé
+    volontairement pour vérifier que le test l'attrape, avant restauration).
+    192 tests backend, 153 frontend, tous verts.
+  - **Non vérifié en direct dans le navigateur** : la page Chercher exige un
+    compte connecté, et je n'ai pas les identifiants du compte de développement —
+    m'inscrire dans ce qui ressemble à la vraie base de développement (4 672
+    cartes EN, 4 775 JP au dernier `/health`) aurait été le mauvais geste. La
+    couverture de test simule le collage et le clic réels via Testing Library,
+    mais personne n'a encore essayé le geste sur une vraie photo.
 
 - **Passe de lisibilité/maintenabilité** sur tout le code, zone par zone, adossée aux
   tests existants (187 backend, 147 frontend, toujours verts à chaque étape) plutôt

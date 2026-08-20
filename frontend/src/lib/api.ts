@@ -269,13 +269,25 @@ export const api = {
   sharedWishlist: (token: string) =>
     request<SharedWishlist>(`/shared/wishlist/${encodeURIComponent(token)}`),
 
-  /* Language is always sent: the step-5 gate confirmed the edition cannot be read
-     from the artwork, so leaving it out would let the wrong printing come back. */
-  scan(file: File, language: Language) {
+  /* The step-5 gate confirmed the edition cannot be read from the artwork, so a null
+     language does not mean "detect it" -- it means "either is fine", and the server
+     may then return the wrong one of two candidates that share their art. Scanner
+     always passes a real Language: it is about to add the result to a specific
+     edition of the collection, and that call is never allowed to be ambiguous.
+     Chercher's image search passes its own edition filter through unchanged instead,
+     null included -- searching, unlike adding, has room to show both and let the
+     person pick, the same as a text search does when no edition filter is set.
+     `source` tells the server which fallback applies when no card-shaped region is
+     found within the frame -- 'camera' (the default) leaves that as a genuine "no
+     card in view"; 'import' is a picked or pasted image, usually already a tight
+     crop of just the card, where the server instead treats the whole frame as one. */
+  scan(file: File, language: Language | null, source: 'camera' | 'import' = 'camera') {
     const body = new FormData()
     body.append('file', file)
     // No Content-Type header: the browser must set the multipart boundary itself.
-    return fetch(`${API_BASE}/scan?language=${language}`, {
+    const params = new URLSearchParams({ source })
+    if (language) params.set('language', language)
+    return fetch(`${API_BASE}/scan?${params}`, {
       method: 'POST',
       credentials: 'include',
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
