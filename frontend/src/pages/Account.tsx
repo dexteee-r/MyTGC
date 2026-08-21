@@ -10,7 +10,7 @@ import { downloadCollection } from '../lib/export'
 import { money } from '../lib/money'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
-import type { DeviceSession, Health, Pack } from '../lib/types'
+import type { DeviceSession, Health, Invite, Pack, RegistrationPolicy } from '../lib/types'
 
 const MIN_PASSWORD = 10
 
@@ -42,11 +42,20 @@ export function Account() {
   const [revoking, setRevoking] = useState<number | null>(null)
   const [displayName, setDisplayName] = useState(user?.display_name ?? '')
   const [savingName, setSavingName] = useState(false)
+  const [policy, setPolicy] = useState<RegistrationPolicy | null>(null)
+  const [invites, setInvites] = useState<Invite[] | null>(null)
+  const [minting, setMinting] = useState(false)
+  // Shown once, exactly as the server hands it out: minting again, or leaving the
+  // screen, drops it for good, the same way the server itself never says it twice.
+  const [mintedCode, setMintedCode] = useState<string | null>(null)
+  const [revokingInvite, setRevokingInvite] = useState<number | null>(null)
 
   useEffect(() => {
     api.packs().then(setPacks).catch(() => {})
     api.health().then(setHealth).catch(() => {})
     api.sessions().then(setSessions).catch(() => {})
+    api.registrationPolicy().then(setPolicy).catch(() => {})
+    api.invites().then(setInvites).catch(() => {})
   }, [])
 
   const revokeSession = async (id: number) => {
@@ -58,6 +67,31 @@ export function Account() {
       show("La déconnexion de cet appareil n'a pas abouti.")
     } finally {
       setRevoking(null)
+    }
+  }
+
+  const mintInvite = async () => {
+    setMinting(true)
+    try {
+      const invite = await api.createInvite()
+      setMintedCode(invite.code ?? null)
+      setInvites((current) => [invite, ...(current ?? [])])
+    } catch {
+      show("La création du code n'a pas abouti.")
+    } finally {
+      setMinting(false)
+    }
+  }
+
+  const revokeInvite = async (id: number) => {
+    setRevokingInvite(id)
+    try {
+      await api.revokeInvite(id)
+      setInvites((current) => current?.filter((invite) => invite.id !== id) ?? null)
+    } catch {
+      show("L'annulation n'a pas abouti.")
+    } finally {
+      setRevokingInvite(null)
     }
   }
 
@@ -305,6 +339,90 @@ export function Account() {
           {/* The current row has no button of its own on purpose: "Se déconnecter"
               just below already does exactly that, and a second control for the
               same action would just be two ways to ask the same question. */}
+        </section>
+      )}
+
+      {/* Registration is invite-only by default, and until now the server was the
+          only thing that could actually mint one -- create_invite and its two
+          sibling endpoints (list, revoke) existed with no screen anywhere calling
+          them, so the one way in for a second account was a code nobody had a way
+          to generate. Hidden entirely outside 'invite' mode: a code means nothing
+          in 'open' (the sign-up form has no field for one there) and nothing can
+          be minted usefully in 'closed'. */}
+      {policy?.mode === 'invite' && (
+        <section className="px-5 pt-8">
+          <p className="t-eyebrow pb-2.5">Inviter quelqu'un</p>
+          <p className="pb-3 text-sm text-[var(--text-secondary)]">
+            Un code se donne une fois, et une fois consommé, plus jamais.
+          </p>
+
+          {mintedCode ? (
+            <div
+              className="rounded-[14px] p-4"
+              style={{ background: 'var(--surface-recessed)' }}
+            >
+              {/* Stored hashed server-side, so this is the only moment its plaintext
+                  ever exists outside a memory nobody can read back later. */}
+              <p className="t-code pb-2 text-[var(--text-faint)]">
+                Note-le maintenant — il ne sera plus jamais affiché
+              </p>
+              <div className="flex items-center gap-2">
+                <p className="t-numeral min-w-0 flex-1 truncate text-lg">{mintedCode}</p>
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    navigator.clipboard.writeText(mintedCode).then(() => show('Code copié.'))
+                  }}
+                >
+                  Copier
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="quiet" disabled={minting} onClick={mintInvite}>
+              {minting ? 'Un instant…' : "Créer un code d'invitation"}
+            </Button>
+          )}
+
+          {invites && invites.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {invites.map((invite) => {
+                const expired = Boolean(
+                  invite.expires_at && new Date(invite.expires_at) < new Date(),
+                )
+                return (
+                  <li
+                    key={invite.id}
+                    className="flex items-center justify-between gap-3 rounded-[14px] p-3"
+                    style={{ background: 'var(--surface-recessed)' }}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {invite.used_at ? 'Utilisée' : expired ? 'Expirée' : 'En attente'}
+                        {invite.note && (
+                          <span className="t-code pl-2 text-[var(--text-faint)]">
+                            {invite.note}
+                          </span>
+                        )}
+                      </p>
+                      <p className="t-code pt-1 text-[var(--text-faint)]">
+                        Créée le {formatSessionDate(invite.created_at)}
+                      </p>
+                    </div>
+                    {!invite.used_at && (
+                      <Button
+                        variant="ghost"
+                        disabled={revokingInvite === invite.id}
+                        onClick={() => revokeInvite(invite.id)}
+                      >
+                        Annuler
+                      </Button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
       )}
 

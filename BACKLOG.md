@@ -14,7 +14,23 @@ Ce fichier est la source de vérité. Ce qui est fait en sort et part dans un co
 fois avec validation avant de passer à la suivante.
 
 Toutes les tâches de cette liste, et les deux ajoutées en cours de route (nettoyer le
-projet, chercher par image), sont faites — voir « Fait ». Rien en cours pour l'instant.
+projet, chercher par image), sont faites — voir « Fait ».
+
+Une nouvelle demandée le 2026-08-21, pas encore commencée :
+
+**Sous-collections.** Un système pour créer des sous-collections et y grouper des
+cartes selon un critère personnel — même dessinateur, même style d'illustration
+(alternate art), etc. L'utilisateur doit pouvoir créer lui-même une sous-collection
+et la nommer librement — pas une liste figée de critères automatiques, un
+regroupement manuel et personnel. Implique au minimum : une table de regroupement
+(nom, appartenance many-to-many avec les cartes possédées, puisqu'une carte pourrait
+appartenir à plusieurs groupes), une UI pour créer/nommer un groupe et y ajouter des
+cartes depuis la Collection ou la fiche d'une carte, et un écran pour parcourir un
+groupe. À creuser avant de coder : le dessinateur et le style ne sont pas des champs
+qui existent aujourd'hui dans le catalogue (`cards` n'a ni `illustrator` ni
+`art_style`) — un groupement "même dessinateur" resterait manuel (l'utilisateur
+range lui-même) à moins d'ajouter cette donnée à l'import du catalogue, ce qui
+dépend de ce que la source de données (tcgcsv / punk-records) publie réellement.
 
 ---
 
@@ -32,6 +48,19 @@ quand celui-ci remontera dans les priorités.
 ---
 
 ## Fait
+
+- **Générer un code d'invitation depuis le Carnet de bord**, rapporté le 2026-08-21 :
+  en essayant de créer un second compte en prod, l'utilisateur n'a trouvé nulle part
+  où récupérer un code depuis son premier compte. Vérifié : le backend sait déjà tout
+  faire (`POST/GET/DELETE /auth/invites`, dans `main.py` depuis le début), mais
+  aucun écran n'appelait jamais ces routes — un trou complet, pas une régression.
+  Nouvelle section « Inviter quelqu'un » sur le Carnet de bord, visible seulement en
+  mode d'inscription « invite » (un code ne sert à rien dans les deux autres modes) :
+  créer un code l'affiche une fois — il est stocké haché côté serveur et ne peut plus
+  jamais être réaffiché ensuite, seulement listé comme en attente/utilisée/expirée,
+  avec un bouton pour annuler une invitation non utilisée. Vérifié en direct contre
+  le vrai serveur (création, affichage, annulation), 4 nouveaux tests. 168 tests
+  frontend au total, tous verts.
 
 - **Suite du scan en continu** : trois correctifs de plus après le premier ci-dessous,
   chacun trouvé par un aller-retour de test réel avec l'utilisateur plutôt que deviné :

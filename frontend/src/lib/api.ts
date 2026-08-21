@@ -6,6 +6,7 @@ import type {
   Condition,
   DeviceSession,
   Health,
+  Invite,
   Language,
   AuthSession,
   Pack,
@@ -255,6 +256,11 @@ export const api = {
 
   sessions: () => request<DeviceSession[]>('/auth/sessions'),
   revokeSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
+
+  invites: () => request<Invite[]>('/auth/invites'),
+  createInvite: (body: { note?: string | null; days_valid?: number } = {}) =>
+    request<Invite>('/auth/invites', { method: 'POST', body: JSON.stringify(body) }),
+  revokeInvite: (id: number) => request<void>(`/auth/invites/${id}`, { method: 'DELETE' }),
 
   collectionShareStatus: () => request<ShareStatus>('/collection/share'),
   enableCollectionShare: () => request<ShareStatus>('/collection/share', { method: 'POST' }),

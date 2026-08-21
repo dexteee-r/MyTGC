@@ -197,6 +197,17 @@ export interface RegistrationPolicy {
   first_account: boolean
 }
 
+export interface Invite {
+  id: number
+  note: string | null
+  created_at: string
+  expires_at: string | null
+  used_at: string | null
+  // Present only in the response that mints it -- the server stores the code
+  // hashed, so this is the one and only time its plaintext value is ever sent.
+  code?: string | null
+}
+
 export interface AuthSession {
   access_token: string
   token_type: string
