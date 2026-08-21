@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Edition, variantOf } from '../components/Edition'
+import { GroupPicker } from '../components/GroupPicker'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
 import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
@@ -64,6 +65,7 @@ export function CardDetail() {
   const [notesDraft, setNotesDraft] = useState('')
   const [editingDate, setEditingDate] = useState(false)
   const [history, setHistory] = useState<PricePoint[]>([])
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false)
 
   const load = useCallback(() => {
     setFailed(false)
@@ -189,6 +191,17 @@ export function CardDetail() {
         .catch(() => null)
       setWanted(entry)
       if (entry) show(`${card.name} ajoutée aux recherchées`)
+    }
+  }
+
+  const addToGroup = async (groupId: number) => {
+    setGroupPickerOpen(false)
+    if (!owned) return
+    try {
+      await api.addToGroup(groupId, [owned.entryId])
+      show(`${card.name} ajoutée au groupe`)
+    } catch {
+      show("L'ajout au groupe n'a pas abouti.")
     }
   }
 
@@ -530,6 +543,18 @@ export function CardDetail() {
                     </button>
                   )}
                 </div>
+
+                {/* A folder this specific holding belongs to -- "même dessinateur",
+                    "même style d'illustration", whatever a collector decides. Manual
+                    by design: nothing in the catalogue supports this automatically. */}
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={() => setGroupPickerOpen(true)}
+                    className="t-code min-h-[var(--touch)] px-4 text-[var(--text-secondary)] underline underline-offset-4"
+                  >
+                    Ajouter à un groupe
+                  </button>
+                </div>
               </>
             )}
 
@@ -543,6 +568,12 @@ export function CardDetail() {
           </section>
         </div>
       </div>
+
+      <GroupPicker
+        open={groupPickerOpen}
+        onClose={() => setGroupPickerOpen(false)}
+        onPick={addToGroup}
+      />
     </Screen>
   )
 }

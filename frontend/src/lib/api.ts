@@ -2,6 +2,7 @@ import type {
   Card,
   CardPage,
   CollectionEntry,
+  CollectionGroup,
   CollectionStats,
   Condition,
   DeviceSession,
@@ -171,6 +172,37 @@ export const api = {
 
   removeFromCollection: (id: number) =>
     request<void>(`/collection/${id}`, { method: 'DELETE' }),
+
+  groups: () => request<CollectionGroup[]>('/collection/groups'),
+
+  createGroup: (name: string) =>
+    request<CollectionGroup>('/collection/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  renameGroup: (id: number, name: string) =>
+    request<CollectionGroup>(`/collection/groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteGroup: (id: number) => request<void>(`/collection/groups/${id}`, { method: 'DELETE' }),
+
+  groupCards: (id: number) => request<CollectionEntry[]>(`/collection/groups/${id}/cards`),
+
+  /* One call for many holdings at once -- multi-select on the Collection grid adds
+     several cards to a group in a single round trip rather than one per card. */
+  addToGroup: (groupId: number, collectionIds: number[]) =>
+    request<void>(`/collection/groups/${groupId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ collection_ids: collectionIds }),
+    }),
+
+  removeFromGroup: (groupId: number, collectionId: number) =>
+    request<void>(`/collection/groups/${groupId}/members/${collectionId}`, {
+      method: 'DELETE',
+    }),
 
   wishlist: () => request<WishlistEntry[]>('/wishlist'),
 

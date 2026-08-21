@@ -24,8 +24,9 @@ from PIL import Image
 from app import auth, db, detection, diagnosis, hashing, recognition, throttle
 from app.config import BACKEND_DIR, IMAGE_CACHE_DIR, MEDIA_DIR
 from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
-                        CollectionCreate,
-                        DeviceSession, Invite, InviteCreate,
+                        CollectionCreate, CollectionGroup,
+                        DeviceSession, GroupCreate, GroupMemberAdd, GroupUpdate,
+                        Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
                         HistoryCreate, LoginRequest, Pack, PricePoint, ProfileUpdate,
                         RefreshRequest,
@@ -767,6 +768,123 @@ def add_to_collection(conn: Conn, user: User, entry: CollectionCreate):
     )
     conn.commit()
     return _entry(conn, cursor.lastrowid)
+
+
+# --- personal groups within the collection ----------------------------------------
+#
+# Registered ahead of PATCH/DELETE /collection/{entry_id}, for the same routing
+# reason /collection/share is (see the comment on that section below): Starlette
+# matches "/collection/groups" against that route's path *template* before FastAPI
+# ever tries to parse "groups" as the entry_id it declares, so whichever of the two
+# is registered first wins the literal segment. Below it, every one of these would
+# 422 on the entry_id: int coercion instead of ever reaching here.
+#
+# Manual and user-named on purpose (BACKLOG.md): nothing about the catalogue
+# supports grouping by illustrator or art style automatically, so this is a plain
+# collector's own folder, not a query over card data.
+
+def _group_from_row(conn: sqlite3.Connection, row: sqlite3.Row) -> CollectionGroup:
+    count = conn.execute(
+        "SELECT COUNT(*) FROM collection_group_members WHERE group_id = ?", (row["id"],)
+    ).fetchone()[0]
+    return CollectionGroup(id=row["id"], name=row["name"], created_at=row["created_at"],
+                           card_count=count)
+
+
+@app.get("/collection/groups", response_model=list[CollectionGroup])
+def list_groups(conn: Conn, user: User):
+    rows = conn.execute(
+        "SELECT * FROM collection_groups WHERE user_id = ? ORDER BY id DESC", (user.id,)
+    ).fetchall()
+    return [_group_from_row(conn, row) for row in rows]
+
+
+@app.post("/collection/groups", response_model=CollectionGroup, status_code=201)
+def create_group(conn: Conn, user: User, body: GroupCreate):
+    cursor = conn.execute(
+        "INSERT INTO collection_groups (user_id, name, created_at) VALUES (?, ?, ?)",
+        (user.id, body.name.strip(), auth.stamp()),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT * FROM collection_groups WHERE id = ?", (cursor.lastrowid,)
+    ).fetchone()
+    return _group_from_row(conn, row)
+
+
+@app.patch("/collection/groups/{group_id}", response_model=CollectionGroup)
+def rename_group(conn: Conn, user: User, group_id: int, body: GroupUpdate):
+    cursor = conn.execute(
+        "UPDATE collection_groups SET name = ? WHERE id = ? AND user_id = ?",
+        (body.name.strip(), group_id, user.id),
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        raise HTTPException(404, "group not found")
+    row = conn.execute("SELECT * FROM collection_groups WHERE id = ?", (group_id,)).fetchone()
+    return _group_from_row(conn, row)
+
+
+@app.delete("/collection/groups/{group_id}", status_code=204)
+def delete_group(conn: Conn, user: User, group_id: int):
+    # Only the group itself: its memberships cascade with it (schema.sql), but the
+    # collection entries those memberships pointed at are untouched -- deleting a
+    # folder never deletes the cards inside it.
+    cursor = conn.execute(
+        "DELETE FROM collection_groups WHERE id = ? AND user_id = ?", (group_id, user.id)
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        raise HTTPException(404, "group not found")
+
+
+@app.get("/collection/groups/{group_id}/cards", response_model=list[CollectionEntry])
+def list_group_cards(conn: Conn, user: User, group_id: int):
+    owns = conn.execute(
+        "SELECT 1 FROM collection_groups WHERE id = ? AND user_id = ?", (group_id, user.id)
+    ).fetchone()
+    if owns is None:
+        raise HTTPException(404, "group not found")
+    rows = conn.execute(
+        "SELECT c.* FROM collection c"
+        " JOIN collection_group_members m ON m.collection_id = c.id"
+        " WHERE m.group_id = ? ORDER BY m.added_at DESC, c.id DESC",
+        (group_id,),
+    ).fetchall()
+    return [_entry_from_row(conn, row) for row in rows]
+
+
+@app.post("/collection/groups/{group_id}/members", status_code=204)
+def add_group_members(conn: Conn, user: User, group_id: int, body: GroupMemberAdd):
+    owns_group = conn.execute(
+        "SELECT 1 FROM collection_groups WHERE id = ? AND user_id = ?", (group_id, user.id)
+    ).fetchone()
+    if owns_group is None:
+        raise HTTPException(404, "group not found")
+
+    now = auth.stamp()
+    for collection_id in body.collection_ids:
+        # Scoped to this user's own holdings by the SELECT below -- an id for a
+        # holding that does not exist, or belongs to someone else, silently adds
+        # nothing rather than erroring the whole batch over one bad id.
+        conn.execute(
+            "INSERT OR IGNORE INTO collection_group_members (group_id, collection_id, added_at)"
+            " SELECT ?, id, ? FROM collection WHERE id = ? AND user_id = ?",
+            (group_id, now, collection_id, user.id),
+        )
+    conn.commit()
+
+
+@app.delete("/collection/groups/{group_id}/members/{collection_id}", status_code=204)
+def remove_group_member(conn: Conn, user: User, group_id: int, collection_id: int):
+    cursor = conn.execute(
+        "DELETE FROM collection_group_members WHERE group_id = ? AND collection_id = ?"
+        " AND group_id IN (SELECT id FROM collection_groups WHERE user_id = ?)",
+        (group_id, collection_id, user.id),
+    )
+    conn.commit()
+    if cursor.rowcount == 0:
+        raise HTTPException(404, "membership not found")
 
 
 # --- public sharing: the collection -------------------------------------------

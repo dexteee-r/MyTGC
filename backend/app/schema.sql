@@ -191,3 +191,31 @@ CREATE TABLE IF NOT EXISTS search_history (
     searched_at TEXT NOT NULL,
     UNIQUE(user_id, query)
 );
+
+-- Personal, user-named groups within a collection (BACKLOG.md: "même dessinateur",
+-- "même style d'illustration", or any other reason the collector decides two cards
+-- belong together). Nothing about the catalogue itself supports grouping this way --
+-- there is no illustrator or art-style column on `cards` -- so this is deliberately a
+-- manual, user-driven grouping rather than an automatic one computed from card data.
+CREATE TABLE IF NOT EXISTS collection_groups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_collection_groups_user ON collection_groups (user_id);
+
+-- Which held cards belong to which group. Points at the holding itself
+-- (collection.id), not at (card_id, language) directly: a group organises what is
+-- actually owned, so removing a card from the collection removes it from every
+-- group it was ever placed in, rather than leaving a membership pointing at a card
+-- nobody holds any more.
+CREATE TABLE IF NOT EXISTS collection_group_members (
+    group_id      INTEGER NOT NULL REFERENCES collection_groups(id) ON DELETE CASCADE,
+    collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE CASCADE,
+    added_at      TEXT NOT NULL,
+    PRIMARY KEY (group_id, collection_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_members_collection ON collection_group_members (collection_id);

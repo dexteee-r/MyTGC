@@ -190,3 +190,13 @@ export function WantedIcon(props: { className?: string }) {
     </svg>
   )
 }
+
+/* A folder: the personal, user-named groupings within the collection -- reached
+   straight from the header, not tucked behind the Filtres sheet a tap away. */
+export function FolderIcon(props: { className?: string }) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3.5 7.2a1.7 1.7 0 0 1 1.7-1.7h3.6l1.8 2h8.2a1.7 1.7 0 0 1 1.7 1.7v7.6a1.7 1.7 0 0 1-1.7 1.7H5.2a1.7 1.7 0 0 1-1.7-1.7Z" />
+    </svg>
+  )
+}

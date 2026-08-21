@@ -16,22 +16,6 @@ fois avec validation avant de passer à la suivante.
 Toutes les tâches de cette liste, et les deux ajoutées en cours de route (nettoyer le
 projet, chercher par image), sont faites — voir « Fait ».
 
-Une nouvelle demandée le 2026-08-21, pas encore commencée :
-
-**Sous-collections.** Un système pour créer des sous-collections et y grouper des
-cartes selon un critère personnel — même dessinateur, même style d'illustration
-(alternate art), etc. L'utilisateur doit pouvoir créer lui-même une sous-collection
-et la nommer librement — pas une liste figée de critères automatiques, un
-regroupement manuel et personnel. Implique au minimum : une table de regroupement
-(nom, appartenance many-to-many avec les cartes possédées, puisqu'une carte pourrait
-appartenir à plusieurs groupes), une UI pour créer/nommer un groupe et y ajouter des
-cartes depuis la Collection ou la fiche d'une carte, et un écran pour parcourir un
-groupe. À creuser avant de coder : le dessinateur et le style ne sont pas des champs
-qui existent aujourd'hui dans le catalogue (`cards` n'a ni `illustrator` ni
-`art_style`) — un groupement "même dessinateur" resterait manuel (l'utilisateur
-range lui-même) à moins d'ajouter cette donnée à l'import du catalogue, ce qui
-dépend de ce que la source de données (tcgcsv / punk-records) publie réellement.
-
 ---
 
 ## Scan
@@ -48,6 +32,42 @@ quand celui-ci remontera dans les priorités.
 ---
 
 ## Fait
+
+- **Sous-collections**, demandé le 2026-08-21 : un système pour créer des
+  sous-collections et y grouper des cartes selon un critère personnel — même
+  dessinateur, même style d'illustration, ou toute autre raison. Manuel de bout en
+  bout par choix explicite de l'utilisateur : c'est lui qui crée et nomme chaque
+  groupe, il n'existe aucun regroupement automatique. Confirmé avant de coder que
+  le catalogue n'a ni `illustrator` ni `art_style` (`cards` dans `schema.sql`), donc
+  même un futur groupement automatique par dessinateur resterait hors de portée
+  sans une nouvelle donnée d'import — non bloquant ici puisque rien n'est automatique.
+  - Deux tables : `collection_groups` (id, user_id, nom, date de création) et
+    `collection_group_members` (many-to-many groupe ↔ ligne de collection,
+    `ON DELETE CASCADE` sur les deux clés étrangères). Volontairement lié à
+    `collection.id` — la ligne détenue — et non à `card_id`/`langue` : un groupe
+    range des exemplaires précis, jamais une carte du catalogue partagée par tous
+    les comptes. Le cascade a été cassé puis restauré pour vérifier qu'il est
+    réellement nécessaire : sans lui, retirer une carte de la collection plantait
+    (`sqlite3.IntegrityError`) plutôt que de laisser une ligne orpheline — une
+    découverte plus grave que prévu, pas un simple oubli cosmétique.
+  - Nouvelles routes `/collection/groups` (liste, création, renommage, suppression,
+    cartes d'un groupe, ajout/retrait d'un membre) enregistrées avant
+    `/collection/{entry_id}` dans `main.py`, en suivant la même règle d'ordre déjà
+    documentée pour `/collection/share` — sinon Starlette confond le segment
+    littéral `groups` avec le paramètre entier de la route générique. Un test dédié
+    vérifie explicitement l'absence de ce piège.
+  - Front : bouton « Ajouter à un groupe » sur la fiche d'une carte, et un mode
+    sélection multiple sur la page Collection (accessible depuis n'importe quelle
+    vue, pas seulement « Groupes ») pour en ajouter plusieurs d'un coup — les deux
+    partagent le même composant `GroupPicker` pour ne jamais pouvoir diverger sur
+    ce que « choisir un groupe » veut dire. Retirer une carte d'un groupe ne la
+    retire jamais de la collection ; supprimer un groupe non plus.
+  - 13 tests backend (`test_groups.py`, dont le cascade et le anti-shadow ci-dessus),
+    11 tests frontend nouveaux (`Collection.test.tsx`, `CardDetail.test.tsx`) —
+    206 tests backend et 179 tests frontend au total, tous verts. Vérifié en direct
+    contre le vrai serveur : création, ouverture, ajout depuis la fiche carte,
+    ajout en masse depuis la Collection, retrait, renommage, suppression avec
+    confirmation — la collection sous-jacente (22 cartes) intacte à chaque étape.
 
 - **Générer un code d'invitation depuis le Carnet de bord**, rapporté le 2026-08-21 :
   en essayant de créer un second compte en prod, l'utilisateur n'a trouvé nulle part

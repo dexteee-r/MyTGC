@@ -5,7 +5,7 @@ import { AuthProvider } from '../lib/auth'
 import { CollectionProvider } from '../lib/collection'
 import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
-import type { Card, CollectionEntry, CollectionStats } from '../lib/types'
+import type { Card, CollectionEntry, CollectionGroup, CollectionStats } from '../lib/types'
 import { Collection, resetCollectionMemory } from './Collection'
 
 // The filters now survive a real unmount/remount (so "Retour" from a card comes
@@ -104,27 +104,82 @@ function stats(over: Partial<CollectionStats> = {}): CollectionStats {
   }
 }
 
-function mount(entries: CollectionEntry[], figures: CollectionStats) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
-    ok: true,
-    status: 200,
-    json: async () => (url.includes('/collection/stats') ? figures : entries),
-    text: async () => '',
-  }) as Response))
+function mount(
+  entries: CollectionEntry[],
+  figures: CollectionStats,
+  options: { groups?: CollectionGroup[]; groupCards?: CollectionEntry[] } = {},
+) {
+  const calls: { url: string; method: string; body?: string }[] = []
+  // Mutable, seeded from options.groups -- so a create/rename/delete round trip
+  // during a test shows up the way it really would: on the very next GET, once
+  // the component's own refreshGroups() re-fetches it, not before.
+  let liveGroups = options.groups ? [...options.groups] : []
+  let nextGroupId = 900
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push({ url, method, body: init?.body as string | undefined })
 
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <LanguageProvider>
-          <CollectionProvider>
-            <ToastProvider>
-              <Collection />
-            </ToastProvider>
-          </CollectionProvider>
-        </LanguageProvider>
-      </AuthProvider>
-    </MemoryRouter>,
+      if (url.includes('/collection/groups') && url.includes('/members')) {
+        return { ok: true, status: 204, json: async () => undefined, text: async () => '' } as Response
+      }
+      if (url.includes('/collection/groups') && url.includes('/cards')) {
+        return {
+          ok: true, status: 200, text: async () => '',
+          json: async () => options.groupCards ?? [],
+        } as Response
+      }
+      if (/\/collection\/groups\/\d+$/.test(url) && method === 'PATCH') {
+        const id = Number(url.match(/(\d+)$/)![1])
+        const body = init?.body ? JSON.parse(init.body as string) : {}
+        liveGroups = liveGroups.map((g) => (g.id === id ? { ...g, name: body.name } : g))
+        return {
+          ok: true, status: 200, text: async () => '',
+          json: async () => liveGroups.find((g) => g.id === id),
+        } as Response
+      }
+      if (/\/collection\/groups\/\d+$/.test(url) && method === 'DELETE') {
+        const id = Number(url.match(/(\d+)$/)![1])
+        liveGroups = liveGroups.filter((g) => g.id !== id)
+        return { ok: true, status: 204, json: async () => undefined, text: async () => '' } as Response
+      }
+      if (url.includes('/collection/groups') && method === 'POST') {
+        const body = init?.body ? JSON.parse(init.body as string) : {}
+        const created: CollectionGroup = {
+          id: nextGroupId++, name: body.name, created_at: '2026-08-21', card_count: 0,
+        }
+        liveGroups = [...liveGroups, created]
+        return { ok: true, status: 201, text: async () => '', json: async () => created } as Response
+      }
+      if (url.includes('/collection/groups')) {
+        return { ok: true, status: 200, json: async () => liveGroups, text: async () => '' } as Response
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => (url.includes('/collection/stats') ? figures : entries),
+        text: async () => '',
+      } as Response
+    }),
   )
+
+  return {
+    ...render(
+      <MemoryRouter>
+        <AuthProvider>
+          <LanguageProvider>
+            <CollectionProvider>
+              <ToastProvider>
+                <Collection />
+              </ToastProvider>
+            </CollectionProvider>
+          </LanguageProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    ),
+    calls,
+  }
 }
 
 describe('la valeur sur la page collection', () => {
@@ -714,5 +769,196 @@ describe('le bouton filtres sur la page collection', () => {
     // row behind it, and the sheet's own footer. Either clears the same state.
     fireEvent.click(screen.getAllByRole('button', { name: 'Tout effacer' })[0])
     expect(await screen.findByRole('button', { name: 'Filtres' })).toBeTruthy()
+  })
+})
+
+/* Groupes: user-created, user-named folders within the collection -- never an
+   automatic grouping by rarity or set, since nothing about the catalogue supports
+   that (see BACKLOG.md). Covers the group list, creating one, viewing and leaving
+   one, renaming, deleting (without touching the underlying cards), and the
+   multi-select bulk-add that starts from any other view. */
+describe('sous-collections (groupes)', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const openGroups = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Groupes' }))
+  }
+
+  it('affiche la liste des groupes avec leur nombre de cartes', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      { groups: [{ id: 1, name: 'Même dessinateur', created_at: '2026-01-01', card_count: 3 }] },
+    )
+    await openGroups()
+    expect(await screen.findByText('Même dessinateur')).toBeTruthy()
+    expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it("propose de créer un groupe quand il n'y en a aucun", async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      { groups: [] },
+    )
+    await openGroups()
+    expect(await screen.findByText("Aucun groupe pour l'instant")).toBeTruthy()
+  })
+
+  it('crée un groupe et le voit apparaître dans la liste', async () => {
+    const { calls } = mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      { groups: [] },
+    )
+    await openGroups()
+    fireEvent.click(await screen.findByRole('button', { name: 'Créer un groupe' }))
+    fireEvent.change(await screen.findByLabelText('Nom du nouveau groupe'), {
+      target: { value: 'Même style' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Créer' }))
+
+    expect(await screen.findByText('Même style')).toBeTruthy()
+    expect(calls.some((c) => c.url.includes('/collection/groups') && c.method === 'POST')).toBe(true)
+  })
+
+  it("ouvre un groupe et affiche les cartes qu'il contient", async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      {
+        groups: [{ id: 5, name: 'Mon groupe', created_at: '2026-01-01', card_count: 1 }],
+        groupCards: [entry('OP01-002', 'en', 1, 8)],
+      },
+    )
+    await openGroups()
+    fireEvent.click(await screen.findByText('Mon groupe'))
+    expect(await screen.findByRole('link', { name: /OP01-002/ })).toBeTruthy()
+  })
+
+  it("retirer une carte d'un groupe ne la retire pas de la collection", async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      {
+        groups: [{ id: 5, name: 'Mon groupe', created_at: '2026-01-01', card_count: 1 }],
+        groupCards: [entry('OP01-002', 'en', 1, 8)],
+      },
+    )
+    await openGroups()
+    fireEvent.click(await screen.findByText('Mon groupe'))
+    fireEvent.click(await screen.findByRole('button', { name: /Retirer .* de ce groupe/ }))
+
+    // The card left the group's own view, but nothing about the collection
+    // itself -- the header meta, computed from `entries` and never from a
+    // group -- ever moved.
+    expect(await screen.findByText('Ce groupe est vide')).toBeTruthy()
+    expect(screen.getByText('1 cartes · 1 références')).toBeTruthy()
+  })
+
+  it('renomme un groupe', async () => {
+    const { calls } = mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      {
+        groups: [{ id: 5, name: 'Ancien nom', created_at: '2026-01-01', card_count: 0 }],
+        groupCards: [],
+      },
+    )
+    await openGroups()
+    fireEvent.click(await screen.findByText('Ancien nom'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Renommer' }))
+    fireEvent.change(await screen.findByLabelText('Renommer le groupe'), {
+      target: { value: 'Nouveau nom' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'OK' }))
+
+    // "Nouveau nom" appears twice once renamed -- the group header and the applied-
+    // filters chip both show it -- so the chip's own aria-label is what proves the
+    // rename landed without an ambiguous text match.
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : Nouveau nom' })).toBeTruthy()
+    expect(calls.some((c) => c.url.includes('/collection/groups/5') && c.method === 'PATCH')).toBe(true)
+  })
+
+  it('supprimer un groupe laisse les cartes de la collection intactes', async () => {
+    const { calls } = mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      {
+        groups: [{ id: 5, name: 'À supprimer', created_at: '2026-01-01', card_count: 1 }],
+        groupCards: [],
+      },
+    )
+    await openGroups()
+    fireEvent.click(await screen.findByText('À supprimer'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Supprimer ce groupe' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Supprimer' }))
+
+    expect(calls.some((c) => c.url.includes('/collection/groups/5') && c.method === 'DELETE')).toBe(true)
+    expect(await screen.findByText("Aucun groupe pour l'instant")).toBeTruthy()
+    // Deleting the group never touched the card it held.
+    expect(screen.getByText('1 cartes · 1 références')).toBeTruthy()
+  })
+
+  it('sélectionne des cartes hors d’un groupe et les ajoute à un groupe existant', async () => {
+    const { calls } = mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      { groups: [{ id: 5, name: 'Mon groupe', created_at: '2026-01-01', card_count: 0 }] },
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'OP01-001' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Ajouter à un groupe' }))
+    fireEvent.click(await screen.findByText('Mon groupe'))
+
+    await waitFor(() => {
+      const write = calls.find((c) => c.url.includes('/collection/groups/5/members') && c.method === 'POST')
+      expect(write).toBeTruthy()
+      // `entry.id` (the collection row selected on screen), never `card_id` --
+      // a group holds specific held copies, not catalogue cards.
+      expect(JSON.parse(write!.body!)).toEqual({ collection_ids: [9] })
+    })
+    expect(await screen.findByText('1 carte ajoutée au groupe')).toBeTruthy()
+  })
+
+  it('un raccourci dans l’en-tête ouvre Groupes sans passer par Filtres', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      { groups: [{ id: 1, name: 'Même dessinateur', created_at: '2026-01-01', card_count: 3 }] },
+    )
+    // No "Filtres" tap anywhere in this test -- the header button is its own door.
+    fireEvent.click(await screen.findByRole('button', { name: 'Groupes' }))
+    expect(await screen.findByText('Même dessinateur')).toBeTruthy()
+  })
+
+  it('un second tap sur le raccourci recule d’un niveau à la fois', async () => {
+    mount(
+      [entry('OP01-001', 'en', 1, 10)],
+      stats({ total_quantity: 1, distinct_cards: 1 }),
+      {
+        groups: [{ id: 5, name: 'Mon groupe', created_at: '2026-01-01', card_count: 1 }],
+        groupCards: [entry('OP01-002', 'en', 1, 8)],
+      },
+    )
+    // Anchored: "Filtres actifs : Groupes" also contains the word "Groupes" and
+    // would otherwise match too.
+    const shortcut = () => screen.findByRole('button', { name: /^(Groupes|Groupe : .+)$/ })
+
+    fireEvent.click(await shortcut())
+    fireEvent.click(await screen.findByText('Mon groupe'))
+    expect(await screen.findByRole('link', { name: /OP01-002/ })).toBeTruthy()
+
+    // First tap: out of the specific group, back to the group list -- the group
+    // itself (still holding its one card) is what should show, not the collection.
+    fireEvent.click(await shortcut())
+    expect(await screen.findByText('Mon groupe')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /OP01-002/ })).toBeNull()
+
+    // Second tap: out of Groupes entirely.
+    fireEvent.click(await shortcut())
+    expect(await screen.findByRole('button', { name: 'Groupes' })).toBeTruthy()
+    expect(screen.queryByText('Mon groupe')).toBeNull()
   })
 })

@@ -190,6 +190,17 @@ export interface DeviceSession {
   current: boolean
 }
 
+/* A personal, user-named folder within the collection -- "même dessinateur", "même
+   style d'illustration", or any other reason a collector decides two held cards
+   belong together. Manual by design: nothing about the catalogue supports grouping
+   this way automatically (see BACKLOG.md). */
+export interface CollectionGroup {
+  id: number
+  name: string
+  created_at: string
+  card_count: number
+}
+
 export type RegistrationMode = 'open' | 'invite' | 'closed'
 
 export interface RegistrationPolicy {

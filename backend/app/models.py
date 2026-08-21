@@ -213,6 +213,30 @@ class CollectionUpdate(BaseModel):
     date_added: str | None = None
 
 
+class GroupCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+
+
+class GroupUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+
+
+class CollectionGroup(BaseModel):
+    id: int
+    name: str
+    created_at: str
+    # Computed alongside the row rather than left for the client to count -- the
+    # picker that lists every group needs this without a second round trip per
+    # group just to know whether it is empty.
+    card_count: int
+
+
+class GroupMemberAdd(BaseModel):
+    """One or many holdings at once -- multi-select on the Collection grid adds
+    several cards to a group in a single call rather than one round trip each."""
+    collection_ids: list[int] = Field(min_length=1)
+
+
 class ScanPrinting(BaseModel):
     card_id: str
     distance: int

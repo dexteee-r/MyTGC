@@ -6,7 +6,7 @@ import { AuthProvider } from '../lib/auth'
 import { CollectionProvider } from '../lib/collection'
 import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
-import type { Card, CollectionEntry } from '../lib/types'
+import type { Card, CollectionEntry, CollectionGroup } from '../lib/types'
 import { CardDetail } from './CardDetail'
 
 /* The quantity control is the whole screen: it is the gesture a collector repeats more
@@ -38,6 +38,7 @@ const posted: { url: string; method: string; body: unknown }[] = []
 function mount(options: {
   card?: Partial<Card>
   collection?: CollectionEntry[]
+  groups?: CollectionGroup[]
 } = {}) {
   const subject = { ...card, ...options.card }
   const collection = options.collection ?? []
@@ -47,6 +48,11 @@ function mount(options: {
     const method = init?.method ?? 'GET'
     if (method !== 'GET') {
       posted.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : null })
+    }
+    // Checked before '/collection' below, which '/collection/groups' also
+    // contains -- GroupPicker's own fetch shares this same mock.
+    if (url.includes('/collection/groups')) {
+      return { ok: true, status: 200, json: async () => options.groups ?? [], text: async () => '' } as Response
     }
     // Checked before the bare '/cards/' match below, which '/cards/{id}/prices'
     // also contains. The plain card GET echoes back a name derived from
@@ -340,5 +346,44 @@ describe('naviguer au clavier', () => {
 
     expect(screen.getByText('Monkey.D.Luffy')).toBeTruthy()
     expect(screen.queryByText('Carte OP01-002')).toBeNull()
+  })
+})
+
+describe('ajouter la carte à un groupe', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('ne propose pas le bouton tant que la carte n’est pas possédée', async () => {
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+    expect(screen.queryByText('Ajouter à un groupe')).toBeNull()
+  })
+
+  it('propose le bouton une fois la carte possédée, et liste les groupes existants', async () => {
+    mount({
+      collection: [holding],
+      groups: [{ id: 5, name: 'Même dessinateur', created_at: '2026-01-01', card_count: 2 }],
+    })
+    await screen.findByText('Monkey.D.Luffy')
+    await userEvent.click(await screen.findByText('Ajouter à un groupe'))
+    expect(await screen.findByText('Même dessinateur')).toBeTruthy()
+  })
+
+  it('ajoute la carte au groupe choisi, avec l’id de la carte détenue (pas du catalogue)', async () => {
+    mount({
+      collection: [holding],
+      groups: [{ id: 5, name: 'Même dessinateur', created_at: '2026-01-01', card_count: 2 }],
+    })
+    await screen.findByText('Monkey.D.Luffy')
+    await userEvent.click(await screen.findByText('Ajouter à un groupe'))
+    await userEvent.click(await screen.findByText('Même dessinateur'))
+
+    await waitFor(() => {
+      const write = posted.find((p) => p.method === 'POST' && p.url.includes('/collection/groups/5/members'))
+      expect(write).toBeTruthy()
+      // `holding.id` (the collection row), never `card.id` (the catalogue card) --
+      // a group holds specific copies, and this card_id is shared by every account.
+      expect(write?.body).toMatchObject({ collection_ids: [holding.id] })
+    })
+    expect(await screen.findByText('Monkey.D.Luffy ajoutée au groupe')).toBeTruthy()
   })
 })

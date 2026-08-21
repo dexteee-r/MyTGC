@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Edition } from '../components/Edition'
-import { InfoIcon, LinkIcon } from '../components/icons'
+import { GroupPicker } from '../components/GroupPicker'
+import { ChevronLeftIcon, FolderIcon, InfoIcon, LinkIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
 import { ShareDialog } from '../components/ShareDialog'
 import {
@@ -18,7 +19,8 @@ import {
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
-import type { CollectionEntry, Language, ValuePoint } from '../lib/types'
+import { useToast } from '../lib/toast'
+import type { CollectionEntry, CollectionGroup, Language, ValuePoint } from '../lib/types'
 
 /* Every sort dimension is now independent rather than one mutually-exclusive value:
    asked specifically so several could combine into a spreadsheet-style multi-column
@@ -49,7 +51,7 @@ const SORT_LABEL: Record<SortKey, Record<Direction, string>> = {
   doublon: { desc: "Doublons d'abord", asc: "Doublons d'abord" },
 }
 
-type View = 'all' | 'doubles'
+type View = 'all' | 'doubles' | 'group'
 
 /* The pile, not the card: quantity × market_price, the same total "Doubles" already
    uses to tell possédées from échangeables. A unit price would rank a lone 40 €
@@ -157,10 +159,20 @@ function compareCriterion(c: SortCriterion, a: CollectionEntry, b: CollectionEnt
    the whole point of the filters: narrow the collection, open a card, come back
    to the same narrowed list. Without this the filters silently reset on every
    return trip, which is to say exactly when they were being used. */
-let left: { view: View; language: Language | null; sortChain: SortCriterion[] } = {
+let left: {
+  view: View
+  language: Language | null
+  sortChain: SortCriterion[]
+  // Which group is open, while view is 'group' -- null means the group list
+  // itself, not a specific one. Kept here for the same reason the rest of this
+  // object is: opening a card from inside a group and hitting "Retour" should
+  // land back in that same group, not at the top of the group list.
+  activeGroupId: number | null
+} = {
   view: 'all',
   language: null,
   sortChain: DEFAULT_SORT,
+  activeGroupId: null,
 }
 
 /* Test-only: a fresh `render()` in Vitest still shares this module's `left` with
@@ -168,11 +180,12 @@ let left: { view: View; language: Language | null; sortChain: SortCriterion[] } 
    it between tests, whichever filters the previous test left active would leak
    into the next one's starting state. */
 export function resetCollectionMemory() {
-  left = { view: 'all', language: null, sortChain: DEFAULT_SORT }
+  left = { view: 'all', language: null, sortChain: DEFAULT_SORT, activeGroupId: null }
 }
 
 export function Collection() {
   const { entries, stats, ready } = useCollection()
+  const { show } = useToast()
   const [sortChain, setSortChainState] = useState<SortCriterion[]>(left.sortChain)
   const [view, setViewState] = useState<View>(left.view)
   const [language, setLanguageState] = useState<Language | null>(left.language)
@@ -180,6 +193,20 @@ export function Collection() {
   const [shareOpen, setShareOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
+
+  const [activeGroupId, setActiveGroupIdState] = useState<number | null>(left.activeGroupId)
+  const [myGroups, setMyGroups] = useState<CollectionGroup[] | null>(null)
+  const [groupEntries, setGroupEntries] = useState<CollectionEntry[] | null>(null)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [renamingGroup, setRenamingGroup] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false)
+  // Multi-select: works from any view, not just a group's own -- picking cards
+  // out of "Tout" to file into a group is the common case, not a special one.
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false)
 
   /* Written on the way through rather than in an effect: StrictMode mounts
      effects twice in dev, and this only ever needs to record a choice as it is
@@ -191,6 +218,10 @@ export function Collection() {
   const setLanguage = (next: Language | null) => {
     left.language = next
     setLanguageState(next)
+  }
+  const setActiveGroupId = (next: number | null) => {
+    left.activeGroupId = next
+    setActiveGroupIdState(next)
   }
   const setSortChain = (
     update: SortCriterion[] | ((chain: SortCriterion[]) => SortCriterion[]),
@@ -234,12 +265,15 @@ export function Collection() {
     return idx === -1 ? null : idx + 1
   }
 
+  const activeGroup = myGroups?.find((g) => g.id === activeGroupId) ?? null
+
   // What is on, in words, for the trigger that opens the sheet -- same reasoning as
   // appliedLabels in Filters.tsx: a filter you cannot see from the closed button is
   // one you forget you set.
   const applied = [
     language === 'en' ? 'INT' : language === 'jp' ? 'JP' : null,
     view === 'doubles' ? 'Doubles' : null,
+    view === 'group' ? (activeGroup ? activeGroup.name : 'Groupes') : null,
     // The lone default (newest first) reads as nothing chosen, same as before this
     // sort had two directions of its own -- everything else, including that same
     // criterion once it joins a combo, is a choice worth surfacing.
@@ -249,6 +283,18 @@ export function Collection() {
     setView('all')
     setSortChain(DEFAULT_SORT)
     setLanguage(null)
+    setActiveGroupId(null)
+  }
+
+  /* A direct door to Groupes, next to Filtres rather than behind it -- Vue still
+     offers it too (nothing here removes that path), but the sheet made it feel
+     like a filter to configure rather than a place to go. A second tap steps back
+     one level at a time: out of a specific group first, then out of Groupes
+     entirely, the same as the chevron inside the group view itself. */
+  const toggleGroupsShortcut = () => {
+    if (view !== 'group') setView('group')
+    else if (activeGroupId != null) setActiveGroupId(null)
+    else setView('all')
   }
 
   // Its own request rather than folded into useCollection: every other screen that
@@ -257,6 +303,79 @@ export function Collection() {
   useEffect(() => {
     api.collectionValueHistory().then(setValueHistory).catch(() => {})
   }, [])
+
+  const refreshGroups = () => api.groups().then(setMyGroups).catch(() => {})
+
+  useEffect(() => {
+    if (view === 'group') refreshGroups()
+  }, [view])
+
+  useEffect(() => {
+    if (view !== 'group' || activeGroupId == null) return
+    setGroupEntries(null)
+    api.groupCards(activeGroupId).then(setGroupEntries).catch(() => setGroupEntries([]))
+  }, [view, activeGroupId])
+
+  const createGroup = async () => {
+    const trimmed = newGroupName.trim()
+    if (!trimmed) return
+    const group = await api.createGroup(trimmed).catch(() => null)
+    if (group) {
+      setNewGroupName('')
+      setCreatingGroup(false)
+      refreshGroups()
+    }
+  }
+
+  const renameActiveGroup = async () => {
+    if (activeGroupId == null) return
+    const trimmed = renameValue.trim()
+    if (!trimmed) return
+    await api.renameGroup(activeGroupId, trimmed).catch(() => {})
+    setRenamingGroup(false)
+    refreshGroups()
+  }
+
+  const deleteActiveGroup = async () => {
+    if (activeGroupId == null) return
+    await api.deleteGroup(activeGroupId).catch(() => {})
+    setConfirmDeleteGroup(false)
+    setActiveGroupId(null)
+    refreshGroups()
+  }
+
+  const removeFromActiveGroup = async (entryId: number) => {
+    if (activeGroupId == null) return
+    // Optimistic: waiting on the round trip here would leave a card that was just
+    // dismissed sitting on screen for another beat, undoing the very thing the tap
+    // was for.
+    setGroupEntries((current) => current?.filter((e) => e.id !== entryId) ?? null)
+    await api.removeFromGroup(activeGroupId, entryId).catch(() => {})
+    refreshGroups()
+  }
+
+  const toggleSelect = (id: number) => {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const exitSelecting = () => {
+    setSelecting(false)
+    setSelected(new Set())
+  }
+
+  const bulkAddToGroup = async (groupId: number) => {
+    const count = selected.size
+    await api.addToGroup(groupId, [...selected]).catch(() => {})
+    setGroupPickerOpen(false)
+    exitSelecting()
+    show(`${count} carte${count > 1 ? 's' : ''} ajoutée${count > 1 ? 's' : ''} au groupe`)
+    if (view === 'group') refreshGroups()
+  }
 
   // Applied before Vue and before Trier: which language is on the table decides
   // what there is to view or sort in the first place. The header meta and the
@@ -364,6 +483,20 @@ export function Collection() {
               <LinkIcon className="size-5" />
             </button>
             <button
+              onClick={toggleGroupsShortcut}
+              aria-pressed={view === 'group'}
+              aria-label={
+                view === 'group' ? (activeGroup ? `Groupe : ${activeGroup.name}` : 'Groupes') : 'Groupes'
+              }
+              className="flex size-11 items-center justify-center rounded-full"
+              style={{
+                background: view === 'group' ? 'var(--gradient-sun)' : 'transparent',
+                color: view === 'group' ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
+              }}
+            >
+              <FolderIcon className="size-5" />
+            </button>
+            <button
               onClick={() => setFiltersOpen(true)}
               aria-haspopup="dialog"
               aria-label={applied.length ? `Filtres actifs : ${applied.join(', ')}` : 'Filtres'}
@@ -394,6 +527,44 @@ export function Collection() {
           </button>
         </div>
       )}
+
+      {/* Multi-select works from whichever view is on screen -- picking cards out
+          of "Tout" to file into a group is the common case, so this is not tucked
+          away inside the Groupes view specifically. */}
+      {entries.length > 0 && (
+        <div className="flex items-center gap-2 px-5 pb-2">
+          {selecting ? (
+            <>
+              <p className="t-code min-w-0 flex-1 truncate">
+                {selected.size} sélectionnée{selected.size > 1 ? 's' : ''}
+              </p>
+              <Button
+                variant="quiet"
+                disabled={selected.size === 0}
+                onClick={() => setGroupPickerOpen(true)}
+              >
+                Ajouter à un groupe
+              </Button>
+              <button onClick={exitSelecting} className="t-code min-h-[var(--touch)] shrink-0 px-2">
+                Annuler
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSelecting(true)}
+              className="t-code min-h-[var(--touch)] shrink-0 px-2 text-[var(--text-secondary)]"
+            >
+              Sélectionner
+            </button>
+          )}
+        </div>
+      )}
+
+      <GroupPicker
+        open={groupPickerOpen}
+        onClose={() => setGroupPickerOpen(false)}
+        onPick={bulkAddToGroup}
+      />
 
       <ShareDialog
         open={shareOpen}
@@ -427,6 +598,15 @@ export function Collection() {
             plusieurs exemplaires, avec deux totaux distincts : <em>possédées</em> compte
             tout ce que tu en as, <em>échangeables</em> ne compte que le surplus — un
             exemplaire de chaque reste toujours dans ton classeur.
+          </p>
+          <p>
+            <strong style={{ color: 'var(--text-primary)' }}>Groupes</strong> range tes
+            cartes dans des dossiers que tu crées et nommes toi-même — même
+            dessinateur, même style d'illustration, ou toute autre raison qui te
+            convient. Rien d'automatique : tu ajoutes une carte à un groupe depuis sa
+            fiche, ou en sélectionnant plusieurs cartes ici même. Une carte peut
+            appartenir à plusieurs groupes à la fois, et la retirer d'un groupe ne la
+            retire jamais de ta collection.
           </p>
           <p>
             <strong style={{ color: 'var(--text-primary)' }}>Trier</strong> ordonne la
@@ -476,6 +656,167 @@ export function Collection() {
             Scanne une carte, ou ajoute-la depuis sa fiche.
           </EmptyState>
         </div>
+      ) : view === 'group' ? (
+        activeGroupId == null ? (
+          <div className="px-5 pb-4">
+            {myGroups === null ? (
+              <Sounding label="Ouverture des groupes" />
+            ) : myGroups.length === 0 && !creatingGroup ? (
+              <EmptyState
+                title="Aucun groupe pour l'instant"
+                action={
+                  <Button size="lg" onClick={() => setCreatingGroup(true)}>
+                    Créer un groupe
+                  </Button>
+                }
+              >
+                Un groupe range des cartes selon un critère qui te parle -- même
+                dessinateur, même style d'illustration, ou toute autre raison.
+              </EmptyState>
+            ) : (
+              <>
+                <ul className="space-y-2">
+                  {myGroups.map((group) => (
+                    <li key={group.id}>
+                      <button
+                        onClick={() => setActiveGroupId(group.id)}
+                        className="flex min-h-[var(--touch)] w-full items-center justify-between gap-3 rounded-[14px] px-4"
+                        style={{ background: 'var(--surface-recessed)' }}
+                      >
+                        <span className="truncate text-sm font-medium">{group.name}</span>
+                        <span className="t-numeral shrink-0 text-sm text-[var(--text-faint)]">
+                          {group.card_count}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                {creatingGroup ? (
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={newGroupName}
+                      onChange={(event) => setNewGroupName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') createGroup()
+                      }}
+                      placeholder="Nom du groupe"
+                      maxLength={60}
+                      aria-label="Nom du nouveau groupe"
+                      className="t-code min-h-[var(--touch)] w-full min-w-0 rounded-full px-4 outline-none"
+                      style={{ background: 'var(--surface-recessed)' }}
+                    />
+                    <Button variant="quiet" disabled={!newGroupName.trim()} onClick={createGroup}>
+                      Créer
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="pt-3">
+                    <Button variant="quiet" full onClick={() => setCreatingGroup(true)}>
+                      + Nouveau groupe
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 px-5 pb-3">
+              <button
+                onClick={() => setActiveGroupId(null)}
+                aria-label="Retour aux groupes"
+                className="flex size-11 shrink-0 items-center justify-center text-[var(--text-secondary)]"
+              >
+                <ChevronLeftIcon className="size-5" />
+              </button>
+              {renamingGroup ? (
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') renameActiveGroup()
+                    }}
+                    maxLength={60}
+                    aria-label="Renommer le groupe"
+                    className="t-code min-h-[var(--touch)] w-full min-w-0 rounded-full px-4 outline-none"
+                    style={{ background: 'var(--surface-recessed)' }}
+                  />
+                  <Button variant="quiet" disabled={!renameValue.trim()} onClick={renameActiveGroup}>
+                    OK
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{activeGroup?.name}</p>
+                  <button
+                    onClick={() => {
+                      setRenameValue(activeGroup?.name ?? '')
+                      setRenamingGroup(true)
+                    }}
+                    className="t-code shrink-0 px-2 text-[var(--text-secondary)]"
+                  >
+                    Renommer
+                  </button>
+                </>
+              )}
+            </div>
+
+            {confirmDeleteGroup ? (
+              <div
+                className="mx-5 mb-3 flex items-center gap-2 rounded-[14px] p-3"
+                style={{ background: 'var(--surface-recessed)' }}
+              >
+                <p className="min-w-0 flex-1 text-sm text-[var(--text-secondary)]">
+                  Supprimer ce groupe ? Les cartes qu'il contient restent dans ta
+                  collection.
+                </p>
+                <Button variant="destructive" onClick={deleteActiveGroup}>
+                  Supprimer
+                </Button>
+                <Button variant="ghost" onClick={() => setConfirmDeleteGroup(false)}>
+                  Annuler
+                </Button>
+              </div>
+            ) : (
+              <div className="px-5 pb-3">
+                <button
+                  onClick={() => setConfirmDeleteGroup(true)}
+                  className="t-code text-ember-500"
+                >
+                  Supprimer ce groupe
+                </button>
+              </div>
+            )}
+
+            {groupEntries === null ? (
+              <Sounding label="Ouverture du groupe" />
+            ) : groupEntries.length === 0 ? (
+              <div className="pt-4">
+                <EmptyState title="Ce groupe est vide">
+                  Ajoute une carte depuis sa fiche, ou sélectionne des cartes ici pour
+                  les y ajouter.
+                </EmptyState>
+              </div>
+            ) : (
+              <ul className="grid grid-cols-3 content-start gap-1.5 px-4 pb-2 lg:grid-cols-6">
+                {groupEntries.map((entry) => (
+                  <Seated
+                    key={`${entry.card_id}-${entry.language}`}
+                    entry={entry}
+                    selecting={selecting}
+                    selected={selected.has(entry.id)}
+                    onToggleSelect={() => toggleSelect(entry.id)}
+                    onRemoveFromGroup={() => removeFromActiveGroup(entry.id)}
+                  />
+                ))}
+              </ul>
+            )}
+          </>
+        )
       ) : (
         <>
           {view === 'all' ? (
@@ -566,7 +907,13 @@ export function Collection() {
                   className="grid grid-cols-3 content-start gap-1.5 px-4 pb-2 lg:grid-cols-6"
                 >
                   {group.items.map((entry) => (
-                    <Seated key={`${entry.card_id}-${entry.language}`} entry={entry} />
+                    <Seated
+                      key={`${entry.card_id}-${entry.language}`}
+                      entry={entry}
+                      selecting={selecting}
+                      selected={selected.has(entry.id)}
+                      onToggleSelect={() => toggleSelect(entry.id)}
+                    />
                   ))}
                 </ul>
               </section>
@@ -611,6 +958,7 @@ export function Collection() {
             options={[
               { value: 'all' as const, label: 'Tout' },
               { value: 'doubles' as const, label: 'Doubles' },
+              { value: 'group' as const, label: 'Groupes' },
             ]}
             onChange={setView}
             label="Vue"
@@ -676,9 +1024,71 @@ function FilterIcon({ className = '' }: { className?: string }) {
 }
 
 /* One card on the plate. The quantity is only worth saying when it is more than one —
-   a "1" on every card is noise on a screen whose whole job is showing what you hold. */
-function Seated({ entry }: { entry: CollectionEntry }) {
+   a "1" on every card is noise on a screen whose whole job is showing what you hold.
+
+   `selecting` swaps the tile from a link (open the card) to a toggle (pick it for
+   a bulk action) -- the two gestures would fight over the same tap otherwise.
+   `onRemoveFromGroup`, when the card sheet it is not: a quick dismissal from
+   *this* group, never from the collection itself, so it only ever appears while
+   looking at one specific group's own cards. */
+function Seated({
+  entry,
+  selecting,
+  selected,
+  onToggleSelect,
+  onRemoveFromGroup,
+}: {
+  entry: CollectionEntry
+  selecting?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
+  onRemoveFromGroup?: () => void
+}) {
   const src = entry.card ? imageUrl(entry.card) : null
+  const image = src ? (
+    <img
+      src={src}
+      alt=""
+      decoding="async"
+      className="float aspect-[600/838] w-full object-cover"
+    />
+  ) : (
+    <div className="sunken aspect-[600/838] w-full" />
+  )
+
+  if (selecting) {
+    return (
+      <li className="relative">
+        <button
+          onClick={onToggleSelect}
+          aria-pressed={selected}
+          aria-label={`${entry.card?.name ?? entry.card_id}${selected ? ', sélectionnée' : ''}`}
+          className="block w-full"
+        >
+          {image}
+          {/* A ring around the chosen ones rather than dimming the rest: the job is
+              to pick out which are selected, not to make the others harder to read. */}
+          {selected && (
+            <>
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-[2px]"
+                style={{ boxShadow: 'inset 0 0 0 3px var(--accent-numeral)' }}
+              />
+              <span
+                aria-hidden
+                className="t-numeral absolute top-1 right-1 grid size-6 place-items-center rounded-full text-[0.7rem]"
+                style={{ background: 'var(--accent-numeral)', color: 'var(--color-paper-ink)' }}
+              >
+                ✓
+              </span>
+            </>
+          )}
+        </button>
+      </li>
+    )
+  }
+
   return (
     <li className="relative">
       <Link
@@ -686,16 +1096,7 @@ function Seated({ entry }: { entry: CollectionEntry }) {
         aria-label={`${entry.card?.name ?? entry.card_id}, ${entry.quantity} en collection`}
         className="block"
       >
-        {src ? (
-          <img
-            src={src}
-            alt=""
-            decoding="async"
-            className="float aspect-[600/838] w-full object-cover"
-          />
-        ) : (
-          <div className="sunken aspect-[600/838] w-full" />
-        )}
+        {image}
         {entry.quantity > 1 && (
           <span
             className="t-numeral absolute right-0 bottom-0 px-1.5 py-0.5 text-[0.7rem]"
@@ -705,6 +1106,18 @@ function Seated({ entry }: { entry: CollectionEntry }) {
           </span>
         )}
       </Link>
+      {/* A sibling of the Link, not nested in it -- a button inside an anchor is
+          invalid HTML, the same reasoning CardGrid's own wishlist button follows. */}
+      {onRemoveFromGroup && (
+        <button
+          onClick={onRemoveFromGroup}
+          aria-label={`Retirer ${entry.card?.name ?? entry.card_id} de ce groupe`}
+          className="absolute top-1 right-1 grid size-7 place-items-center rounded-full text-sm"
+          style={{ background: 'rgba(4,18,26,.86)', color: 'var(--color-paper-100)' }}
+        >
+          ×
+        </button>
+      )}
     </li>
   )
 }
