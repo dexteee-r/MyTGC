@@ -73,13 +73,30 @@ REGISTER = SlidingWindow(
     message="Trop de comptes créés depuis cette adresse. Réessaie plus tard.",
 )
 
+# One counter for the live scanner's continuous stream, a separate one for a single
+# capture (a photo, or an imported/pasted image) -- reported live, a long live-scan
+# session (now that it actually keeps trying instead of sitting stuck) burned through
+# a budget the two shared, and a photo taken right after failed with a message that
+# read as a crash rather than as a limit the live session had already spent. Each
+# usage pattern gets its own allowance so neither can starve the other.
+#
 # Sized above what the live scanner can physically produce. It used to be 40 while
 # the camera could send 50 a minute, so a steady hand ran into a 429 after about
 # forty seconds and the stream went quiet — the limit was throttling the feature it
 # was meant to protect. The concurrency cap is what actually protects the box; this
 # is only a ceiling on one client running away.
-SCAN = SlidingWindow(
-    limit=int(os.environ.get("MYTCG_SCAN_RATE_LIMIT", "90")),
+SCAN_LIVE = SlidingWindow(
+    limit=int(os.environ.get("MYTCG_SCAN_LIVE_RATE_LIMIT", "90")),
+    window_seconds=60,
+    message="Trop de scans d'affilée. Laisse la caméra respirer un instant.",
+)
+
+# A single capture is a deliberate tap, not an automatic stream, so this can afford
+# to be generous without inviting the runaway-client problem the limit above guards
+# against -- and it exists at all only so it is never at the mercy of however busy
+# the live counter happens to be.
+SCAN_SINGLE = SlidingWindow(
+    limit=int(os.environ.get("MYTCG_SCAN_SINGLE_RATE_LIMIT", "90")),
     window_seconds=60,
     message="Trop de scans d'affilée. Laisse la caméra respirer un instant.",
 )

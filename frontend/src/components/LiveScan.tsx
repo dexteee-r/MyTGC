@@ -244,7 +244,15 @@ export function LiveScan({
       lastSent.current = Date.now()
       setState({ kind: 'running', hint: 'reading' })
       try {
-        const result = await api.scan(new File([blob], 'frame.jpg', { type: 'image/jpeg' }), language)
+        // stream=true: this counts against the live scanner's own rate-limit
+        // budget, kept separate so a long session here can never leave a single
+        // photo capture with nothing left.
+        const result = await api.scan(
+          new File([blob], 'frame.jpg', { type: 'image/jpeg' }),
+          language,
+          'camera',
+          true,
+        )
         if (result.detected && result.candidates.length > 0) {
           onResult(result)
           setState({ kind: 'running', hint: 'hold' })

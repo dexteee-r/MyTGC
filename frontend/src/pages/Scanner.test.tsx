@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import { AuthProvider } from "../lib/auth";
 import { CollectionProvider } from "../lib/collection";
 import { LanguageProvider } from "../lib/language";
@@ -166,5 +166,34 @@ describe("scanner", () => {
       await screen.findByRole("button", { name: "Ranger dans la collection" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Déjà dans ta collection/)).toBeNull();
+  });
+});
+
+/* Reported live: right after a live-scan session -- now that stillnessGate and
+   MOVE_THRESHOLD let it actually fire requests instead of sitting stuck -- a photo
+   capture failed with "Le serveur n'a pas répondu", which reads as a crash. The real
+   cause was the shared per-user scan budget (throttle.SCAN, one counter for both
+   modes) running out from the live session moments before. LiveScan already tells a
+   429/503 apart from a real failure; this covers the same distinction on the photo
+   path, which used to collapse every error into one generic message. */
+describe("l'échec de scan en mode photo", () => {
+  it("distingue une limite de débit du serveur d'une vraie panne", async () => {
+    vi.spyOn(api, "scan").mockRejectedValue(
+      new ApiError(429, "Trop de scans d'affilée. Laisse la caméra respirer un instant."),
+    );
+    mount([]);
+
+    expect(
+      await screen.findByText(/Trop de scans d.affilée/),
+    ).toBeInTheDocument();
+  });
+
+  it("garde le message générique pour une panne qui n'est pas une limite de débit", async () => {
+    vi.spyOn(api, "scan").mockRejectedValue(new Error("network down"));
+    mount([]);
+
+    expect(
+      await screen.findByText(/n.a pas répondu/),
+    ).toBeInTheDocument();
   });
 });

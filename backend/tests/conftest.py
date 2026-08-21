@@ -47,7 +47,7 @@ def fresh_database():
     database, so without this the first few tests would consume the registration
     allowance and every later test would get a 429 instead of its own result.
     """
-    for window in (throttle.LOGIN, throttle.REGISTER, throttle.SCAN):
+    for window in (throttle.LOGIN, throttle.REGISTER, throttle.SCAN_LIVE, throttle.SCAN_SINGLE):
         window._hits.clear()
 
     connection = db.connect()

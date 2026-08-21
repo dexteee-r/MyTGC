@@ -282,12 +282,21 @@ export const api = {
      `source` tells the server which fallback applies when no card-shaped region is
      found within the frame -- 'camera' (the default) leaves that as a genuine "no
      card in view"; 'import' is a picked or pasted image, usually already a tight
-     crop of just the card, where the server instead treats the whole frame as one. */
-  scan(file: File, language: Language | null, source: 'camera' | 'import' = 'camera') {
+     crop of just the card, where the server instead treats the whole frame as one.
+     `stream` is the live scanner's own continuous flag: its rate-limit budget is
+     kept separate from a single deliberate capture's, reported live after a long
+     live session left a photo attempt right after it with a budget already spent
+     and a message that read as a crash rather than as a shared limit running dry. */
+  scan(
+    file: File,
+    language: Language | null,
+    source: 'camera' | 'import' = 'camera',
+    stream = false,
+  ) {
     const body = new FormData()
     body.append('file', file)
     // No Content-Type header: the browser must set the multipart boundary itself.
-    const params = new URLSearchParams({ source })
+    const params = new URLSearchParams({ source, stream: String(stream) })
     if (language) params.set('language', language)
     /* Bounded rather than left open-ended: the live scanner fires this every one to
        three seconds and has nothing else to fall back on if a single attempt hangs

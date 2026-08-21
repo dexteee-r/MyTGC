@@ -614,8 +614,15 @@ async def scan(
                     "back to treating the whole image as the card rather than "
                     "reporting a false 'nothing detected'.",
     ),
+    stream: bool = Query(
+        False,
+        description="true for the live scanner's continuous stream, false for a "
+                    "single deliberate capture (a photo, or an imported/pasted "
+                    "image). Each has its own rate-limit budget, so a long live "
+                    "session can never leave a single capture with nothing left.",
+    ),
 ):
-    throttle.SCAN.check(f"user:{user.id}")
+    (throttle.SCAN_LIVE if stream else throttle.SCAN_SINGLE).check(f"user:{user.id}")
 
     catalogue = app.state.catalogue
     if catalogue is None:
@@ -1188,8 +1195,10 @@ def health(conn: Conn):
             "catalogue": meta, "hashed_cards": hashed,
             "registration": auth.REGISTRATION_MODE,
             # Published so the live scanner paces itself from the real limit rather
-            # than a constant of its own that can quietly drift out of step.
-            "scan_rate_limit": throttle.SCAN.limit,
-            "scan_window_seconds": int(throttle.SCAN.window),
+            # than a constant of its own that can quietly drift out of step. The
+            # live-stream budget specifically: a single capture (photo or import)
+            # has its own separate one and never paces against this number.
+            "scan_rate_limit": throttle.SCAN_LIVE.limit,
+            "scan_window_seconds": int(throttle.SCAN_LIVE.window),
             "scan_enabled": app.state.catalogue is not None,
             "scan_threshold": recognition.DEFAULT_MAX_DISTANCE}

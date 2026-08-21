@@ -14,7 +14,7 @@ import {
   Sounding,
 } from '../components/ui'
 import { Moment, momentLine, type MomentKind } from '../components/Moment'
-import { api, imageUrl } from '../lib/api'
+import { ApiError, api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { LANGUAGE_OPTIONS, useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
@@ -108,8 +108,19 @@ export function Scanner() {
       const failure = failureOf(scan)
       if (failure) setMissed(failure)
       else setResult(scan)
-    } catch {
-      setError("Le serveur n'a pas répondu. Vérifie qu'il tourne, puis reprends.")
+    } catch (caught) {
+      /* A 429/503 is the server saying "slow down" or "busy", not "something is
+         broken" -- the live scanner already tells the two apart (see LiveScan.tsx).
+         This used to show the same "didn't respond" message for both, which reads as
+         a crash right after a live session that has genuinely burned through the
+         per-user scan budget the two modes share. */
+      const status = caught instanceof ApiError ? caught.status : 0
+      setError(
+        status === 429 || status === 503
+          ? "Trop de scans d'affilée. Laisse la caméra respirer un instant."
+          : "Le serveur n'a pas répondu. Ta collection reste consultable ; c'est la "
+            + "reconnaissance qui attend la liaison.",
+      )
     } finally {
       setBusy(false)
     }
@@ -273,10 +284,11 @@ export function Scanner() {
 
       {error && !busy && (
         <div className="pt-4">
-          <Adrift onRetry={capture}>
-            Le serveur n'a pas répondu. Ta collection reste consultable ; c'est la
-            reconnaissance qui attend la liaison.
-          </Adrift>
+          {/* `error` used to be read as a plain boolean here -- the text shown was a
+              single hardcoded sentence regardless of what it actually held, which
+              nobody noticed while there was only ever one message to set. Distinguishing
+              a rate limit from a real failure needed the state's own words on screen. */}
+          <Adrift onRetry={capture}>{error}</Adrift>
         </div>
       )}
 
