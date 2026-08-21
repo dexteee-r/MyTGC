@@ -33,6 +33,46 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Suite du scan en continu** : trois correctifs de plus après le premier ci-dessous,
+  chacun trouvé par un aller-retour de test réel avec l'utilisateur plutôt que deviné :
+  - Le message de diagnostic (flou, sombre, reflet) s'affichait bien mais pendant
+    180ms à peine avant d'être écrasé par le tick suivant, qui détecte presque
+    toujours un nouveau « mouvement » sur un appareil réel — `HINT_HOLD_MS` impose
+    1,6s minimum avant qu'un mouvement puisse l'effacer.
+  - Le scan en direct et une capture unique (photo, import) partageaient un seul
+    quota de 90 scans/60s : une session en direct qui fonctionne enfin (voir
+    ci-dessous) pouvait l'épuiser, laissant une capture photo échouer juste après
+    avec un message qui ressemblait à une panne. `throttle.SCAN_LIVE` et
+    `SCAN_SINGLE` sont maintenant deux compteurs indépendants.
+  - Ce message d'échec en mode photo était de toute façon codé en dur dans le JSX
+    (`Scanner.tsx`), déconnecté de l'état `error` réel — corrigé au passage en
+    ajoutant la distinction 429/503 vs panne réelle.
+  - `main.py` renvoyait toujours `reason="unknown"` sur un raté de correspondance
+    sans jamais appeler `diagnosis.diagnose()` sur l'image rectifiée — un choix
+    explicite qui supposait qu'une carte détectée mais non reconnue ne pouvait être
+    qu'une carte hors catalogue. Corrigé pour diagnostiquer réellement l'image.
+
+  **Résultat confirmé par l'utilisateur, carte en main** : Common/Uncommon/Rare/
+  SuperRare reconnues de manière fiable en direct ; Leader reconnues sauf reflet
+  holographique visible. Vérifié directement dans les données que les nouvelles
+  cartes testées (dont 3 Leader : ST11-001, OP02-001, OP01-060) sont bien
+  cataloguées et hachées — la panne n'était pas un extension manquante.
+
+  **Limite acceptée, pas un bug (2026-08-21)** : une carte Leader/SuperRare
+  (imprimées en foil dans ce jeu) sous un angle qui accroche un reflet
+  holographique n'est pas reconnue, en direct comme en photo — la photo prise
+  reflète différemment de sa référence plate à chaque fois, quel que soit le code.
+  Le détecteur de reflet (`diagnosis.py`) ne cherche que du blanc brûlé
+  (>250/255 sur >6% de l'image), pas un reflet coloré/prismatique, donc le message
+  reste « Carte lue, pas reconnue » plutôt que d'identifier la vraie cause —
+  élargir cette détection ne changerait que le message, jamais la reconnaissance
+  elle-même, et il n'existe aucune vraie photo de carte holographique pour
+  calibrer un nouveau seuil sans risquer de dégrader les 99% de cartes qui
+  marchent déjà. Contournement côté utilisateur : incliner la carte avant de
+  scanner, surtout en photo (un seul essai, contrairement au direct qui profite
+  du mouvement naturel de la main). Décidé avec l'utilisateur : accepté tel quel,
+  pas une tâche à reprendre sans nouvelle raison d'y revenir.
+
 - **Scan en continu bloqué indéfiniment sur « garde la main immobile »**, rapporté le
   2026-08-20 : la caméra s'ouvrait mais aucune carte n'était jamais reconnue, même
   bien cadrée. `LiveScan.tsx` n'envoie une image que quand la vue est jugée immobile
