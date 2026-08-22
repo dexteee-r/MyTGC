@@ -72,6 +72,21 @@ quand celui-ci remontera dans les priorités.
     direct contre le vrai serveur : un jeton réel a été forgé, le mot de passe du
     compte de développement changé de bout en bout, l'ancien mot de passe refusé
     et le nouveau accepté — puis le compte remis à son état d'origine.
+  - **Vérification de compte avant envoi** demandée le 2026-08-22 : déjà en place
+    dès la première version (`main.py`, `if row is not None:` avant de créer le
+    jeton et d'appeler `mail.py`) — confirmé avec l'utilisateur, rien à changer.
+  - **Email HTML repensé** le 2026-08-22 : mise en page par tableaux avec chaque
+    règle en `style` inline plutôt qu'une feuille de style — la seule façon qu'un
+    email s'affiche correctement sur Gmail, Outlook et Apple Mail à la fois,
+    aucun des trois ne supportant fiablement un bloc `<style>`, flexbox ou les
+    variables CSS. Reprend la palette « L'Horizon » de l'app (`index.css`) plutôt
+    que les couleurs par défaut d'un template générique. Une version texte brut
+    envoyée en parallèle (`_reset_email_text`) — un email sans partie texte est
+    pénalisé par plusieurs filtres antispam. 5 nouveaux tests
+    (`test_mail.py`) sur le contenu réel envoyé à Resend (jusqu'ici seul
+    `send_password_reset_email` était simulé dans les tests, jamais son contenu),
+    220 tests backend au total, tous verts. Rendu vérifié visuellement dans le
+    navigateur.
 
 - **Sous-collections**, demandé le 2026-08-21 : un système pour créer des
   sous-collections et y grouper des cartes selon un critère personnel — même
