@@ -159,6 +159,12 @@ export function SignIn() {
           </p>
         )}
 
+        {mode === 'in' && (
+          <Link to="/reset-password" className="mt-3 block text-right text-sm text-[var(--text-secondary)] underline">
+            Mot de passe oublié ?
+          </Link>
+        )}
+
         <div className="pt-6">
           <Button type="submit" size="lg" full disabled={busy || tooShort}>
             {busy ? 'Un instant…' : mode === 'in' ? 'Se connecter' : 'Créer le compte'}

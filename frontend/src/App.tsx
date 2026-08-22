@@ -30,6 +30,7 @@ import { Home } from './pages/Home'
 import { Legal } from './pages/Legal'
 import { PackDetail } from './pages/PackDetail'
 import { Packs } from './pages/Packs'
+import { ResetPassword } from './pages/ResetPassword'
 import { Scanner } from './pages/Scanner'
 import { Search } from './pages/Search'
 import { SharedCollection } from './pages/SharedCollection'
@@ -135,6 +136,19 @@ function Gate() {
                 <div className="mx-auto h-full w-full max-w-2xl">
                   <Legal />
                 </div>
+              </Scrim>
+            </div>
+          }
+        />
+        {/* Reached signed out, from an emailed link -- the same quiet dawn /legal
+            uses, not the hero video, since nothing here is the app's front door. */}
+        <Route
+          path="/reset-password"
+          element={
+            <div className="relative h-full overflow-hidden">
+              <Sky variant="dawn" quiet />
+              <Scrim over="dawn" strength="soft" className="h-full">
+                <ResetPassword />
               </Scrim>
             </div>
           }
@@ -248,6 +262,10 @@ function Shell() {
                 <Route path="/account" element={<Account />} />
                 <Route path="/legal" element={<Legal />} />
                 <Route path="/help" element={<Help />} />
+                {/* Opened from an emailed link on a browser that also happens to be
+                    signed in already -- the flow itself doesn't care who is or isn't
+                    logged in, so it works the same way here as it does signed out. */}
+                <Route path="/reset-password" element={<ResetPassword />} />
               </Routes>
             </ErrorBoundary>
           </main>

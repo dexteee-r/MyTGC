@@ -33,6 +33,46 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Réinitialisation de mot de passe**, évoquée le 2026-08-21 comme à anticiper
+  « pour plus tard », reprise le 2026-08-22. Bloquée jusque-là sur l'absence de
+  tout SMTP dans le projet (notée telle quelle plus bas dans ce fichier) — résolue
+  en choisissant Resend, dont l'API HTTP (pas le protocole SMTP) s'envoie avec
+  `requests`, déjà une dépendance pour l'import du catalogue : aucune bibliothèque
+  nouvelle, aucun mot de passe SMTP à négocier en TLS à la main.
+  - Même forme que les codes d'invitation (`auth.create_invite`/`redeem_invite`) :
+    un jeton haute entropie, stocké uniquement haché (`password_resets.token_hash`),
+    usage unique via une conditional `UPDATE ... WHERE used_at IS NULL`, expiration
+    courte — une heure, bien plus serré que les deux semaines d'un code
+    d'invitation, puisque celui-ci ouvre l'accès à un compte qui existe déjà.
+  - `POST /auth/password-reset` répond toujours 202, que l'email corresponde à un
+    compte ou non — le distinguer serait exactement ce qui permettrait d'utiliser
+    cet endpoint pour deviner quels emails sont enregistrés. Nouveau bucket
+    `throttle.PASSWORD_RESET` (5/heure, IP + email) pour la même raison que
+    `LOGIN` : soit l'un soit l'autre seul se contourne trivialement.
+  - `POST /auth/password-reset/confirm` révoque toutes les autres sessions de
+    compte (`auth.revoke_all`), même raisonnement que `change-password` : une
+    réinitialisation est précisément le moment où une session volée doit cesser
+    de fonctionner.
+  - Sans `MYTCG_RESEND_API_KEY` configurée, `mail.py` se contente d'afficher le
+    lien dans la console plutôt que d'appeler Resend — le flux entier est donc
+    testable et utilisable en local sans compte Resend. En prod il faut définir
+    `MYTCG_RESEND_API_KEY`, `MYTCG_MAIL_FROM`, et `MYTCG_APP_URL` (l'origine
+    canonique vers laquelle pointe le lien envoyé par email).
+  - Nouvelle page `/reset-password` (deux écrans derrière une seule route, comme
+    SignIn : présence ou non de `?token=` dans l'URL décide lequel), lien « Mot de
+    passe oublié ? » ajouté à l'écran de connexion. Enregistrée à la fois côté
+    déconnecté et dans les routes de l'app connectée, comme `/legal` — le lien
+    emailé doit fonctionner qu'on soit signé sur ce navigateur ou non.
+  - 9 tests backend (`test_password_reset.py`) et 7 tests frontend
+    (`ResetPassword.test.tsx`) nouveaux — 215 tests backend, 188 tests frontend au
+    total, tous verts. Trois vérifications cassé-puis-restauré sur la logique la
+    plus sensible : la révocation des sessions à la confirmation, l'absence
+    d'énumération des emails côté serveur, et l'écran de demande qui affiche la
+    même confirmation générique même si le serveur ne répond pas. Vérifié en
+    direct contre le vrai serveur : un jeton réel a été forgé, le mot de passe du
+    compte de développement changé de bout en bout, l'ancien mot de passe refusé
+    et le nouveau accepté — puis le compte remis à son état d'origine.
+
 - **Sous-collections**, demandé le 2026-08-21 : un système pour créer des
   sous-collections et y grouper des cartes selon un critère personnel — même
   dessinateur, même style d'illustration, ou toute autre raison. Manuel de bout en
@@ -736,10 +776,11 @@ quand celui-ci remontera dans les priorités.
 
 ## Déjà connu, plus ancien
 
-- Réinitialisation de mot de passe (demande un SMTP)
 - Alertes de seuil (brancher `alert_threshold`, resté mort en base). Passée le
   2026-08-16 dans la liste V1 — pastille dans l'app en attendant un SMTP restait
-  possible sans e-mail, mais écartée quand même à ce stade.
+  possible sans e-mail, mais écartée quand même à ce stade. Un envoi d'email existe
+  maintenant (`mail.py`, via Resend, pour la réinitialisation de mot de passe) — le
+  blocage initial ne tient donc plus si cette tâche remonte en priorité.
 - Plus fortes variations de la semaine (collection et recherchées). Passée le
   2026-08-16, aucun blocage particulier, juste écartée pour l'instant.
 - Plus-value par carte (prix payé contre cote actuelle). Passée le 2026-08-16,

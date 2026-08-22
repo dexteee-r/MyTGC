@@ -123,6 +123,21 @@ CREATE TABLE IF NOT EXISTS invites (
 
 CREATE INDEX IF NOT EXISTS idx_invites_open ON invites (used_at, expires_at);
 
+-- A forgotten-password link, same shape as an invite: a random high-entropy token
+-- stored only as its hash, one-time use, and a short expiry (an hour, in auth.py --
+-- far tighter than an invite's two weeks, since this one grants access to an
+-- existing account rather than merely permission to create a new one).
+CREATE TABLE IF NOT EXISTS password_resets (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets (user_id);
+
 CREATE TABLE IF NOT EXISTS collection (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

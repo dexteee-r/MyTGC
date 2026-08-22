@@ -21,14 +21,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from app import auth, db, detection, diagnosis, hashing, recognition, throttle
+from app import auth, db, detection, diagnosis, hashing, mail, recognition, throttle
 from app.config import BACKEND_DIR, IMAGE_CACHE_DIR, MEDIA_DIR
 from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
                         CollectionCreate, CollectionGroup,
                         DeviceSession, GroupCreate, GroupMemberAdd, GroupUpdate,
                         Invite, InviteCreate,
                         CollectionEntry, CollectionStats, CollectionUpdate, Language,
-                        HistoryCreate, LoginRequest, Pack, PricePoint, ProfileUpdate,
+                        HistoryCreate, LoginRequest, Pack, PasswordResetConfirm,
+                        PasswordResetRequest, PricePoint, ProfileUpdate,
                         RefreshRequest,
                         RegisterRequest, ScanCandidate, ScanPrinting, ScanResult, Session,
                         ShareStatus, SharedCollection, SharedCollectionEntry,
@@ -132,6 +133,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Where the reset-password link in the email should point: a single canonical
+# frontend origin, distinct from ALLOWED_ORIGINS above -- that list can hold several
+# origins a request may legitimately come from, but a link mailed out needs exactly
+# one address to send someone to. Defaults to the Vite dev server so the flow works
+# out of the box on a laptop; production must set this explicitly.
+APP_URL = os.environ.get("MYTCG_APP_URL", "http://localhost:5173").rstrip("/")
 
 
 def get_db():
@@ -379,6 +387,32 @@ def change_password(conn: Conn, user: User, body: ChangePasswordRequest):
     # Changing a password is how someone reacts to a suspected compromise, so every
     # other session goes with it.
     auth.revoke_all(conn, user.id)
+
+
+@app.post("/auth/password-reset", status_code=202)
+def request_password_reset(conn: Conn, request: Request, body: PasswordResetRequest):
+    email_key = body.email.strip().lower()
+    throttle.PASSWORD_RESET.check(throttle.client_address(request), f"email:{email_key}")
+
+    row = conn.execute("SELECT id, email FROM users WHERE email_lower = ?",
+                       (email_key,)).fetchone()
+    # Same response whether or not the address has an account: telling the two
+    # apart here is exactly what would let this endpoint be used to test which
+    # emails are registered.
+    if row is not None:
+        token = auth.create_password_reset(conn, row["id"])
+        mail.send_password_reset_email(row["email"], f"{APP_URL}/reset-password?token={token}")
+
+
+@app.post("/auth/password-reset/confirm", status_code=204)
+def confirm_password_reset(conn: Conn, body: PasswordResetConfirm):
+    user_id = auth.redeem_password_reset(conn, body.token)
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                 (auth.hash_password(body.new_password), user_id))
+    conn.commit()
+    # Same reasoning as change_password: a reset is exactly the moment a stolen
+    # session, if one exists, should stop working.
+    auth.revoke_all(conn, user_id)
 
 
 # --- connected devices ------------------------------------------------------------

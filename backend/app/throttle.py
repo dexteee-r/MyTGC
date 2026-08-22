@@ -73,6 +73,17 @@ REGISTER = SlidingWindow(
     message="Trop de comptes créés depuis cette adresse. Réessaie plus tard.",
 )
 
+# Same two-key reasoning as LOGIN: an address alone is sidestepped by rotating IPs,
+# an email alone is sidestepped by trying many addresses against one target account.
+# The endpoint itself never confirms whether an account exists, but a mail-sending
+# provider is a real cost per call and a plausible target for someone fishing for
+# valid addresses, so it gets its own budget rather than sharing LOGIN's tighter one.
+PASSWORD_RESET = SlidingWindow(
+    limit=5,
+    window_seconds=3600,
+    message="Trop de demandes de réinitialisation. Réessaie plus tard.",
+)
+
 # One counter for the live scanner's continuous stream, a separate one for a single
 # capture (a photo, or an imported/pasted image) -- reported live, a long live-scan
 # session (now that it actually keeps trying instead of sitting stuck) burned through

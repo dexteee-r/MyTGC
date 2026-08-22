@@ -284,6 +284,18 @@ export const api = {
   changePassword: (body: { current_password: string; new_password: string }) =>
     request<void>('/auth/change-password', { method: 'POST', body: JSON.stringify(body) }),
 
+  /* Same response whether or not the address has an account -- the caller must
+     never branch on the result to say "no account with that email", which is
+     exactly what would turn this into a way to test which emails are registered. */
+  requestPasswordReset: (email: string) =>
+    request<void>('/auth/password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    request<void>('/auth/password-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
+
   deleteAccount: () => request<void>('/auth/me', { method: 'DELETE' }),
 
   sessions: () => request<DeviceSession[]>('/auth/sessions'),

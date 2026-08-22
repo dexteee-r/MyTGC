@@ -305,6 +305,57 @@ def is_first_account(conn: sqlite3.Connection) -> bool:
     return conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
 
 
+# --- password resets --------------------------------------------------------------
+
+RESET_TTL = timedelta(hours=1)
+
+
+def create_password_reset(conn: sqlite3.Connection, user_id: int) -> str:
+    """Mint a reset token for an account that is known to exist.
+
+    Same shape as create_invite: high-entropy, stored only as its hash. The window
+    is far tighter than an invite's (an hour, not two weeks) because this one
+    reaches into an account that already holds a collection, not just a still-empty
+    one someone is about to create.
+    """
+    token = secrets.token_urlsafe(32)
+    conn.execute(
+        "INSERT INTO password_resets (user_id, token_hash, created_at, expires_at)"
+        " VALUES (?, ?, ?, ?)",
+        (user_id, _digest(token), stamp(), (now() + RESET_TTL).isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return token
+
+
+def redeem_password_reset(conn: sqlite3.Connection, token: str) -> int:
+    """Consume a reset token, returning the user id it belongs to. Raises if it is
+    not usable.
+
+    Marking it used is conditional on it still being unused, for the same reason
+    redeem_invite's UPDATE is: two submissions of the same link at the same moment
+    must not both succeed.
+    """
+    row = conn.execute(
+        "SELECT id, user_id, expires_at, used_at FROM password_resets WHERE token_hash = ?",
+        (_digest(token),),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(403, "ce lien de réinitialisation n'est pas valide")
+    if row["used_at"] is not None:
+        raise HTTPException(403, "ce lien de réinitialisation a déjà été utilisé")
+    if datetime.fromisoformat(row["expires_at"]) < now():
+        raise HTTPException(403, "ce lien de réinitialisation a expiré")
+
+    cursor = conn.execute(
+        "UPDATE password_resets SET used_at = ? WHERE id = ? AND used_at IS NULL",
+        (stamp(), row["id"]),
+    )
+    if cursor.rowcount == 0:
+        raise HTTPException(403, "ce lien de réinitialisation a déjà été utilisé")
+    return row["user_id"]
+
+
 # --- dependency -----------------------------------------------------------------
 
 class CurrentUser:
