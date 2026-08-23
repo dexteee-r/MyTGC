@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -385,5 +385,75 @@ describe('ajouter la carte à un groupe', () => {
       expect(write?.body).toMatchObject({ collection_ids: [holding.id] })
     })
     expect(await screen.findByText('Monkey.D.Luffy ajoutée au groupe')).toBeTruthy()
+  })
+})
+
+describe('agrandir et zoomer l’illustration', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const artButton = () => screen.getByRole('button', { name: 'Agrandir Monkey.D.Luffy' })
+
+  it('un clic sur la carte l’ouvre en grand', async () => {
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+    await userEvent.click(artButton())
+
+    const dialog = await screen.findByRole('dialog', { name: 'Monkey.D.Luffy' })
+    expect(dialog).toBeTruthy()
+  })
+
+  it('« Fermer » referme la fiche agrandie', async () => {
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+    await userEvent.click(artButton())
+    await screen.findByRole('dialog', { name: 'Monkey.D.Luffy' })
+
+    // getByText, not getByRole('button', {name}): the backdrop's own close
+    // button shares this same accessible name via aria-label (see ui.test.tsx),
+    // but has no visible text -- getByText reaches only this one, unambiguously.
+    await userEvent.click(screen.getByText('Fermer'))
+    expect(screen.queryByRole('dialog', { name: 'Monkey.D.Luffy' })).toBeNull()
+  })
+
+  it('taper sur le fond referme la fiche agrandie', async () => {
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+    await userEvent.click(artButton())
+    await screen.findByRole('dialog', { name: 'Monkey.D.Luffy' })
+
+    // Two "Fermer" buttons exist while open: the invisible full-screen backdrop
+    // and the header's own text button (see ui.test.tsx for the same pair on
+    // Dialog/Sheet). The backdrop is the first in DOM order.
+    await userEvent.click(screen.getAllByRole('button', { name: 'Fermer' })[0])
+    expect(screen.queryByRole('dialog', { name: 'Monkey.D.Luffy' })).toBeNull()
+  })
+
+  it('le survol seul, sans clic préalable, n’ouvre jamais la fiche agrandie', async () => {
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+    fireEvent.mouseEnter(artButton())
+    fireEvent.mouseMove(artButton(), { clientX: 50, clientY: 50 })
+    fireEvent.mouseLeave(artButton())
+
+    expect(screen.queryByRole('dialog', { name: 'Monkey.D.Luffy' })).toBeNull()
+  })
+
+  it('une fois la fiche agrandie ouverte, la survoler zoome l’image', async () => {
+    // The workflow is sequential: click first opens the enlarged art, only then
+    // does hovering it zoom in further -- hovering the small thumbnail itself
+    // does nothing (see the test above).
+    mount()
+    await screen.findByText('Monkey.D.Luffy')
+    await userEvent.click(artButton())
+    const dialog = await screen.findByRole('dialog', { name: 'Monkey.D.Luffy' })
+
+    const img = within(dialog).getByAltText('Monkey.D.Luffy') as HTMLImageElement
+    const zoomArea = img.parentElement!
+
+    expect(img.className).toContain('scale-100')
+    fireEvent.mouseEnter(zoomArea)
+    expect(img.className).toContain('scale-[2.2]')
+    fireEvent.mouseLeave(zoomArea)
+    expect(img.className).toContain('scale-100')
   })
 })

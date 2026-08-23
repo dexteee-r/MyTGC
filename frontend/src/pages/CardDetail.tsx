@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Edition, variantOf } from '../components/Edition'
 import { GroupPicker } from '../components/GroupPicker'
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import { PriceChart } from '../components/PriceChart'
-import { Button, ColorBar, ErrorState, Screen, Spinner, Stepper } from '../components/ui'
+import {
+  Button,
+  ColorBar,
+  ErrorState,
+  OverlayBackdrop,
+  Screen,
+  Spinner,
+  Stepper,
+  useOverlayBehavior,
+} from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
@@ -66,6 +75,8 @@ export function CardDetail() {
   const [editingDate, setEditingDate] = useState(false)
   const [history, setHistory] = useState<PricePoint[]>([])
   const [groupPickerOpen, setGroupPickerOpen] = useState(false)
+
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const load = useCallback(() => {
     setFailed(false)
@@ -281,12 +292,24 @@ export function CardDetail() {
               a grid of 9,447 tiles it would be noise. */}
           {card.rarity === 'SecretRare' && <span aria-hidden className="rare-halo" />}
           {src ? (
-            <img
-              src={src}
-              alt={card.name}
-              decoding="async"
-              className={owned ? 'float-lit w-full' : 'float w-full opacity-55 saturate-[.85]'}
-            />
+            /* Step one is this tap: open the art full-bleed. The zoom-on-hover
+               lives inside CardLightbox, on the enlarged image, not here --
+               hovering a 320px-wide thumbnail to magnify it further makes little
+               sense next to a plain click that already shows the same art much
+               bigger. */
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label={`Agrandir ${card.name}`}
+              className={`block w-full cursor-zoom-in ${owned ? 'float-lit' : 'float'}`}
+            >
+              <img
+                src={src}
+                alt={card.name}
+                decoding="async"
+                className={`w-full ${owned ? '' : 'opacity-55 saturate-[.85]'}`}
+              />
+            </button>
           ) : (
             <div className="sunken aspect-[600/838] w-full" />
           )}
@@ -574,7 +597,92 @@ export function CardDetail() {
         onClose={() => setGroupPickerOpen(false)}
         onPick={addToGroup}
       />
+
+      {src && (
+        <CardLightbox open={lightboxOpen} onClose={() => setLightboxOpen(false)} src={src} alt={card.name} />
+      )}
     </Screen>
+  )
+}
+
+/* Full-bleed, not Dialog's padded card: the point is to look at the art, not to
+   read a title bar around it. Portalled for the same reason the prev/next
+   collection-hop buttons already are (see the comment above them) -- <main>
+   carries a transform during its own entrance animation, and position: fixed
+   inside a transformed ancestor is fixed to that ancestor, not the viewport. */
+function CardLightbox({
+  open, onClose, src, alt,
+}: {
+  open: boolean
+  onClose: () => void
+  src: string
+  alt: string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  useOverlayBehavior(open, onClose, containerRef)
+
+  // Local to the lightbox, not lifted to CardDetail: it fully unmounts on close
+  // (the `if (!open) return null` below), so there is no stale zoom left over
+  // from a previous time it was opened to reset by hand.
+  const imgRef = useRef<HTMLImageElement>(null)
+  const [zoomed, setZoomed] = useState(false)
+
+  if (!open) return null
+
+  // Step two of the workflow: once the art is already enlarged, the point under
+  // the cursor stays put while the rest scales around it, tracked on every
+  // mousemove via transform-origin.
+  const onMouseMove = (event: React.MouseEvent<HTMLElement>) => {
+    const img = imgRef.current
+    if (!img) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    img.style.transformOrigin =
+      `${((event.clientX - rect.left) / rect.width) * 100}% ` +
+      `${((event.clientY - rect.top) / rect.height) * 100}%`
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
+      <OverlayBackdrop onClose={onClose} />
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={alt}
+        tabIndex={-1}
+        className="hz-enter relative flex max-h-[95vh] max-w-[min(95vw,820px)] flex-col items-end gap-2 outline-none"
+      >
+        <button
+          onClick={onClose}
+          className="t-code min-h-[var(--touch)] px-3"
+          style={{ color: 'var(--color-paper-100)' }}
+        >
+          Fermer
+        </button>
+        {/* overflow-hidden lives on this wrapper, not the image itself -- the
+            wrapper's box stays put at the image's unscaled size, so a `scale()`
+            transform on the image inside it clips at that boundary instead of
+            spilling out of the lightbox. Touch devices never fire the mouse
+            events driving this, so a phone just sees the plain enlarged art. */}
+        <div
+          className="overflow-hidden rounded-[2px]"
+          style={{ boxShadow: 'var(--shadow-deck)' }}
+          onMouseEnter={() => setZoomed(true)}
+          onMouseLeave={() => setZoomed(false)}
+          onMouseMove={onMouseMove}
+        >
+          <img
+            ref={imgRef}
+            src={src}
+            alt={alt}
+            className={`max-h-[88vh] w-auto cursor-zoom-in transition-transform duration-150 ease-out ${
+              zoomed ? 'scale-[2.2]' : 'scale-100'
+            }`}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 

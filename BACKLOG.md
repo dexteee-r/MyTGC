@@ -33,6 +33,43 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Zoom au survol et fiche agrandie sur la fiche carte**, demandé par un
+  utilisateur le 2026-08-23. Workflow en deux temps, précisé par l'utilisateur
+  après une première version qui les avait inversés (survol sur la petite
+  vignette pour zoomer, clic séparément pour agrandir) : d'abord cliquer pour
+  agrandir l'illustration, et seulement une fois agrandie, la survoler zoome
+  sur la zone sous le curseur. Survoler la petite vignette elle-même ne fait
+  plus rien.
+  - Le zoom suit le curseur via `transform-origin` recalculé à chaque
+    `mousemove` (en ref, pas en state React — un `mousemove` tire bien plus
+    vite qu'un re-render ne devrait suivre), `overflow-hidden` sur le
+    conteneur (pas sur l'image elle-même) empêchant l'image zoomée de déborder
+    du cadre de la fiche agrandie.
+  - La fiche agrandie est un nouveau composant local (`CardLightbox`), pas le
+    `Dialog` générique de `ui.tsx` — celui-ci porte un padding et une largeur
+    maximale pensés pour du texte, pas pour une image plein cadre.
+    `useOverlayBehavior` (Échap, piège de focus, défilement bloqué) et
+    `OverlayBackdrop`, jusque-là internes à `ui.tsx`, sont désormais exportés
+    pour que ce composant les partage plutôt que de les réécrire. Portails
+    vers `document.body`, comme les flèches précédent/suivant déjà présentes
+    sur cette page, pour la même raison : `<main>` porte un `transform`
+    pendant sa propre animation d'entrée, et `position: fixed` à l'intérieur
+    d'un ancêtre transformé se fixe à cet ancêtre plutôt qu'à la fenêtre.
+  - Aucun bouton dédié pour le tactile : les événements souris pilotant le
+    zoom ne se déclenchent pas sur un appareil tactile, donc un appui va
+    directement à la fiche agrandie, sans rien à désactiver.
+  - 5 tests (`CardDetail.test.tsx`) — 193 tests frontend au total, tous
+    verts. Deux vérifications cassé-puis-restauré (le zoom au survol dans la
+    fiche agrandie, l'ouverture au clic). Vérifié en direct dans les deux
+    sens : le survol seul sur la vignette n'ouvre ni ne zoome rien, un clic
+    ouvre la fiche agrandie, et la survoler ensuite zoome bien en suivant le
+    curseur (`transform-origin` recalé à chaque déplacement) — plus le
+    comportement tactile, confirmé séparément en vue mobile.
+  - **Agrandie encore un peu plus** le 2026-08-23 : les plafonds de taille de
+    `CardLightbox` sont passés de `max-h-[80vh] max-w-[min(92vw,520px)]` à
+    `max-h-[88vh] max-w-[min(95vw,820px)]` — mesuré en direct, l'image affichée
+    est passée de ~412×576 à ~454×634 sur un viewport de bureau ordinaire.
+
 - **Réinitialisation de mot de passe**, évoquée le 2026-08-21 comme à anticiper
   « pour plus tard », reprise le 2026-08-22. Bloquée jusque-là sur l'absence de
   tout SMTP dans le projet (notée telle quelle plus bas dans ce fichier) — résolue
@@ -87,6 +124,9 @@ quand celui-ci remontera dans les priorités.
     `send_password_reset_email` était simulé dans les tests, jamais son contenu),
     220 tests backend au total, tous verts. Rendu vérifié visuellement dans le
     navigateur.
+  - **Confirmé en production le 2026-08-22** : variables d'environnement posées
+    par l'assistant homelab, email réellement reçu via Resend. La feature est
+    complète de bout en bout, pas seulement vérifiée en local.
 
 - **Sous-collections**, demandé le 2026-08-21 : un système pour créer des
   sous-collections et y grouper des cartes selon un critère personnel — même

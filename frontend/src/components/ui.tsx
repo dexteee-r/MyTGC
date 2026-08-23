@@ -353,7 +353,11 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]),' +
   ' select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-function useOverlayBehavior(
+// Exported so a bespoke overlay (the card lightbox on CardDetail, which needs a
+// full-bleed layout Dialog's own padded card can't give it) still gets the exact
+// same Escape/focus-trap/scroll-lock behaviour rather than a hand-rolled copy that
+// drifts from Sheet and Dialog's the moment one of them gets a fix the other doesn't.
+export function useOverlayBehavior(
   open: boolean,
   onClose: () => void,
   containerRef: RefObject<HTMLElement | null>,
@@ -417,7 +421,7 @@ const OVERLAY_THEME = {
 // pulled out for the same reason useOverlayBehavior was: Sheet and Dialog would
 // otherwise drift, one gaining a fix (a longer tap target, a relabelled button)
 // the other never gets.
-function OverlayBackdrop({ onClose }: { onClose: () => void }) {
+export function OverlayBackdrop({ onClose }: { onClose: () => void }) {
   return <button aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/65" />
 }
 
