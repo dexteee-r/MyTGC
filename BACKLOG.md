@@ -33,6 +33,39 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Le fond photo de Recherchées ne montrait qu'une fine tranche**, signalé le
+  2026-08-23. `object-cover` remplissait le viewport en recadrant l'image --
+  correct pour une photo dont le cadrage importe peu, mais celle-ci est un
+  collage large (~1,22:1), plus large que haute, projeté dans un écran de
+  téléphone étroit et tout en hauteur : `cover` l'agrandissait jusqu'à ce que
+  sa hauteur couvre l'écran, ce qui ne laissait voir qu'une bande étroite en
+  son centre, l'essentiel de la largeur recadrée hors champ des deux côtés.
+  Remplacé par `object-contain` : la photo entière reste toujours visible,
+  avec un bandeau crème (`--color-paper-100`, la même teinte que le reste de
+  la page papier) dans les marges plutôt que le fond marine par défaut du
+  `body` qui transparaissait sinon derrière. 1 nouveau test cassé-puis-restauré
+  (`Sky.test.tsx`) — 199 tests frontend au total, tous verts. Vérifié en
+  direct sur un viewport mobile (375×812) : `object-fit: contain` et
+  `background-color: rgb(243, 230, 203)` confirmés par style calculé.
+
+- **Ligne visible dans le fond de Recherchées en scrollant**, signalé avec
+  capture d'écran le 2026-08-23, juste après la mise en prod du fond photo.
+  Cause : toute la couche décorative de `Sky.tsx` est bornée à une hauteur de
+  viewport (`absolute inset-0` dans un ancêtre `h-full overflow-hidden`) et se
+  déplace en parallaxe à 22% de la vitesse de défilement réelle. Un dégradé
+  dessiné s'en sort très bien au-delà de son propre bord inférieur ; une photo
+  finie non — sur une page qui défile au-delà d'un écran (la liste de
+  recherchées peut compter des dizaines de posters), le bord inférieur de
+  l'image finit par remonter au-dessus du viewport, exposant une coupure nette
+  là où l'image s'arrête. Corrigé en désactivant la transformation de
+  parallaxe précisément quand une image de fond est affichée -- elle reste
+  fixe, toujours calée exactement sur le viewport, quel que soit le défilement
+  du contenu par-dessus. 1 nouveau test (`Sky.test.tsx`, cassé-puis-restauré :
+  reproduit exactement la régression signalée) — 198 tests frontend au total,
+  tous verts. Vérifié en direct : défilement simulé à 2000px sur la vraie page
+  Recherchées, la transformation reste vide et l'image continue de couvrir
+  exactement le viewport (0,0 → 1280×720).
+
 - **Déploiement bloqué 3h par un test couplé à `MYTCG_APP_URL`**, découvert le
   2026-08-23 quand le fond photo (juste en dessous) n'apparaissait pas en prod
   malgré un push réussi. `test_a_known_email_gets_a_working_link` comparait

@@ -38,4 +38,36 @@ describe('l’image de fond de Sky', () => {
     expect(container.querySelector('img')).toBeNull()
     expect(container.querySelectorAll('svg').length).toBeGreaterThan(0)
   })
+
+  it('reste fixe pendant le défilement -- le ciel dessiné, lui, suit en parallaxe', () => {
+    // The whole decorative layer is bounded to one viewport height. A flat
+    // gradient still reads fine past its own lower edge once translated by
+    // the parallax factor, but a finite photo does not -- on a page that
+    // scrolls past one screen (the want list can run to dozens of posters),
+    // the image's own bottom edge would rise above the viewport and expose a
+    // bare seam where the picture just stops. This is the regression that
+    // actually shipped, reported live on the wanted-poster backdrop.
+    const withImage = render(<Sky variant="paper" image="/bg.jpg" scrollY={400} />)
+    const imageLayer = withImage.container.firstElementChild as HTMLElement
+    expect(imageLayer.style.transform).toBe('')
+
+    const withoutImage = render(<Sky variant="dusk" scrollY={400} />)
+    const drawnLayer = withoutImage.container.firstElementChild as HTMLElement
+    expect(drawnLayer.style.transform).toContain('translateY(-88px)')
+  })
+
+  it('montre la photo entière (contain) plutôt qu’en couper la plus grande part (cover)', () => {
+    // Reported live: this photo is a landscape collage (~1.22:1), wider than
+    // the tall, narrow viewport most people actually open the app in. cover
+    // would fill that shape by scaling the image up until its height matches
+    // the screen, cropping away most of its width in the process -- what
+    // showed up as "only ever a thin slice of the picture". contain keeps the
+    // whole photo in frame, letterboxed in the same cream the paper page
+    // already runs on rather than the sea-night `body` default.
+    const { container } = render(<Sky variant="paper" image="/bg.jpg" />)
+    const img = container.querySelector('img')!
+    expect(img.className).toContain('object-contain')
+    expect(img.className).not.toContain('object-cover')
+    expect((img.parentElement as HTMLElement).style.backgroundColor).toBe('var(--color-paper-100)')
+  })
 })

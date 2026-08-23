@@ -156,7 +156,16 @@ export function Sky({
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
-      style={{ transform: `translateY(${-scrollY * 0.22}px)` }}
+      /* No parallax under a real photo: this whole layer is bounded to one
+         viewport height (inset-0 inside an h-full overflow-hidden ancestor),
+         and the drawn skies get away with sliding it because a flat gradient
+         still reads fine past its own lower edge. A finite photo does not --
+         translate it far enough on a page that scrolls past one screen (the
+         want list can run to dozens of posters) and its own bottom edge rises
+         above the viewport, exposing a bare seam where the picture just
+         stops. Pinned instead: it always exactly fills the window, however
+         far the content above it has scrolled. */
+      style={{ transform: showImage ? undefined : `translateY(${-scrollY * 0.22}px)` }}
     >
       {showVideo && (
         <div className="absolute inset-0 overflow-hidden">
@@ -200,13 +209,25 @@ export function Sky({
       )}
 
       {showImage && (
-        <div className="absolute inset-0 overflow-hidden">
+        /* object-contain, not object-cover: this photo (a landscape wanted-poster
+           collage, roughly 1.22:1) is wider than the tall, narrow viewport most
+           people actually open this app in -- object-cover would fill that shape
+           by scaling the image up until its height matches the screen, at which
+           point the visible width is a sliver through its middle, most of the
+           picture cropped away on both sides. contain keeps the whole photo in
+           frame at the cost of a letterboxed edge, filled with the same cream the
+           paper page already runs on rather than the sea-night default of `body`
+           showing through underneath. */
+        <div
+          className="absolute inset-0 overflow-hidden"
+          style={{ backgroundColor: 'var(--color-paper-100)' }}
+        >
           <img
             src={image}
             alt=""
             decoding="async"
             onError={() => setImageOk(false)}
-            className="block size-full object-cover"
+            className="block size-full object-contain"
           />
           {/* The paper veil, not the dark video one: this page's text is dark ink
               on a light ground (see Wishlist.tsx), so what has to survive on top
