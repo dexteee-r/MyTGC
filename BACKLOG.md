@@ -33,6 +33,24 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Déploiement bloqué 3h par un test couplé à `MYTCG_APP_URL`**, découvert le
+  2026-08-23 quand le fond photo (juste en dessous) n'apparaissait pas en prod
+  malgré un push réussi. `test_a_known_email_gets_a_working_link` comparait
+  `reset_url` à `"http://localhost:5173/..."` en dur — vrai uniquement quand
+  `MYTCG_APP_URL` n'est pas défini. En prod, où cette variable pointe vers le
+  vrai domaine depuis le 22/08 (posée pour la réinitialisation de mot de
+  passe), le test échouait à chaque exécution de `mytcg-autodeploy.timer`
+  (toutes les 5 min), ce qui arrêtait `deploy.sh` avant le restart et laissait
+  l'ancien process tourner sans aucune alerte — diagnostiqué par l'assistant
+  homelab via `journalctl -u mytcg-autodeploy` côté LXC, deux commits de
+  retard (45f2042 et e299401 jamais montés). Corrigé en monkeypatchant
+  `APP_URL`, comme `mail.send_password_reset_email` l'est déjà juste
+  au-dessus dans le même test — celui-ci vérifie l'aller-retour du jeton, pas
+  la valeur exacte d'une config de déploiement. Reproduit et vérifié en
+  local avec `MYTCG_APP_URL=https://mytcg.elmzn.be` : échoue avant le
+  correctif, passe après, 220 tests au vert dans les deux cas (avec et sans
+  la variable définie).
+
 - **Fond photo sur la page Recherchées**, demandé le 2026-08-23. La page
   affichait jusque-là un fond entièrement dessiné en CSS (voir son propre
   commentaire d'en-tête, désormais mis à jour) -- l'utilisateur voulait une
