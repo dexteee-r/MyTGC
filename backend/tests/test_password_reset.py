@@ -9,7 +9,7 @@ only place a test can see the token that would actually be mailed out.
 
 from conftest import register
 
-from app import auth, db, mail, throttle
+from app import auth, db, main, mail, throttle
 
 
 def request_reset(client, monkeypatch, email):
@@ -35,9 +35,16 @@ def test_requesting_a_reset_for_an_unknown_email_still_returns_202(client, monke
 
 
 def test_a_known_email_gets_a_working_link(client, monkeypatch):
+    # APP_URL is real deployment config (MYTCG_APP_URL) -- asserting against its
+    # dev default would break the instant that env var is set to anything else,
+    # exactly like this test once did against the production domain. Pinned here
+    # the same way mail.send_password_reset_email already is, so this test cares
+    # about the token round trip, not about whichever URL the process happens to
+    # be configured with.
+    monkeypatch.setattr(main, "APP_URL", "https://mytcg.example.com")
     account = register(client)
     _, reset_url = request_reset(client, monkeypatch, account["email"])
-    assert reset_url.startswith("http://localhost:5173/reset-password?token=")
+    assert reset_url.startswith("https://mytcg.example.com/reset-password?token=")
 
     response = client.post(
         "/auth/password-reset/confirm",
