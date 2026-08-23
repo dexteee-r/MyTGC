@@ -24,8 +24,12 @@ import type { WishlistEntry } from '../lib/types'
    every other screen is the point, not an accident — this is the one place the app
    stops being the sea.
 
-   Everything here is drawn in CSS: the torn edge is a clip-path, the halftone is a
-   repeating radial gradient. No copyrighted image enters the repository.          */
+   Each poster itself is drawn in CSS: the torn edge is a clip-path, the halftone is
+   a repeating radial gradient. The page's own backdrop, since 2026-08-23, is a real
+   photo of a wanted-poster wall (Sky's `image` prop) -- served from the backend's
+   gitignored media directory the same way the sign-in hero is (see /media in
+   main.py), never from the repository itself. The two stay distinct on purpose:
+   licensed art can decorate the page without a single copyrighted pixel in git. */
 
 const PRIORITY: Record<number, string> = {
   1: 'Dès que possible',

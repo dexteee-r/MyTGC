@@ -205,7 +205,13 @@ function Shell() {
   return (
     <SkyScroll.Provider value={report}>
       <div className="relative h-full overflow-hidden">
-        <Sky variant={variant} scrollY={scrollY} quiet={quiet} showShip={pathname !== '/'} />
+        <Sky
+          variant={variant}
+          scrollY={scrollY}
+          quiet={quiet}
+          showShip={pathname !== '/'}
+          image={pathname === '/wishlist' ? `${API_BASE}/media/wishlist-bg.jpg` : undefined}
+        />
 
         {/* The veil lives here, once, as a sibling of Sky — not inside a screen.
             Its stops are percentages of the sky's height, and pinned to a box whose

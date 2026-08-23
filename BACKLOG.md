@@ -33,6 +33,28 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Fond photo sur la page Recherchées**, demandé le 2026-08-23. La page
+  affichait jusque-là un fond entièrement dessiné en CSS (voir son propre
+  commentaire d'en-tête, désormais mis à jour) -- l'utilisateur voulait une
+  vraie photo, choisie parmi 3 candidats après un essai en direct via un
+  paramètre d'URL temporaire (`?bg=1/2/3`), retiré une fois le choix fait.
+  - `Sky.tsx` gagne une nouvelle prop `image`, sur le même principe que `video`
+    (repli automatique sur le ciel dessiné via `onError`, décor animé --
+    vagues, soleil, nuages -- qui s'efface pendant qu'une photo est affichée
+    plutôt que de lui disputer les mêmes pixels).
+  - L'image vit dans `backend/data/media/` (gitignoré), servie par la route
+    `/media/{filename}` déjà utilisée pour la vidéo de connexion -- jamais
+    dans le dépôt lui-même, exactement la même règle que le reste de ce
+    dossier. Recompressée de 2048×1682/889 Ko à 1400×1149/~340 Ko : le voile
+    crème posé par-dessus pour garder le texte lisible en absorbe de toute
+    façon le détail fin, la compression d'origine était du poids perdu pour
+    rien.
+  - 4 nouveaux tests (`Sky.test.tsx`) sur le repli en cas d'échec de
+    chargement et la suppression du décor animé pendant qu'une image est
+    affichée — 197 tests frontend au total, tous verts. Une vérification
+    cassé-puis-restauré sur le repli. Vérifié en direct que l'image se charge
+    bel et bien sur `/wishlist` (dimensions et complétion confirmées).
+
 - **Zoom au survol et fiche agrandie sur la fiche carte**, demandé par un
   utilisateur le 2026-08-23. Workflow en deux temps, précisé par l'utilisateur
   après une première version qui les avait inversés (survol sur la petite

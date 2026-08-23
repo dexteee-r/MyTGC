@@ -79,6 +79,7 @@ export function Sky({
   quiet = false,
   video,
   poster,
+  image,
 }: {
   variant?: SkyVariant
   scrollY?: number
@@ -89,6 +90,13 @@ export function Sky({
      where the user spends time is paid for in battery. */
   video?: string
   poster?: string
+  /* A still photo that replaces the drawn sky, the same way `video` does but
+     without the loop -- for a screen whose decor is a real picture rather than
+     motion. Served from the backend's gitignored media directory (see /media in
+     main.py), the same way hero.mp4/hero.jpg are: the source material is
+     licensed art, and that is exactly what must never enter the repository
+     itself, not what must never appear on screen. */
+  image?: string
   /* The mode for content screens. On a full screen the sky reads as a place; cut
      down to a band above a grid you stop seeing a sky and start seeing the shapes
      it is made of — a perfect circle, parallel curves, a straight edge. So the
@@ -107,6 +115,13 @@ export function Sky({
      the decision is made here, and it lands on the drawn sky that is already the
      fallback for everything else. */
   const showVideo = videoOk && !reduced
+
+  // Same reasoning as videoOk, minus the reduced-motion question -- a still image
+  // is not motion, so it stays even for someone who asked their system not to
+  // animate.
+  const [imageOk, setImageOk] = useState(Boolean(image))
+  useEffect(() => setImageOk(Boolean(image)), [image])
+  const showImage = !showVideo && imageOk
 
   const clouds = useMemo(
     () => [
@@ -134,7 +149,7 @@ export function Sky({
      swell crest is a stray line drawn across the cards rather than a sea. The grids
      run on `deep`, and it is their screens where the decor has to get out of the
      way. */
-  const waves = showWaves && !reduced && !showVideo && variant !== 'deep'
+  const waves = showWaves && !reduced && !showVideo && !showImage && variant !== 'deep'
   const ship = waves && showShip && !quiet && variant !== 'paper'
 
   return (
@@ -177,11 +192,33 @@ export function Sky({
         </div>
       )}
 
-      {!showVideo && (
+      {!showVideo && !showImage && (
         <div
           className="absolute inset-0"
           style={{ background: SKY[variant], transition: 'background 1.2s cubic-bezier(.4,0,.2,1)' }}
         />
+      )}
+
+      {showImage && (
+        <div className="absolute inset-0 overflow-hidden">
+          <img
+            src={image}
+            alt=""
+            decoding="async"
+            onError={() => setImageOk(false)}
+            className="block size-full object-cover"
+          />
+          {/* The paper veil, not the dark video one: this page's text is dark ink
+              on a light ground (see Wishlist.tsx), so what has to survive on top
+              of a busy photo is that same cream, not white-on-black legibility. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(240,228,200,.55) 0%, rgba(240,228,200,.7) 45%, rgba(240,228,200,.86) 100%)',
+            }}
+          />
+        </div>
       )}
 
       {variant === 'night' &&
@@ -197,7 +234,7 @@ export function Sky({
           />
         ))}
 
-      {!showVideo && sun && !quiet && (
+      {!showVideo && !showImage && sun && !quiet && (
         <div
           className="absolute rounded-full"
           style={{
@@ -213,7 +250,7 @@ export function Sky({
         />
       )}
 
-      {!showVideo && variant === 'mist' && (
+      {!showVideo && !showImage && variant === 'mist' && (
         <>
           <div
             className="absolute"
@@ -245,6 +282,7 @@ export function Sky({
       )}
 
       {!showVideo &&
+        !showImage &&
         !quiet &&
         variant !== 'paper' &&
         variant !== 'mist' &&
