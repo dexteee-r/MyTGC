@@ -55,19 +55,4 @@ describe('l’image de fond de Sky', () => {
     const drawnLayer = withoutImage.container.firstElementChild as HTMLElement
     expect(drawnLayer.style.transform).toContain('translateY(-88px)')
   })
-
-  it('montre la photo entière (contain) plutôt qu’en couper la plus grande part (cover)', () => {
-    // Reported live: this photo is a landscape collage (~1.22:1), wider than
-    // the tall, narrow viewport most people actually open the app in. cover
-    // would fill that shape by scaling the image up until its height matches
-    // the screen, cropping away most of its width in the process -- what
-    // showed up as "only ever a thin slice of the picture". contain keeps the
-    // whole photo in frame, letterboxed in the same cream the paper page
-    // already runs on rather than the sea-night `body` default.
-    const { container } = render(<Sky variant="paper" image="/bg.jpg" />)
-    const img = container.querySelector('img')!
-    expect(img.className).toContain('object-contain')
-    expect(img.className).not.toContain('object-cover')
-    expect((img.parentElement as HTMLElement).style.backgroundColor).toBe('var(--color-paper-100)')
-  })
 })

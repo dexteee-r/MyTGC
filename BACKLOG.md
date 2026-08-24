@@ -40,13 +40,12 @@ quand celui-ci remontera dans les priorités.
   téléphone étroit et tout en hauteur : `cover` l'agrandissait jusqu'à ce que
   sa hauteur couvre l'écran, ce qui ne laissait voir qu'une bande étroite en
   son centre, l'essentiel de la largeur recadrée hors champ des deux côtés.
-  Remplacé par `object-contain` : la photo entière reste toujours visible,
-  avec un bandeau crème (`--color-paper-100`, la même teinte que le reste de
-  la page papier) dans les marges plutôt que le fond marine par défaut du
-  `body` qui transparaissait sinon derrière. 1 nouveau test cassé-puis-restauré
-  (`Sky.test.tsx`) — 199 tests frontend au total, tous verts. Vérifié en
-  direct sur un viewport mobile (375×812) : `object-fit: contain` et
-  `background-color: rgb(243, 230, 203)` confirmés par style calculé.
+  Remplacé par `object-contain` (marges crème, photo entière visible) puis
+  **revenu en arrière le 2026-08-24** : essayé en vrai, l'utilisateur a
+  préféré l'ancien rendu plein cadre malgré le recadrage. `object-cover` est
+  donc resté la version définitive — la fine tranche visible sur mobile est
+  acceptée telle quelle, pas un bug à reprendre sans nouvelle raison d'y
+  revenir.
 
 - **Ligne visible dans le fond de Recherchées en scrollant**, signalé avec
   capture d'écran le 2026-08-23, juste après la mise en prod du fond photo.

@@ -209,25 +209,13 @@ export function Sky({
       )}
 
       {showImage && (
-        /* object-contain, not object-cover: this photo (a landscape wanted-poster
-           collage, roughly 1.22:1) is wider than the tall, narrow viewport most
-           people actually open this app in -- object-cover would fill that shape
-           by scaling the image up until its height matches the screen, at which
-           point the visible width is a sliver through its middle, most of the
-           picture cropped away on both sides. contain keeps the whole photo in
-           frame at the cost of a letterboxed edge, filled with the same cream the
-           paper page already runs on rather than the sea-night default of `body`
-           showing through underneath. */
-        <div
-          className="absolute inset-0 overflow-hidden"
-          style={{ backgroundColor: 'var(--color-paper-100)' }}
-        >
+        <div className="absolute inset-0 overflow-hidden">
           <img
             src={image}
             alt=""
             decoding="async"
             onError={() => setImageOk(false)}
-            className="block size-full object-contain"
+            className="block size-full object-cover"
           />
           {/* The paper veil, not the dark video one: this page's text is dark ink
               on a light ground (see Wishlist.tsx), so what has to survive on top
