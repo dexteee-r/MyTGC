@@ -962,3 +962,139 @@ describe('sous-collections (groupes)', () => {
     expect(screen.queryByText('Mon groupe')).toBeNull()
   })
 })
+
+/* Extension: a native multiple-select rather than the Chip-based pattern every
+   other filter on this page uses -- a deliberate choice, so it works differently
+   on purpose (Ctrl/Cmd-click or drag to pick several) rather than by omission. */
+function entryInPack(
+  cardId: string, language: 'en' | 'jp', packCode: string | null, packName: string | null,
+): CollectionEntry {
+  const card: Card = {
+    id: cardId, language, name: cardId, pack_id: packCode ?? '1', pack_code: packCode, pack_name: packName,
+    rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
+    attributes: [], types: [], effect: null, trigger: null, release_date: null,
+    market_price: null, image_url: null, printings: [],
+  }
+  return {
+    id: cardId.length, card_id: cardId, language, quantity: 1, condition: null,
+    date_added: '2026-01-01', acquisition_price: null, notes: null, card,
+  }
+}
+
+function selectExtensions(select: HTMLSelectElement, codes: string[]) {
+  Array.from(select.options).forEach((option) => {
+    option.selected = codes.includes(option.value)
+  })
+  fireEvent.change(select)
+}
+
+describe('filtre par extension sur la page collection', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const openFilters = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+  }
+
+  it('ne liste que les extensions réellement possédées, triées par code', async () => {
+    mount(
+      [
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('P-001', 'en', null, null), // packless -- must not show up
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    await openFilters()
+    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
+    const labels = Array.from(select.options).map((o) => o.textContent)
+    expect(labels).toEqual(['OP-01 — ROMANCE DAWN', 'OP-02 — PARAMOUNT WAR'])
+  })
+
+  it('choisir une extension restreint la liste à ses cartes', async () => {
+    mount(
+      [
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+      ],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
+    selectExtensions(select, ['OP-01'])
+
+    expect(await screen.findByRole('link', { name: /OP01-001/ })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
+  })
+
+  it('une extension possédée dans les deux éditions les compte ensemble', async () => {
+    mount(
+      [
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP01-001', 'jp', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    await openFilters()
+    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
+    // Only one option for OP-01, not one per edition.
+    expect(select.options.length).toBe(2)
+
+    selectExtensions(select, ['OP-01'])
+    expect(await screen.findAllByRole('link', { name: /OP01-001/ })).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
+  })
+
+  it('choisir plusieurs extensions les affiche toutes', async () => {
+    mount(
+      [
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+        entryInPack('OP03-001', 'en', 'OP-03', 'PILLARS OF STRENGTH'),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    await openFilters()
+    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
+    selectExtensions(select, ['OP-01', 'OP-03'])
+
+    expect(await screen.findByRole('link', { name: /OP01-001/ })).toBeTruthy()
+    expect(await screen.findByRole('link', { name: /OP03-001/ })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
+  })
+
+  it('« Tout effacer » réinitialise l’extension choisie', async () => {
+    mount(
+      [
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+      ],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
+    selectExtensions(select, ['OP-01'])
+    expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Tout effacer' })[0])
+    expect(await screen.findByRole('link', { name: /OP02-001/ })).toBeTruthy()
+  })
+
+  it('le résumé des filtres nomme l’extension seule, ou compte s’il y en a plusieurs', async () => {
+    mount(
+      [
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+      ],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
+
+    selectExtensions(select, ['OP-01'])
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : OP-01' })).toBeTruthy()
+
+    selectExtensions(select, ['OP-01', 'OP-02'])
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : 2 extensions' })).toBeTruthy()
+  })
+})

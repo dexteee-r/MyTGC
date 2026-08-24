@@ -168,11 +168,17 @@ let left: {
   // object is: opening a card from inside a group and hitting "Retour" should
   // land back in that same group, not at the top of the group list.
   activeGroupId: number | null
+  // Empty means no restriction, the same convention `language: null` already
+  // uses. Codes, not names: OP-01 covers both editions' own printing of it at
+  // once, since the two share the same set code -- a card's edition is a
+  // separate question the Édition filter already answers on its own.
+  packFilter: string[]
 } = {
   view: 'all',
   language: null,
   sortChain: DEFAULT_SORT,
   activeGroupId: null,
+  packFilter: [],
 }
 
 /* Test-only: a fresh `render()` in Vitest still shares this module's `left` with
@@ -180,7 +186,7 @@ let left: {
    it between tests, whichever filters the previous test left active would leak
    into the next one's starting state. */
 export function resetCollectionMemory() {
-  left = { view: 'all', language: null, sortChain: DEFAULT_SORT, activeGroupId: null }
+  left = { view: 'all', language: null, sortChain: DEFAULT_SORT, activeGroupId: null, packFilter: [] }
 }
 
 export function Collection() {
@@ -189,6 +195,7 @@ export function Collection() {
   const [sortChain, setSortChainState] = useState<SortCriterion[]>(left.sortChain)
   const [view, setViewState] = useState<View>(left.view)
   const [language, setLanguageState] = useState<Language | null>(left.language)
+  const [packFilter, setPackFilterState] = useState<string[]>(left.packFilter)
   const [infoOpen, setInfoOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -218,6 +225,10 @@ export function Collection() {
   const setLanguage = (next: Language | null) => {
     left.language = next
     setLanguageState(next)
+  }
+  const setPackFilter = (next: string[]) => {
+    left.packFilter = next
+    setPackFilterState(next)
   }
   const setActiveGroupId = (next: number | null) => {
     left.activeGroupId = next
@@ -274,6 +285,9 @@ export function Collection() {
     language === 'en' ? 'INT' : language === 'jp' ? 'JP' : null,
     view === 'doubles' ? 'Doubles' : null,
     view === 'group' ? (activeGroup ? activeGroup.name : 'Groupes') : null,
+    // Spelled out for one, counted for several -- the same choice already made
+    // for how many "sur Y cotées" reads versus a bare percentage.
+    packFilter.length === 1 ? packFilter[0] : packFilter.length > 1 ? `${packFilter.length} extensions` : null,
     // The lone default (newest first) reads as nothing chosen, same as before this
     // sort had two directions of its own -- everything else, including that same
     // criterion once it joins a combo, is a choice worth surfacing.
@@ -284,6 +298,7 @@ export function Collection() {
     setSortChain(DEFAULT_SORT)
     setLanguage(null)
     setActiveGroupId(null)
+    setPackFilter([])
   }
 
   /* A direct door to Groupes, next to Filtres rather than behind it -- Vue still
@@ -377,21 +392,45 @@ export function Collection() {
     if (view === 'group') refreshGroups()
   }
 
-  // Applied before Vue and before Trier: which language is on the table decides
-  // what there is to view or sort in the first place. The header meta and the
-  // "Valeur estimée" total under Tout stay account-wide regardless -- the same
-  // choice already made for the Doubles view, which doesn't rescale them either.
-  const languageFiltered = useMemo(
-    () => (language ? entries.filter((entry) => entry.language === language) : entries),
-    [entries, language],
+  // Account-wide, never scoped to the current Édition or Extension choice: the
+  // list of what to offer has to survive narrowing the very thing it offers to
+  // narrow, the same reasoning `stats` and the header meta already follow.
+  // Grouped by code alone -- OP-01 stays one entry even if both editions are
+  // held, matching the filter itself. Packless cards (Promos with no printed
+  // set) have nothing to group under and are left out of the list entirely
+  // rather than folded into a catch-all "Sans extension" a person could select
+  // and expect to mean something specific.
+  const availableExtensions = useMemo(() => {
+    const byCode = new Map<string, string>()
+    for (const entry of entries) {
+      const code = entry.card?.pack_code
+      if (!code || byCode.has(code)) continue
+      byCode.set(code, entry.card?.pack_name || code)
+    }
+    return [...byCode].sort(([a], [b]) => a.localeCompare(b))
+  }, [entries])
+
+  // Applied before Vue and before Trier: which language and which extensions are
+  // on the table decide what there is to view or sort in the first place. The
+  // header meta and the "Valeur estimée" total under Tout stay account-wide
+  // regardless -- the same choice already made for the Doubles view, which
+  // doesn't rescale them either.
+  const filteredEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          (!language || entry.language === language) &&
+          (packFilter.length === 0 || (entry.card?.pack_code != null && packFilter.includes(entry.card.pack_code))),
+      ),
+    [entries, language, packFilter],
   )
 
   /* What is worth trading: every card held more than once. The card you'd keep is
      never in this count — a stack of three shows two, because the base of a trade
      is what you can give away without emptying your own binder. */
   const doubles = useMemo(
-    () => languageFiltered.filter((entry) => entry.quantity > 1),
-    [languageFiltered],
+    () => filteredEntries.filter((entry) => entry.quantity > 1),
+    [filteredEntries],
   )
 
   /* Both figures the doubles view needs, computed here rather than on the server:
@@ -412,7 +451,7 @@ export function Collection() {
     return { held, trade, priced }
   }, [doubles])
 
-  const source = view === 'doubles' ? doubles : languageFiltered
+  const source = view === 'doubles' ? doubles : filteredEntries
 
   const groups = useMemo(() => {
     // The printed number is the chain's standing, implicit last word -- it is
@@ -591,6 +630,13 @@ export function Collection() {
             la liste à l'international, au japonais, ou aux deux. Le nombre de cartes en
             haut de page et la valeur estimée restent ceux de tout le classeur, quelle
             que soit l'édition choisie ici.
+          </p>
+          <p>
+            <strong style={{ color: 'var(--text-primary)' }}>Extension</strong> restreint
+            la liste aux extensions choisies — seules celles où tu possèdes au moins une
+            carte apparaissent dans la liste. Choisis-en plusieurs pour les voir toutes à
+            la fois ; une extension possédée dans les deux éditions les compte ensemble,
+            l'édition choisie ci-dessus reste une question séparée.
           </p>
           <p>
             <strong style={{ color: 'var(--text-primary)' }}>Tout / Doubles</strong> change
@@ -979,6 +1025,32 @@ export function Collection() {
         <Group label="Extension">
           {sortChip('set', 'asc', 'Extension croissante')}
           {sortChip('set', 'desc', 'Extension décroissante')}
+          {availableExtensions.length > 0 && (
+            /* A native multiple-select on purpose, unlike every Chip-based filter
+               around it: Ctrl/Cmd-click or a drag picks several at once without a
+               bespoke list of toggles to build and keep in sync with this one.
+               Sized to content rather than w-full so it sits on the same row as
+               the two sort chips above, inside the same Group -- one section for
+               everything extension-shaped rather than a second "Extension"
+               heading of its own. */
+            <select
+              multiple
+              size={Math.min(6, availableExtensions.length)}
+              value={packFilter}
+              onChange={(event) =>
+                setPackFilter(Array.from(event.target.selectedOptions, (option) => option.value))
+              }
+              aria-label="Extension"
+              className="t-code min-w-[180px] rounded-[14px] px-2 py-1 outline-none"
+              style={{ background: 'var(--surface-recessed)' }}
+            >
+              {availableExtensions.map(([code, name]) => (
+                <option key={code} value={code}>
+                  {code} — {name}
+                </option>
+              ))}
+            </select>
+          )}
         </Group>
 
         <Group label="Valeur">
@@ -1005,7 +1077,12 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   return (
     <section className="pt-5 first:pt-2">
       <h3 className="t-eyebrow pb-2.5">{label}</h3>
-      <div className="flex flex-wrap gap-2">{children}</div>
+      {/* items-start, not the flex default (stretch): every other Group only ever
+          holds same-height Chips, so this never used to matter -- but the
+          Extension select is several rows tall, and stretch was inflating its
+          two sibling chips to match its own height instead of leaving them at
+          their own natural size. */}
+      <div className="flex flex-wrap items-start gap-2">{children}</div>
     </section>
   )
 }

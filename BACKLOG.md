@@ -33,6 +33,42 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Filtre par extension sur la page Collection**, demandé le 2026-08-24 : un
+  menu déroulant à sélection multiple, listant seulement les extensions
+  réellement possédées (jamais tout le catalogue), pour restreindre la liste
+  à une ou plusieurs d'entre elles.
+  - Un `<select multiple>` natif, par choix explicite de l'utilisateur plutôt
+    que le motif Chip que tous les autres filtres de la page utilisent —
+    Ctrl/Cmd-clic ou glisser pour en choisir plusieurs sans construire ni
+    maintenir une liste de puces à bascule qui ferait doublon.
+  - Regroupé par code d'extension seul (`OP-01`), pas par code+édition : une
+    extension possédée en anglais et en japonais reste une seule entrée dans
+    la liste, qui filtre les deux à la fois — l'édition reste une question
+    séparée, celle du filtre Édition juste au-dessus. Les cartes sans
+    extension connue (Promos sans code imprimé) n'apparaissent pas dans la
+    liste plutôt que d'être regroupées sous un « Sans extension » qu'on
+    pourrait choisir en pensant qu'il désigne quelque chose de précis.
+  - La liste elle-même reste indépendante des autres filtres (comme les
+    statistiques d'en-tête) — changer l'édition ou choisir des extensions ne
+    fait jamais disparaître une option encore valide de la liste.
+  - 6 nouveaux tests (`Collection.test.tsx`) — 204 tests frontend au total,
+    tous verts. Deux vérifications cassé-puis-restauré (le filtrage
+    lui-même, le regroupement par code plutôt que par code+édition). Vérifié
+    en direct contre la vraie collection (16 extensions réelles listées,
+    triées par code ; sélectionner OP-01 restreint bien la liste et le
+    compteur « Voir X cartes »).
+  - **Placement et taille corrigés** le 2026-08-24, deux retours utilisateur
+    de suite : le select vivait dans une section « Extension » à part, séparée
+    des puces de tri « Extension croissante/décroissante » déjà présentes —
+    déplacé dans le même `<Group>` pour qu'il n'existe plus deux en-têtes
+    « Extension ». Une fois sur la même rangée flex, le comportement par
+    défaut (`align-items: stretch`) étirait ces deux puces jusqu'à la hauteur
+    du menu déroulant (6 lignes) au lieu de garder leur taille naturelle —
+    corrigé en passant `Group` sur `items-start`, sans effet sur les autres
+    sections puisque leurs puces partagent déjà toutes la même hauteur.
+    Vérifié en direct : select et puces sur la même rangée (même `top`), puces
+    revenues à 44px de haut au lieu d'être étirées sur les 110px du select.
+
 - **Le fond photo de Recherchées ne montrait qu'une fine tranche**, signalé le
   2026-08-23. `object-cover` remplissait le viewport en recadrant l'image --
   correct pour une photo dont le cadrage importe peu, mais celle-ci est un
