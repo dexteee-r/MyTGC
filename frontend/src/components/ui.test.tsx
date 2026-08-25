@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
-import { Dialog, Segmented, Sheet } from './ui'
+import { Dialog, Segmented, Sheet, Stepper } from './ui'
 
 /* aria-modal="true" is a promise: focus starts inside the overlay, Tab never
    reaches the page underneath, and closing gives the trigger its focus back.
@@ -149,5 +149,25 @@ describe('Segmented — navigation au clavier', () => {
     a.focus()
     fireEvent.keyDown(a, { key: 'End' })
     expect(screen.getByRole('tab', { name: 'C' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+function StepperHarness() {
+  const [value, setValue] = useState(0)
+  return <Stepper value={value} onChange={setValue} />
+}
+
+/* The figure remounts on every change (key={value}) specifically so its pop
+   animation replays each tap rather than only the first -- without the key, React
+   would patch the same node's text in place and the CSS animation would never
+   restart. Checked by identity, not by re-reading the animation style off a node
+   that might already be a stale reference by the time the assertion runs. */
+describe('Stepper — le chiffre rejoue son animation à chaque tap', () => {
+  it('remonte un nouveau nœud à chaque changement de valeur', () => {
+    render(<StepperHarness />)
+    const before = screen.getByText('0')
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter un exemplaire' }))
+    const after = screen.getByText('1')
+    expect(after).not.toBe(before)
   })
 })

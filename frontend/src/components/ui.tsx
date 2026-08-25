@@ -203,12 +203,20 @@ export function Stepper({
         disabled={disabled || value <= 0}
         aria-label="Retirer un exemplaire"
         style={skin}
-        className={`${round} rounded-full text-[var(--text-primary)] disabled:opacity-35`}
+        className={`${round} rounded-full text-[var(--text-primary)] transition-transform duration-150 active:scale-90 disabled:opacity-35 disabled:active:scale-100`}
       >
         −
       </button>
       <span className={`text-center ${big ? 'min-w-16' : 'w-8'}`}>
-        <span className={`t-numeral block ${big ? 'text-[2.75rem] leading-none' : 'text-xl'}`}>
+        {/* Keyed on the value itself: remounting is what re-triggers hz-pop on
+            every tap, the same trick a toast uses to replay on each new message
+            rather than only once. The single most-repeated gesture in the app
+            deserved more than an instant digit swap. */}
+        <span
+          key={value}
+          style={{ animation: 'hz-pop .3s var(--ease-settle) both' }}
+          className={`t-numeral block ${big ? 'text-[2.75rem] leading-none' : 'text-xl'}`}
+        >
           {value}
         </span>
         {big && unit && <span className="t-code block pt-1.5">{unit}</span>}
@@ -218,7 +226,7 @@ export function Stepper({
         disabled={disabled}
         aria-label="Ajouter un exemplaire"
         style={skin}
-        className={`${round} rounded-full text-[var(--text-primary)] disabled:opacity-35`}
+        className={`${round} rounded-full text-[var(--text-primary)] transition-transform duration-150 active:scale-90 disabled:opacity-35 disabled:active:scale-100`}
       >
         +
       </button>
@@ -289,7 +297,7 @@ export function Segmented<T extends string>({
               color: active ? 'var(--color-paper-ink)' : 'var(--text-secondary)',
               fontWeight: active ? 600 : 400,
             }}
-            className="inline-flex min-h-[var(--touch)] flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm whitespace-nowrap transition"
+            className="inline-flex min-h-[var(--touch)] flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm whitespace-nowrap transition active:scale-95"
           >
             {option.label}
             {option.badge !== undefined && (
@@ -323,7 +331,7 @@ export function Chip({
         boxShadow: active ? 'none' : 'inset 0 0 0 1px var(--surface-rail)',
         fontWeight: active ? 600 : 400,
       }}
-      className="inline-flex min-h-[var(--touch)] shrink-0 items-center gap-2 rounded-full px-4 text-sm transition"
+      className="inline-flex min-h-[var(--touch)] shrink-0 items-center gap-2 rounded-full px-4 text-sm transition active:scale-95"
     >
       {swatch && (
         <span

@@ -476,6 +476,19 @@ body {
   }
 }
 
+/* The Stepper's own figure, on every tap -- the single most-repeated gesture in
+   the app deserved more than an instant digit swap. Ends on scale(1), a stable
+   visible frame, so the reduced-motion collapse to the animation's last frame
+   (below) needs no hand-written exception the way hz-plumb-el's does. */
+@keyframes hz-pop {
+  from {
+    transform: scale(1.32);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 .hz-enter {
   animation: hz-enter var(--duration-enter) var(--ease-settle) both;
 }

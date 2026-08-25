@@ -33,6 +33,31 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Motion design sur les interactions du quotidien**, demandé le 2026-08-24 :
+  l'app avait déjà pas mal d'animation (le ciel, les vagues, l'entrée des
+  pages, le zoom sur la fiche carte) mais les gestes les plus répétés --
+  +/- sur le Stepper, les puces de filtre, les onglets Segmented -- ne
+  bougeaient pas du tout au tap.
+  - `Stepper` (`ui.tsx`) : un nouveau `@keyframes hz-pop` (léger zoom qui se
+    tasse, réutilise `--ease-settle`) rejoue sur le chiffre à chaque tap, via
+    `key={value}` qui force un remontage — sans lui React se contente de
+    corriger le texte du même nœud et l'animation ne repartirait jamais après
+    la première fois. Les deux boutons +/- gagnent un `active:scale-90`.
+  - `Chip` et `Segmented` (`ui.tsx`) : `active:scale-95` ajouté à leur
+    `transition` déjà en place — un retour tactile au tap qui manquait sur
+    les deux contrôles les plus utilisés de tous les écrans de filtre.
+    `Button` avait déjà son propre traitement (`active:brightness-95`), non
+    touché ici.
+  - Aucune exception de reduced-motion à écrire à la main : `hz-pop` se
+    termine sur `scale(1)`, un état stable et visible, donc la règle
+    générale qui écrase déjà toute animation à sa dernière image (index.css)
+    s'applique correctement sans rien de spécifique.
+  - 1 nouveau test (`ui.test.tsx`, cassé-puis-restauré : confirme que retirer
+    `key={value}` casse bien le remontage) — 205 tests frontend au total,
+    tous verts. Vérifié en direct sur la vraie fiche carte et le vrai
+    Carnet de bord : la classe `active:scale-90`/`active:scale-95` est bien
+    posée, et l'animation `hz-pop` se réapplique à chaque tap sur +/-.
+
 - **Filtre par extension sur la page Collection**, demandé le 2026-08-24 : un
   menu déroulant à sélection multiple, listant seulement les extensions
   réellement possédées (jamais tout le catalogue), pour restreindre la liste
