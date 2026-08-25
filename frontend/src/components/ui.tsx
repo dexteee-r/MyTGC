@@ -315,16 +315,22 @@ export function Chip({
   onClick,
   children,
   swatch,
+  title,
 }: {
   active: boolean
   onClick: () => void
   children: ReactNode
   swatch?: string
+  /* A native tooltip, nothing more -- for a chip whose face is too short to
+     carry the full fact (an extension's code, not its name). Optional because
+     every other caller's own label already says everything there is to say. */
+  title?: string
 }) {
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
+      title={title}
       style={{
         background: active ? 'var(--color-paper-100)' : 'transparent',
         color: active ? 'var(--color-paper-ink)' : 'var(--text-secondary)',

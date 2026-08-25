@@ -604,10 +604,12 @@ describe('combiner plusieurs tris', () => {
     )
     const dialog = await openFilters()
     fireEvent.click(dialog.getByRole('button', { name: /Extension croissante/ }))
-    expect(await screen.findByText('OP-01')).toBeTruthy()
+    // { selector: 'p' }: the row-group header, not the Extension filter's own
+    // "OP-01" chip that now sits in the same open sheet and shares this text.
+    expect(await screen.findByText('OP-01', { selector: 'p' })).toBeTruthy()
 
     fireEvent.click(dialog.getByRole('button', { name: /Valeur décroissante/ }))
-    expect(screen.queryByText('OP-01')).toBeNull()
+    expect(screen.queryByText('OP-01', { selector: 'p' })).toBeNull()
     expect(cardNames()).toEqual([
       expect.stringContaining('OP01-002'),
       expect.stringContaining('OP01-001'),
@@ -965,7 +967,9 @@ describe('sous-collections (groupes)', () => {
 
 /* Extension: a native multiple-select rather than the Chip-based pattern every
    other filter on this page uses -- a deliberate choice, so it works differently
-   on purpose (Ctrl/Cmd-click or drag to pick several) rather than by omission. */
+   on purpose -- reported live on an iPhone: iOS's own picker for a native
+   multi-select commits and closes on the very first tap, which made choosing
+   several extensions, the whole point of this filter, impossible in practice. */
 function entryInPack(
   cardId: string, language: 'en' | 'jp', packCode: string | null, packName: string | null,
 ): CollectionEntry {
@@ -981,19 +985,16 @@ function entryInPack(
   }
 }
 
-function selectExtensions(select: HTMLSelectElement, codes: string[]) {
-  Array.from(select.options).forEach((option) => {
-    option.selected = codes.includes(option.value)
-  })
-  fireEvent.change(select)
-}
-
 describe('filtre par extension sur la page collection', () => {
   beforeEach(() => vi.unstubAllGlobals())
 
   const openFilters = async () => {
     fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
   }
+  // Chips show the code alone (OP-01), never the full name -- a chip face is
+  // too short for "PREMIUM BOOSTER ONE PIECE CARD THE BEST vol.2", the same
+  // reasoning the sorted-by-extension row headers already follow.
+  const extensionChip = (code: string) => screen.findByRole('button', { name: code })
 
   it('ne liste que les extensions réellement possédées, triées par code', async () => {
     mount(
@@ -1005,9 +1006,10 @@ describe('filtre par extension sur la page collection', () => {
       stats({ total_quantity: 3, distinct_cards: 3 }),
     )
     await openFilters()
-    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
-    const labels = Array.from(select.options).map((o) => o.textContent)
-    expect(labels).toEqual(['OP-01 — ROMANCE DAWN', 'OP-02 — PARAMOUNT WAR'])
+    expect(await extensionChip('OP-01')).toBeTruthy()
+    expect(await extensionChip('OP-02')).toBeTruthy()
+    // Only the two real extensions -- nothing minted for the packless card.
+    expect(screen.queryByText(/^P-001$/)).toBeNull()
   })
 
   it('choisir une extension restreint la liste à ses cartes', async () => {
@@ -1019,8 +1021,7 @@ describe('filtre par extension sur la page collection', () => {
       stats({ total_quantity: 2, distinct_cards: 2 }),
     )
     await openFilters()
-    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
-    selectExtensions(select, ['OP-01'])
+    fireEvent.click(await extensionChip('OP-01'))
 
     expect(await screen.findByRole('link', { name: /OP01-001/ })).toBeTruthy()
     expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
@@ -1036,11 +1037,10 @@ describe('filtre par extension sur la page collection', () => {
       stats({ total_quantity: 3, distinct_cards: 3 }),
     )
     await openFilters()
-    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
-    // Only one option for OP-01, not one per edition.
-    expect(select.options.length).toBe(2)
+    // Only one chip for OP-01, not one per edition.
+    expect(screen.getAllByRole('button', { name: 'OP-01' })).toHaveLength(1)
 
-    selectExtensions(select, ['OP-01'])
+    fireEvent.click(await extensionChip('OP-01'))
     expect(await screen.findAllByRole('link', { name: /OP01-001/ })).toHaveLength(2)
     expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
   })
@@ -1055,12 +1055,28 @@ describe('filtre par extension sur la page collection', () => {
       stats({ total_quantity: 3, distinct_cards: 3 }),
     )
     await openFilters()
-    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
-    selectExtensions(select, ['OP-01', 'OP-03'])
+    fireEvent.click(await extensionChip('OP-01'))
+    fireEvent.click(await extensionChip('OP-03'))
 
     expect(await screen.findByRole('link', { name: /OP01-001/ })).toBeTruthy()
     expect(await screen.findByRole('link', { name: /OP03-001/ })).toBeTruthy()
     expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
+  })
+
+  it('retaper la même puce la désélectionne', async () => {
+    mount(
+      [
+        entryInPack('OP01-001', 'en', 'OP-01', 'ROMANCE DAWN'),
+        entryInPack('OP02-001', 'en', 'OP-02', 'PARAMOUNT WAR'),
+      ],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+    fireEvent.click(await extensionChip('OP-01'))
+    expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
+
+    fireEvent.click(await extensionChip('OP-01'))
+    expect(await screen.findByRole('link', { name: /OP02-001/ })).toBeTruthy()
   })
 
   it('« Tout effacer » réinitialise l’extension choisie', async () => {
@@ -1072,8 +1088,7 @@ describe('filtre par extension sur la page collection', () => {
       stats({ total_quantity: 2, distinct_cards: 2 }),
     )
     await openFilters()
-    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
-    selectExtensions(select, ['OP-01'])
+    fireEvent.click(await extensionChip('OP-01'))
     expect(screen.queryByRole('link', { name: /OP02-001/ })).toBeNull()
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Tout effacer' })[0])
@@ -1089,12 +1104,11 @@ describe('filtre par extension sur la page collection', () => {
       stats({ total_quantity: 2, distinct_cards: 2 }),
     )
     await openFilters()
-    const select = (await screen.findByLabelText('Extension')) as HTMLSelectElement
 
-    selectExtensions(select, ['OP-01'])
+    fireEvent.click(await extensionChip('OP-01'))
     expect(await screen.findByRole('button', { name: 'Filtres actifs : OP-01' })).toBeTruthy()
 
-    selectExtensions(select, ['OP-01', 'OP-02'])
+    fireEvent.click(await extensionChip('OP-02'))
     expect(await screen.findByRole('button', { name: 'Filtres actifs : 2 extensions' })).toBeTruthy()
   })
 })

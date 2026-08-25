@@ -230,6 +230,9 @@ export function Collection() {
     left.packFilter = next
     setPackFilterState(next)
   }
+  const togglePackFilter = (code: string) => {
+    setPackFilter(packFilter.includes(code) ? packFilter.filter((c) => c !== code) : [...packFilter, code])
+  }
   const setActiveGroupId = (next: number | null) => {
     left.activeGroupId = next
     setActiveGroupIdState(next)
@@ -1025,32 +1028,23 @@ export function Collection() {
         <Group label="Extension">
           {sortChip('set', 'asc', 'Extension croissante')}
           {sortChip('set', 'desc', 'Extension décroissante')}
-          {availableExtensions.length > 0 && (
-            /* A native multiple-select on purpose, unlike every Chip-based filter
-               around it: Ctrl/Cmd-click or a drag picks several at once without a
-               bespoke list of toggles to build and keep in sync with this one.
-               Sized to content rather than w-full so it sits on the same row as
-               the two sort chips above, inside the same Group -- one section for
-               everything extension-shaped rather than a second "Extension"
-               heading of its own. */
-            <select
-              multiple
-              size={Math.min(6, availableExtensions.length)}
-              value={packFilter}
-              onChange={(event) =>
-                setPackFilter(Array.from(event.target.selectedOptions, (option) => option.value))
-              }
-              aria-label="Extension"
-              className="t-code min-w-[180px] rounded-[14px] px-2 py-1 outline-none"
-              style={{ background: 'var(--surface-recessed)' }}
+          {/* Chip, not the native <select multiple> this shipped with first:
+              reported live on an iPhone, iOS's own picker for a multi-select
+              commits and closes on the very first tap, which makes choosing
+              several extensions -- the whole point of this filter -- impossible
+              on the one platform this app actually runs on day to day. A row of
+              toggles has no such platform-specific failure mode, and it is the
+              same control every other multi-value filter here already uses. */}
+          {availableExtensions.map(([code, name]) => (
+            <Chip
+              key={code}
+              active={packFilter.includes(code)}
+              onClick={() => togglePackFilter(code)}
+              title={name}
             >
-              {availableExtensions.map(([code, name]) => (
-                <option key={code} value={code}>
-                  {code} — {name}
-                </option>
-              ))}
-            </select>
-          )}
+              {code}
+            </Chip>
+          ))}
         </Group>
 
         <Group label="Valeur">

@@ -93,6 +93,24 @@ quand celui-ci remontera dans les priorités.
     sections puisque leurs puces partagent déjà toutes la même hauteur.
     Vérifié en direct : select et puces sur la même rangée (même `top`), puces
     revenues à 44px de haut au lieu d'être étirées sur les 110px du select.
+  - **`<select multiple>` remplacé par des `Chip`** le 2026-08-24, signalé
+    depuis un iPhone réel : le picker natif iOS pour un select à sélection
+    multiple valide et referme dès le premier appui, ce qui rendait
+    impossible de choisir plusieurs extensions -- exactement le but de ce
+    filtre. Remplacé par une puce par extension (le motif déjà utilisé par
+    tous les autres filtres à choix multiples de l'app), affichant le code
+    seul sur la puce (comme les en-têtes de ligne triées par extension) et
+    le nom complet en infobulle native (`title`, nouvelle prop optionnelle
+    sur `Chip`). Une régression sur un test préexistant, sans rapport, a été
+    trouvée au passage : les nouvelles puces partageaient le même texte
+    "OP-01" que les en-têtes de ligne groupées par extension dans le même
+    test, rendant `screen.findByText('OP-01')` ambigu — corrigé en ciblant
+    l'en-tête par son sélecteur (`{ selector: 'p' }`) plutôt qu'en changeant
+    le comportement réel de l'app. 1 nouveau test, un existant corrigé — 206
+    tests frontend au total, tous verts. Une vérification cassé-puis-restauré
+    sur la bascule sélection/désélection. Vérifié en direct : deux puces
+    (OP-01 et OP-04) restent actives en même temps, la fiche des filtres ne
+    se referme jamais entre les deux choix.
 
 - **Le fond photo de Recherchées ne montrait qu'une fine tranche**, signalé le
   2026-08-23. `object-cover` remplissait le viewport en recadrant l'image --
