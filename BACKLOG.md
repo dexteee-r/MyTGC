@@ -33,6 +33,31 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Extension OP-17 absente du catalogue**, signalé le 2026-08-28 le jour même de sa
+  sortie EN : `punk-records` (la source du catalogue) n'est rafraîchi que manuellement,
+  contrairement aux prix qui ont leur propre timer — le clone local datait du 3 août,
+  donc rien d'OP-17 nulle part avant ce jour.
+  - En dev : clone `punk-records` remis à jour (confirmé : `569117` EN *BOOSTER PACK
+    -THE WORLD'S STRONGEST WARRIORS-*, `550117` JP), `import_catalogue.py` (9 447 →
+    9 804 cartes, +357), `download_images.py` (357 nouvelles images, 0 échec),
+    `compute_phashes.py --region art --all` (9 804 hachées, 0 échec). Date de sortie EN
+    ajoutée à `release_dates.py` (`569117`: 2026-08-28) — date JP non confirmée,
+    laissée de côté plutôt que devinée. Suite de tests complète relancée, tout vert.
+  - En prod (LXC 107, `.117`, par l'assistant homelab) : `punk-records` n'existait pas
+    du tout sur cette machine — pas une anomalie, voir ci-dessous. Cloné, même pipeline
+    rejoué, `systemctl restart mytcg-api`. Confirmé via `/health` :
+    `catalogue: {"en":4843,"jp":4961}`.
+  - **Trouvé au passage, jamais documenté avant** : le bootstrap initial d'une machine
+    (`deploy/README.md`, « Data bootstrap ») envoie la base déjà construite en dev par
+    `rsync`, jamais le clone `punk-records` lui-même — donc son absence sur un serveur
+    qui fonctionne déjà (catalogue, images, pHashes tous présents) est normale, pas un
+    oubli d'installation. Un nouveau paragraphe « Catalogue updates » dans
+    `deploy/README.md` documente désormais la marche à suivre pour une prochaine
+    sortie : cloner s'il est absent sinon `git pull`, les trois scripts, puis
+    redémarrer l'API — sans quoi `/scan` continue de matcher contre l'ancien total,
+    le catalogue de reconnaissance n'étant chargé qu'une fois au démarrage
+    (`app.state.catalogue`).
+
 - **Motion design sur les interactions du quotidien**, demandé le 2026-08-24 :
   l'app avait déjà pas mal d'animation (le ciel, les vagues, l'entrée des
   pages, le zoom sur la fiche carte) mais les gestes les plus répétés --

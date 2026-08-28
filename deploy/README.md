@@ -144,6 +144,45 @@ The script now refuses to run against an empty catalogue rather than reporting n
 prices and exiting cheerfully, so a misconfigured environment shows up as a failed unit
 instead of prices that quietly never update.
 
+## Catalogue updates
+
+A new set (e.g. a new booster) needs three scripts re-run on the host — nothing here
+runs on a timer, unlike prices, because a set drops every few weeks, not on a fixed
+cadence.
+
+```bash
+sudo -u mytcg bash -c '
+export MYTCG_DATA_DIR=/var/lib/mytcg
+if [ -d "$MYTCG_DATA_DIR/punk-records" ]; then
+  cd "$MYTCG_DATA_DIR/punk-records" && git pull
+else
+  git clone --depth 1 https://github.com/buhbbl/punk-records.git "$MYTCG_DATA_DIR/punk-records"
+fi
+cd /srv/mytcg/app
+.venv/bin/python backend/scripts/import_catalogue.py
+.venv/bin/python backend/scripts/download_images.py --workers 8
+.venv/bin/python backend/scripts/compute_phashes.py --region art --all
+'
+sudo systemctl restart mytcg-api
+```
+
+**Do not `source /etc/mytcg/mytcg.env` for this.** These three scripts only need
+`MYTCG_DATA_DIR`, and the file has carried CRLF before — the same trap that killed a
+cron job for prices (see below). Setting the one variable by hand sidesteps it.
+
+**The `punk-records` clone may not exist on the host at all**, and that is not a sign
+anything is broken: "Data bootstrap" above ships the *finished* `mytcg.db`, built in
+dev, straight to `/var/lib/mytcg` — the raw scrape it was built from was never part of
+that path. First encountered 2026-08-28 shipping OP-17: the LXC had a working
+catalogue, images and pHashes with no `punk-records` directory anywhere on disk. Clone
+it fresh in that case, same command as "Data bootstrap" used originally.
+
+**The restart is not optional.** `/scan` matches against `app.state.catalogue`, built
+once at API startup and held in memory — updating the database alone leaves the
+running process matching against the old card count until it restarts. `/health`'s
+`catalogue` field is the way to confirm the new total actually loaded, not just that
+the import script printed one.
+
 ## One-off: moving deploy/ into the checkout
 
 Until this directory joined the repository it was copied to `/srv/mytcg/deploy`, and
