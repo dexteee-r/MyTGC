@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../lib/toast'
 import type { Card, WishlistEntry } from '../lib/types'
+import { WishlistProvider } from '../lib/wishlist'
 import { Wishlist } from './Wishlist'
 
 /* Recherchées has two prices per card -- the cote (market_price) and the price
@@ -33,9 +34,11 @@ function mount(entries: WishlistEntry[]) {
 
   return render(
     <MemoryRouter>
-      <ToastProvider>
-        <Wishlist />
-      </ToastProvider>
+      <WishlistProvider>
+        <ToastProvider>
+          <Wishlist />
+        </ToastProvider>
+      </WishlistProvider>
     </MemoryRouter>,
   )
 }
@@ -70,5 +73,47 @@ describe('tri par prix sur Recherchées', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Prix décroissant' }))
     expect(posterNames().at(-1)).toContain('OP01-001')
+  })
+})
+
+describe('étoiles de priorité sur Recherchées', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  // Stars run the opposite way from the priority field: the rightmost star is the
+  // most urgent (priority 1, "Dès que possible"), the leftmost alone is priority 3
+  // ("Un jour") -- decided with the user rather than mirroring the field's own order.
+  const star = (n: 1 | 2 | 3) =>
+    screen.getByRole('button', { name: new RegExp(`^${n} étoile`) })
+
+  it('affiche autant d’étoiles noires que la priorité en compte', async () => {
+    mount([entry('OP01-001', null)]) // priority 1 -> all three stars filled
+    await screen.findByText('OP01-001')
+    expect(star(1).querySelector('path')).toHaveAttribute('fill', '#221c12')
+    expect(star(2).querySelector('path')).toHaveAttribute('fill', '#221c12')
+    expect(star(3).querySelector('path')).toHaveAttribute('fill', '#221c12')
+  })
+
+  it('le survol prévisualise le nombre d’étoiles sans encore rien valider', async () => {
+    mount([entry('OP01-001', null)])
+    await screen.findByText('OP01-001')
+    // Forced down to one star first, so hovering has something to preview upward.
+    fireEvent.click(star(1))
+    expect(star(3).querySelector('path')).toHaveAttribute('fill', 'none')
+
+    fireEvent.mouseEnter(star(3))
+    expect(star(3).querySelector('path')).toHaveAttribute('fill', '#221c12')
+    expect(screen.getByText('Un jour')).toBeInTheDocument() // not committed yet
+
+    fireEvent.mouseLeave(star(3).parentElement!)
+    expect(star(3).querySelector('path')).toHaveAttribute('fill', 'none')
+  })
+
+  it('un clic valide la priorité correspondant à l’étoile cliquée', async () => {
+    mount([entry('OP01-001', null)]) // priority 1, "Dès que possible"
+    await screen.findByText('OP01-001')
+    expect(screen.getByText('Dès que possible')).toBeInTheDocument()
+
+    fireEvent.click(star(1))
+    expect(await screen.findByText('Un jour')).toBeInTheDocument()
   })
 })

@@ -33,6 +33,69 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Priorité sur Recherchées : étoiles noires au survol plutôt que trois boutons
+  texte**, demandé le 2026-08-29. Tranché par question posée avant de coder : 3
+  étoiles = le plus urgent (« Dès que possible »), 1 étoile = « Un jour » — sens
+  habituel d'une note en étoiles, à l'inverse de l'ordre du champ `priority` lui-même
+  (1 = le plus urgent). Le tampon « WANTED » garde son texte en toutes lettres,
+  seule la rangée de boutons devient des étoiles.
+  - Survoler une étoile prévisualise le nombre d'étoiles qui seraient retenues (état
+    local `hover`, jamais envoyé au serveur) ; cliquer valide réellement via le même
+    `onPatch` qu'avant. Sur tactile, sans survol réel, taper sélectionne directement —
+    déjà le comportement demandé pour ce cas.
+  - Étoiles pleines en noir (`INK`, la même encre que le reste de l'affiche) au lieu
+    d'une couleur dorée/vedette : demande explicite, pas la convention habituelle
+    d'une note en étoiles.
+  - 3 nouveaux tests (`Wishlist.test.tsx`) : le compte initial d'étoiles pleines, le
+    survol qui prévisualise sans valider (et revient en arrière une fois la souris
+    partie), le clic qui valide la bonne priorité. Chacun cassé exprès puis rétabli
+    pour confirmer qu'il attrape la régression. 210 tests frontend au total, tous
+    verts ; `tsc -b` et `vite build` propres. Vérifié en direct contre la vraie
+    session de développement : survol de la 3ᵉ étoile préremplit les trois, relâcher
+    la souris revient à l'état réel, cliquer change bien la priorité et le texte du
+    tampon.
+
+- **Recherchées : scrollbar desktop, grille 3 colonnes, et repère « déjà recherchée »
+  sur Chercher**, demandé le 2026-08-29.
+  - **Scrollbar visible sur desktop** (`scrollbar-desktop`, ≥1024px) : même classe déjà
+    utilisée par la Collection, posée sur le `Screen` de Recherchées.
+  - **Grille de 3 posters par ligne, agrandis, sur desktop seulement** (≥1024px,
+    tranché par question posée : sur téléphone — l'usage réel quotidien — les posters
+    prennent déjà toute la largeur, les passer à 3 par ligne les aurait rétrécis, pas
+    agrandis). Mobile intact : toujours 1 par ligne, image 160×224 à côté du texte.
+    À partir de `lg:`, chaque `Poster` passe en colonne (image en pleine largeur de la
+    colonne, texte dessous) plutôt que de garder la mise en page mobile compressée dans
+    une colonne étroite. Le tampon de priorité, jusque-là positionné à une distance fixe
+    (`bottom-[86px]`) du bas de toute la carte, est ancré sur l'image elle-même à la
+    place : la mise en page verticale rend la carte bien plus haute, et un décalage
+    fixe depuis le bas aurait fini loin sous l'illustration une fois cette hauteur
+    changée.
+  - **Repère visuel sur Chercher pour une carte déjà dans les recherchées**, pour ne
+    pas la re-ajouter par erreur. En vérifiant l'existant : le bouton rapide « ajouter
+    aux recherchées » de chaque tuile ne mémorisait que son propre clic
+    (`useState` local), remis à zéro à chaque remontage — une carte déjà recherchée
+    affichait donc le même bouton nu qu'une carte qui ne l'était pas, et `POST
+    /wishlist` traite un second ajout comme une modification : cliquer dessus à
+    nouveau effaçait silencieusement la priorité, le prix constaté et les notes déjà
+    posés sur cette entrée. `CardDetail.tsx` portait sa propre copie du même problème
+    (son propre fetch de tout le wishlist à chaque ouverture de fiche, pour une seule
+    carte). Les deux remplacés par un contexte partagé (`lib/wishlist.tsx`,
+    `WishlistProvider`/`useWishlist`), sur le modèle déjà en place pour la collection
+    (`lib/collection.tsx`) — même raisonnement : la question « est-ce déjà recherché »
+    doit pouvoir se poser sur chaque tuile d'une grille de 9 804 cartes, donc autant la
+    garder une fois en mémoire plutôt que par écran. `Wishlist.tsx` migré au passage
+    vers ce même contexte plutôt que de garder son propre fetch séparé, pour que les
+    trois écrans ne puissent plus diverger sur l'état réel. Repère : le même glyphe que
+    le bouton d'ajout (favori), plein plutôt que juste le contour, coin haut-droit de la
+    tuile (le variant occupe déjà le coin haut-gauche).
+  - 1 nouveau test (`CardGrid.test.tsx`), cassé exprès puis rétabli pour confirmer
+    qu'il attrape la régression. 207 tests frontend au total, tous verts ; `tsc -b` et
+    `vite build` propres. Vérifié en direct contre le vrai catalogue et la vraie
+    session de développement : la grille 3 colonnes sur Recherchées à 1280px, la mise
+    en page mobile intacte à 375px, le repère apparaissant sur Chercher pour
+    EB01-001_p1 (déjà recherchée) et disparaissant du bouton une fois une autre carte
+    ajoutée en direct sans recharger la page.
+
 - **Extension OP-17 absente du catalogue**, signalé le 2026-08-28 le jour même de sa
   sortie EN : `punk-records` (la source du catalogue) n'est rafraîchi que manuellement,
   contrairement aux prix qui ont leur propre timer — le clone local datait du 3 août,

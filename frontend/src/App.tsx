@@ -20,6 +20,7 @@ import { Spinner } from './components/ui'
 import { API_BASE } from './lib/api'
 import { AuthProvider, useAuth } from './lib/auth'
 import { CollectionProvider } from './lib/collection'
+import { WishlistProvider } from './lib/wishlist'
 import { LanguageProvider } from './lib/language'
 import { ToastProvider } from './lib/toast'
 import { Account } from './pages/Account'
@@ -181,9 +182,11 @@ function Gate() {
   return (
     <LanguageProvider>
       <CollectionProvider>
-        <ToastProvider>
-          <Shell />
-        </ToastProvider>
+        <WishlistProvider>
+          <ToastProvider>
+            <Shell />
+          </ToastProvider>
+        </WishlistProvider>
       </CollectionProvider>
     </LanguageProvider>
   )

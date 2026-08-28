@@ -1,9 +1,10 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, imageUrl } from '../lib/api'
+import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import type { Card } from '../lib/types'
+import { useWishlist } from '../lib/wishlist'
 import { variantOf } from './Edition'
 import { useToast } from '../lib/toast'
 import { EmptyPocket } from './ui'
@@ -179,9 +180,10 @@ export function CardGrid({
 
 export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
   const { ownedOf } = useCollection()
+  const { wantedOf, add: addToWishlist } = useWishlist()
   const { show } = useToast()
-  const [wanted, setWanted] = useState(false)
   const owned = ownedOf(card.id, card.language)
+  const wanted = Boolean(wantedOf(card.id, card.language))
   const src = imageUrl(card)
   const variant = variantOf(card.id)
   /* Held cards are always shown. Unheld ones are an empty niche by default — on the
@@ -200,7 +202,7 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
     <div className="group relative">
       <Link
         to={`/card/${encodeURIComponent(card.id)}?language=${card.language}`}
-        aria-label={`${card.name}, ${card.id}${owned ? `, ${owned.quantity} en collection` : ', pochette vide'}`}
+        aria-label={`${card.name}, ${card.id}${owned ? `, ${owned.quantity} en collection` : ', pochette vide'}${wanted ? ', déjà dans les recherchées' : ''}`}
       >
         {art ? (
           /* Inlaid, not stuck on: the artwork sits below the surface of the stone,
@@ -252,6 +254,24 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
             ×{owned.quantity}
           </span>
         )}
+        {wanted && (
+          /* The same bookmark glyph as the add button below, filled solid instead of
+             outlined -- so recognising a card already on the want list reuses a shape
+             the eye has already learned, rather than introducing a second one. Without
+             this a tile gave no sign the card was already wanted, and the add button
+             (which only ever remembered its own click, not the real list) reappeared
+             on every remount -- clicking it again silently reset that entry's
+             priority, price and notes, since the server treats a repeat add as an
+             edit rather than a duplicate. */
+          <span
+            className="absolute top-0 right-0 grid size-6 place-items-center"
+            style={{ background: 'rgba(4,18,26,.86)', color: 'var(--color-sun-500)' }}
+          >
+            <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" aria-hidden>
+              <path d="M5 3h10v14l-5-3.6L5 17V3Z" />
+            </svg>
+          </span>
+        )}
       </Link>
       {/* Pointer only. A hover state is invisible on a phone, where a control that
           appears on touch would fire on the tap meant to open the card — the sheet
@@ -264,11 +284,9 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
       {!owned && !wanted && (
         <button
           onClick={() => {
-            setWanted(true)
-            api
-              .addToWishlist({ card_id: card.id, language: card.language })
+            addToWishlist({ id: card.id, language: card.language })
               .then(() => show(`${card.name} ajoutée aux recherchées`))
-              .catch(() => setWanted(false))
+              .catch(() => show("Échec de l'ajout"))
           }}
           aria-label={`Ajouter ${card.name} aux recherchées`}
           className="absolute right-1 bottom-1 hidden size-9 place-items-center rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:hover)]:grid"

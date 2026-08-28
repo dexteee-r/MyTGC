@@ -19,14 +19,8 @@ import { api, imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
 import { money } from '../lib/money'
 import { useToast } from '../lib/toast'
-import {
-  CONDITION_LABELS,
-  type Card,
-  type Condition,
-  type Language,
-  type PricePoint,
-  type WishlistEntry,
-} from '../lib/types'
+import { CONDITION_LABELS, type Card, type Condition, type Language, type PricePoint } from '../lib/types'
+import { useWishlist } from '../lib/wishlist'
 
 export function CardDetail() {
   const { cardId = '' } = useParams()
@@ -62,12 +56,12 @@ export function CardDetail() {
     setNotes: saveNotes,
     setDateAdded,
   } = useCollection()
+  const { wantedOf, add: addToWishlist, remove: removeFromWishlist } = useWishlist()
   const { show } = useToast()
 
   const [card, setCard] = useState<Card | null>(null)
   const [failed, setFailed] = useState(false)
   const [condition, setCondition] = useState<Condition>('near_mint')
-  const [wanted, setWanted] = useState<WishlistEntry | null>(null)
   const [editingPrice, setEditingPrice] = useState(false)
   const [priceDraft, setPriceDraft] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
@@ -81,12 +75,6 @@ export function CardDetail() {
   const load = useCallback(() => {
     setFailed(false)
     api.card(cardId, language).then(setCard).catch(() => setFailed(true))
-    api
-      .wishlist()
-      .then((list) =>
-        setWanted(list.find((e) => e.card_id === cardId && e.language === language) ?? null),
-      )
-      .catch(() => {})
     // Its own request, its own failure: a card with no priced history yet is not an
     // error, and the section simply stays empty rather than dragging the rest of the
     // sheet into a retry screen for a chart nobody would see anyway.
@@ -144,6 +132,7 @@ export function CardDetail() {
   if (!card) return <Spinner />
 
   const owned = ownedOf(card.id, language)
+  const wanted = wantedOf(card.id, language)
   const src = imageUrl(card)
 
   /* One control for the whole holding, whether or not there is one yet. Going from
@@ -194,14 +183,11 @@ export function CardDetail() {
 
   const toggleWanted = async () => {
     if (wanted) {
-      setWanted(null)
-      await api.removeFromWishlist(wanted.id).catch(load)
+      await removeFromWishlist(wanted.id)
     } else {
-      const entry = await api
-        .addToWishlist({ card_id: card.id, language })
-        .catch(() => null)
-      setWanted(entry)
-      if (entry) show(`${card.name} ajoutée aux recherchées`)
+      await addToWishlist({ id: card.id, language })
+        .then(() => show(`${card.name} ajoutée aux recherchées`))
+        .catch(() => show("Échec de l'ajout"))
     }
   }
 

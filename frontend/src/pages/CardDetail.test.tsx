@@ -7,6 +7,7 @@ import { CollectionProvider } from '../lib/collection'
 import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
 import type { Card, CollectionEntry, CollectionGroup } from '../lib/types'
+import { WishlistProvider } from '../lib/wishlist'
 import { CardDetail } from './CardDetail'
 
 /* The quantity control is the whole screen: it is the gesture a collector repeats more
@@ -90,12 +91,14 @@ function mount(options: {
       <AuthProvider>
         <LanguageProvider>
           <CollectionProvider>
-            <ToastProvider>
-              <Routes>
-                <Route path="/card/:cardId" element={<CardDetail />} />
-                <Route path="/wishlist" element={<p>Écran Recherchées</p>} />
-              </Routes>
-            </ToastProvider>
+            <WishlistProvider>
+              <ToastProvider>
+                <Routes>
+                  <Route path="/card/:cardId" element={<CardDetail />} />
+                  <Route path="/wishlist" element={<p>Écran Recherchées</p>} />
+                </Routes>
+              </ToastProvider>
+            </WishlistProvider>
           </CollectionProvider>
         </LanguageProvider>
       </AuthProvider>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Edition, printingLabel } from '../components/Edition'
 import {
@@ -10,10 +10,11 @@ import {
 } from '../components/Filters'
 import { LinkIcon } from '../components/icons'
 import { ShareDialog } from '../components/ShareDialog'
-import { Adrift, Button, EmptyState, PageHeader, Screen, Sounding } from '../components/ui'
+import { Button, EmptyState, PageHeader, Screen, Sounding } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useToast } from '../lib/toast'
 import type { WishlistEntry } from '../lib/types'
+import { useWishlist } from '../lib/wishlist'
 
 /* ── The hunt ───────────────────────────────────────────────────────────────
    The only screen made of paper in the whole app.
@@ -45,8 +46,7 @@ const INK = '#221c12'
 
 export function Wishlist() {
   const { show } = useToast()
-  const [entries, setEntries] = useState<WishlistEntry[] | null>(null)
-  const [failed, setFailed] = useState(false)
+  const { entries, ready, remove: removeFromWishlist, patch: patchWishlist } = useWishlist()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
@@ -61,7 +61,7 @@ export function Wishlist() {
      the tap that asked for it. Owned is dropped from the options — everything here is
      by definition not owned. */
   const shown = useMemo(() => {
-    const list = (entries ?? []).filter((entry) => {
+    const list = entries.filter((entry) => {
       if (filters.language && entry.language !== filters.language) return false
       if (filters.rarities.length && !filters.rarities.includes(entry.card?.rarity ?? ''))
         return false
@@ -106,34 +106,19 @@ export function Wishlist() {
     return [...list].sort(by)
   }, [entries, filters])
 
-  const load = useCallback(() => {
-    setFailed(false)
-    api.wishlist().then(setEntries).catch(() => setFailed(true))
-  }, [])
-  useEffect(load, [load])
-
   const remove = async (entry: WishlistEntry) => {
-    setEntries((current) => (current ?? []).filter((e) => e.id !== entry.id))
-    await api.removeFromWishlist(entry.id).catch(load)
+    await removeFromWishlist(entry.id)
     show(`${entry.card?.name ?? entry.card_id} retirée`)
-  }
-
-  const patch = async (entry: WishlistEntry, change: Partial<WishlistEntry>) => {
-    setEntries((current) =>
-      (current ?? []).map((e) => (e.id === entry.id ? { ...e, ...change } : e)),
-    )
-    await api.updateWishlist(entry.id, change).catch(load)
   }
 
   const clear = () => setFilters({ ...filters, language: null, ...EMPTY })
   const applied = appliedLabels(filters, null)
 
-  if (failed) return <Screen><div className="pt-10"><Adrift onRetry={load} /></div></Screen>
-  if (!entries) return <Screen><div className="pt-10"><Sounding label="Relevé des primes" /></div></Screen>
+  if (!ready) return <Screen><div className="pt-10"><Sounding label="Relevé des primes" /></div></Screen>
 
 return (
     <>
-      <Screen>
+      <Screen className="scrollbar-desktop">
         <PageHeader
           title="Recherchées"
           meta={
@@ -218,13 +203,13 @@ return (
             </EmptyState>
           </div>
         ) : (
-          <ul className="px-4 pt-1">
+          <ul className="px-4 pt-1 lg:grid lg:grid-cols-3 lg:gap-5 lg:px-6">
             {shown.map((entry) => (
               <Poster
                 key={`${entry.card_id}-${entry.language}`}
                 entry={entry}
                 onRemove={() => remove(entry)}
-                onPatch={(change) => patch(entry, change)}
+                onPatch={(change) => patchWishlist(entry.id, change)}
               />
             ))}
           </ul>
@@ -273,7 +258,7 @@ function Poster({
 
   return (
     <li
-      className="relative mb-4 px-3.5 pt-3.5 pb-3"
+      className="relative mb-4 px-3.5 pt-3.5 pb-3 lg:mb-0"
       style={{
         background: 'var(--color-paper-100)',
         color: INK,
@@ -292,44 +277,62 @@ function Poster({
       />
 
       <div className="relative">
-        <div className="flex items-baseline justify-between gap-3 border-b-2 pb-1" style={{ borderColor: INK }}>
-          <p className="t-display text-[13px] tracking-[.12em] uppercase">Wanted</p>
+        <div className="relative border-b-2 pb-1" style={{ borderColor: INK }}>
+          <p className="t-display text-center text-[13px] tracking-[.12em] uppercase">Wanted</p>
           <button
             onClick={onRemove}
             aria-label={`Retirer ${entry.card?.name ?? entry.card_id}`}
-            className="-mr-1.5 -mt-1 flex size-[var(--touch)] items-center justify-center text-lg"
+            className="absolute -top-1 right-0 flex size-[var(--touch)] items-center justify-center text-lg"
             style={{ color: 'rgba(34,28,18,.55)' }}
           >
             ×
           </button>
         </div>
 
-        <div className="flex gap-3.5 pt-3">
+        <div className="flex gap-3.5 pt-3 lg:flex-col lg:gap-3">
           <Link
             to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
-            className="shrink-0"
+            className="relative shrink-0 lg:w-full"
           >
             {src ? (
               <img
                 src={src}
                 alt=""
                 decoding="async"
-                className="h-[224px] w-[160px] object-cover"
+                className="h-[224px] w-[160px] object-cover lg:h-auto lg:w-full lg:aspect-[600/838]"
                 style={{ boxShadow: `0 0 0 2px ${INK}` }}
               />
             ) : (
               <div
-                className="h-[224px] w-[160px]"
+                className="h-[224px] w-[160px] lg:h-auto lg:w-full lg:aspect-[600/838]"
                 style={{ background: 'rgba(34,28,18,.1)', boxShadow: `0 0 0 2px ${INK}` }}
               />
             )}
+            {/* Anchored to the image itself rather than to the card's overall height --
+                the stacked desktop layout below makes the card far taller than the
+                horizontal mobile one, and a stamp positioned by distance from the
+                card's bottom would drift off the artwork entirely once that height
+                changes. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-3 -right-1.5 px-2 py-1 font-mono text-[10px] tracking-[.14em] uppercase"
+              style={{
+                background: 'var(--color-paper-100)',
+                border: `2px solid var(--color-ember-500)`,
+                color: 'var(--color-ember-500)',
+                transform: 'rotate(-11deg)',
+                opacity: 0.9,
+              }}
+            >
+              {PRIORITY[entry.priority]}
+            </span>
           </Link>
 
           <div className="min-w-0 flex-1">
             {/* The full label, variant included: two printings of one card share
                 their artwork exactly, and a poster that does not say which is which
                 sends you hunting for the wrong one. */}
-            <p className="t-display truncate text-[1.35rem]">
+            <p className="t-display truncate text-[1.35rem] lg:text-[1.6rem]">
               {entry.card?.name ?? entry.card_id}
             </p>
             <p
@@ -357,13 +360,13 @@ function Poster({
                     if (event.key === 'Escape') setEditing(false)
                   }}
                   aria-label="Prix constaté, en euros"
-                  className="t-display w-full bg-transparent text-[1.6rem] outline-none"
+                  className="t-display w-full bg-transparent text-[1.6rem] outline-none lg:text-[1.9rem]"
                   style={{ borderBottom: `2px solid ${INK}`, color: INK }}
                 />
               ) : (
                 <button
                   onClick={() => setEditing(true)}
-                  className="t-display flex min-h-[var(--touch)] items-baseline gap-1 text-[1.6rem]"
+                  className="t-display flex min-h-[var(--touch)] items-baseline gap-1 text-[1.6rem] lg:text-[1.9rem]"
                   style={{ color: entry.price == null ? 'rgba(34,28,18,.38)' : INK }}
                 >
                   {entry.price == null ? (
@@ -382,7 +385,7 @@ function Poster({
                 </button>
               )}
               <p
-                className="pt-0.5 font-mono text-[9px] tracking-[.14em] uppercase"
+                className="pt-0.5 text-center font-mono text-[9px] tracking-[.14em] uppercase"
                 style={{ color: 'rgba(34,28,18,.55)' }}
               >
                 Dead or alive
@@ -391,45 +394,62 @@ function Poster({
           </div>
         </div>
 
-        {/* The stamp: struck across the poster, and it is the priority — so the row
-            below is left quiet. Two statements of the same fact twenty pixels apart
-            is noise; the loud one is the stamp, the row is only the control. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-0 bottom-[86px] px-2 py-1 font-mono text-[10px] tracking-[.14em] uppercase"
-          style={{
-            border: `2px solid var(--color-ember-500)`,
-            color: 'var(--color-ember-500)',
-            transform: 'rotate(-11deg)',
-            opacity: 0.82,
-          }}
-        >
-          {PRIORITY[entry.priority]}
-        </span>
-
-        <div className="mt-3.5 flex gap-1.5">
-          {[1, 2, 3].map((level) => {
-            const active = entry.priority === level
-            return (
-              <button
-                key={level}
-                onClick={() => onPatch({ priority: level })}
-                aria-pressed={active}
-                className="min-h-[var(--touch)] flex-1 px-1 text-[11px] transition"
-                style={{
-                  color: active ? INK : 'rgba(34,28,18,.5)',
-                  boxShadow: active
-                    ? `inset 0 -2px 0 var(--color-ember-500)`
-                    : 'inset 0 0 0 1px rgba(34,28,18,.18)',
-                  fontWeight: active ? 700 : 400,
-                }}
-              >
-                {PRIORITY[level]}
-              </button>
-            )
-          })}
-        </div>
+        <PriorityStars priority={entry.priority} onChange={(priority) => onPatch({ priority })} />
       </div>
     </li>
+  )
+}
+
+/* Three stars, most urgent on the right -- the same gesture as any star rating:
+   hovering previews how many would be filled, the click is what actually commits it.
+   Priority runs the other way (1 is the most wanted), so the star position and the
+   priority level are deliberately inverted here rather than the reverse of the
+   PRIORITY dict, chosen with the user rather than assumed either way. */
+function PriorityStars({
+  priority,
+  onChange,
+}: {
+  priority: number
+  onChange: (priority: number) => void
+}) {
+  const [hover, setHover] = useState<number | null>(null)
+  const filled = hover ?? 4 - priority
+
+  return (
+    <div className="mt-3.5 flex gap-1.5" onMouseLeave={() => setHover(null)}>
+      {[1, 2, 3].map((position) => {
+        const level = 4 - position
+        return (
+          <button
+            key={position}
+            type="button"
+            onMouseEnter={() => setHover(position)}
+            onFocus={() => setHover(position)}
+            onBlur={() => setHover(null)}
+            onClick={() => onChange(level)}
+            aria-pressed={priority === level}
+            aria-label={`${position} étoile${position > 1 ? 's' : ''} — ${PRIORITY[level]}`}
+            className="grid min-h-[var(--touch)] flex-1 place-items-center"
+          >
+            <Star filled={filled >= position} />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function Star({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" width="22" height="22" aria-hidden>
+      <path
+        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.539-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+        fill={filled ? INK : 'none'}
+        stroke={INK}
+        strokeWidth={filled ? 0 : 1.3}
+        strokeLinejoin="round"
+        opacity={filled ? 1 : 0.4}
+      />
+    </svg>
   )
 }

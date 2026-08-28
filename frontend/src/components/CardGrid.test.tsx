@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { CollectionProvider } from '../lib/collection'
 import type { Card } from '../lib/types'
+import { WishlistProvider } from '../lib/wishlist'
 import { CardTile } from './CardGrid'
 
 /* A card you hold sits in its pocket; a card you do not is an empty pocket with its
@@ -18,21 +19,26 @@ const card: Card = {
   image_url: '/images/en/OP01-001.png', printings: [],
 }
 
-function mount(collection: unknown[]) {
+function mount(collection: unknown[], wishlist: unknown[] = []) {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
     ok: true,
     status: 200,
-    json: async () =>
-      url.includes('/stats')
-        ? { distinct_cards: 0, total_quantity: 0, by_language: {}, by_rarity: {}, acquisition_total: 0 }
-        : collection,
+    json: async () => {
+      if (url.includes('/stats')) {
+        return { distinct_cards: 0, total_quantity: 0, by_language: {}, by_rarity: {}, acquisition_total: 0 }
+      }
+      if (url.includes('/wishlist')) return wishlist
+      return collection
+    },
     text: async () => '',
   } as Response)))
 
   return render(
     <MemoryRouter>
       <CollectionProvider>
-        <CardTile card={card} />
+        <WishlistProvider>
+          <CardTile card={card} />
+        </WishlistProvider>
       </CollectionProvider>
     </MemoryRouter>,
   )
@@ -42,6 +48,13 @@ function held(quantity: number) {
   return [{
     id: 1, card_id: 'OP01-001', language: 'en', quantity, condition: null,
     date_added: '2026-01-01', acquisition_price: null, card: null,
+  }]
+}
+
+function wanted() {
+  return [{
+    id: 1, card_id: 'OP01-001', language: 'en', priority: 2, alert_threshold: null,
+    price: null, notes: null, card: null,
   }]
 }
 
@@ -97,5 +110,19 @@ describe('card tile', () => {
     expect(
       screen.getByRole('button', { name: 'Ajouter Monkey.D.Luffy aux recherchées' }),
     ).toBeInTheDocument()
+  })
+
+  it('marque une carte déjà recherchée plutôt que de proposer de la réajouter', async () => {
+    // The add button used to only remember its own click (a local useState),
+    // reset on every remount -- a card already on the want list looked exactly
+    // like one that was not, and clicking add again silently reset that entry's
+    // priority, price and notes (POST /wishlist treats a repeat as an edit).
+    mount([], wanted())
+    const link = await screen.findByRole('link')
+
+    expect(link).toHaveAttribute('aria-label', expect.stringContaining('déjà dans les recherchées'))
+    expect(
+      screen.queryByRole('button', { name: 'Ajouter Monkey.D.Luffy aux recherchées' }),
+    ).toBeNull()
   })
 })
