@@ -4,6 +4,7 @@ import { Edition, printingLabel } from '../components/Edition'
 import {
   EMPTY,
   FilterSheet,
+  PRIORITY_LABELS,
   appliedLabels,
   isFiltered,
   type FilterState,
@@ -31,12 +32,6 @@ import { useWishlist } from '../lib/wishlist'
    gitignored media directory the same way the sign-in hero is (see /media in
    main.py), never from the repository itself. The two stay distinct on purpose:
    licensed art can decorate the page without a single copyrighted pixel in git. */
-
-const PRIORITY: Record<number, string> = {
-  1: 'Dès que possible',
-  2: 'Si ça se présente',
-  3: 'Un jour',
-}
 
 /* The torn edge of a poster ripped off a wall. */
 const TORN =
@@ -69,6 +64,8 @@ export function Wishlist() {
         filters.colors.length &&
         !(entry.card?.colors ?? []).some((c) => filters.colors.includes(c))
       )
+        return false
+      if (filters.priorities.length && !filters.priorities.includes(entry.priority))
         return false
       return true
     })
@@ -230,6 +227,7 @@ return (
           total={shown.length}
           columns={false}
           owned={false}
+          priority
         />
       </div>
     </>
@@ -324,7 +322,7 @@ function Poster({
                 opacity: 0.9,
               }}
             >
-              {PRIORITY[entry.priority]}
+              {PRIORITY_LABELS[entry.priority]}
             </span>
           </Link>
 
@@ -404,7 +402,7 @@ function Poster({
    hovering previews how many would be filled, the click is what actually commits it.
    Priority runs the other way (1 is the most wanted), so the star position and the
    priority level are deliberately inverted here rather than the reverse of the
-   PRIORITY dict, chosen with the user rather than assumed either way. */
+   PRIORITY_LABELS dict, chosen with the user rather than assumed either way. */
 function PriorityStars({
   priority,
   onChange,
@@ -428,7 +426,7 @@ function PriorityStars({
             onBlur={() => setHover(null)}
             onClick={() => onChange(level)}
             aria-pressed={priority === level}
-            aria-label={`${position} étoile${position > 1 ? 's' : ''} — ${PRIORITY[level]}`}
+            aria-label={`${position} étoile${position > 1 ? 's' : ''} — ${PRIORITY_LABELS[level]}`}
             className="grid min-h-[var(--touch)] flex-1 place-items-center"
           >
             <Star filled={filled >= position} />

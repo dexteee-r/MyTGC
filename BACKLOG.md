@@ -33,6 +33,25 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Filtre par priorité (étoiles) sur Recherchées**, demandé le 2026-08-29 juste après
+  l'ajout des étoiles. `PRIORITY_LABELS` déplacé de `Wishlist.tsx` vers `Filters.tsx`
+  (partagé par les deux, plutôt que dupliqué) : `FilterState` gagne `priorities:
+  number[]`, à choix multiple comme Couleur/Rareté. Un nouveau paramètre `priority`
+  sur `FilterSheet` (faux par défaut, comme `columns`/`owned` mais dans l'autre sens
+  — une carte du catalogue n'a pas de priorité, seule une entrée recherchée en a une)
+  n'affiche cette section que sur Recherchées, jamais sur Chercher qui partage le même
+  composant. Chaque puce montre les étoiles (★★★/★★☆/★☆☆) et le libellé en toutes
+  lettres ensemble, plutôt que l'un ou l'autre seul.
+  3 nouveaux tests (`Wishlist.test.tsx`) : un niveau seul, plusieurs niveaux combinés,
+  « Tout effacer » qui retire aussi ce filtre — chacun cassé exprès (désactivé le
+  filtre lui-même) puis rétabli pour confirmer qu'il attrape la régression. Les
+  requêtes de test sont scopées à la boîte de dialogue du panneau : une puce de filtre
+  et le bouton d'étoile d'un poster partagent le même mot dans leur nom accessible
+  (« Un jour »), une requête non scopée aurait été ambiguë — trouvé en vérifiant en
+  direct dans le navigateur, pas seulement en test. 213 tests frontend au total, tous
+  verts ; `tsc -b` et `vite build` propres. Vérifié en direct : filtrer sur « Un jour »
+  passe de 8/8 à 1/8 avec la bonne carte, « Tout effacer » revient à 8/8.
+
 - **Priorité sur Recherchées : étoiles noires au survol plutôt que trois boutons
   texte**, demandé le 2026-08-29. Tranché par question posée avant de coder : 3
   étoiles = le plus urgent (« Dès que possible »), 1 étoile = « Un jour » — sens

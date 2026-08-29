@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../lib/toast'
@@ -10,7 +10,7 @@ import { Wishlist } from './Wishlist'
    constaté typed in by hand -- and "trier par prix" was asked to mean the cote,
    the same number the catalogue itself sorts by, never the hand-typed one. */
 
-function entry(id: string, marketPrice: number | null): WishlistEntry {
+function entry(id: string, marketPrice: number | null, priority = 1): WishlistEntry {
   const card: Card | null = {
     id, language: 'en', name: id, pack_id: '1', pack_code: null, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
@@ -18,7 +18,7 @@ function entry(id: string, marketPrice: number | null): WishlistEntry {
     market_price: marketPrice, image_url: null, printings: [],
   }
   return {
-    id: id.length, card_id: id, language: 'en', priority: 1, alert_threshold: null,
+    id: id.length, card_id: id, language: 'en', priority, alert_threshold: null,
     // A hand-typed price deliberately at odds with market_price: if the sort ever
     // regresses to this field instead, the order below would flip and the test
     // would catch it.
@@ -115,5 +115,58 @@ describe('étoiles de priorité sur Recherchées', () => {
 
     fireEvent.click(star(1))
     expect(await screen.findByText('Un jour')).toBeInTheDocument()
+  })
+})
+
+describe('filtre par priorité sur Recherchées', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  // Scoped to the sheet itself: a poster's own star row carries an aria-label
+  // containing the same priority wording ("1 étoile — Un jour"), so an unscoped
+  // query for that text would match both and fail on the ambiguity.
+  const openFilters = async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Filtres/ }))
+    return within(await screen.findByRole('dialog', { name: 'Filtres' }))
+  }
+
+  it('ne garde que les cartes du niveau de priorité choisi', async () => {
+    mount([entry('OP01-001', null, 1), entry('OP01-002', null, 3)])
+    await screen.findByText('OP01-001')
+    expect(posterNames()).toHaveLength(2)
+
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Un jour/ }))
+
+    expect(posterNames()).toHaveLength(1)
+    expect(posterNames()[0]).toContain('OP01-002')
+  })
+
+  it('combine plusieurs niveaux à la fois, comme les autres filtres à choix multiple', async () => {
+    mount([
+      entry('OP01-001', null, 1),
+      entry('OP01-002', null, 2),
+      entry('OP01-003', null, 3),
+    ])
+    await screen.findByText('OP01-001')
+
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Dès que possible/ }))
+    fireEvent.click(dialog.getByRole('button', { name: /Un jour/ }))
+
+    const names = posterNames()
+    expect(names).toHaveLength(2)
+    expect(names.some((n) => n?.includes('OP01-002'))).toBe(false)
+  })
+
+  it('« Tout effacer » retire aussi le filtre de priorité', async () => {
+    mount([entry('OP01-001', null, 1), entry('OP01-002', null, 3)])
+    await screen.findByText('OP01-001')
+
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Un jour/ }))
+    expect(posterNames()).toHaveLength(1)
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Tout effacer' }))
+    expect(posterNames()).toHaveLength(2)
   })
 })

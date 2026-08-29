@@ -21,6 +21,15 @@ export const RARITIES = [
 
 export type Sort = 'code' | 'set' | 'name' | 'date' | 'price_asc' | 'price_desc'
 
+/* Shared with Wishlist.tsx, which also uses it on the poster's own stamp and star
+   row -- one dictionary rather than two, so a wording change cannot land in the
+   filter and not the poster (or the reverse). */
+export const PRIORITY_LABELS: Record<number, string> = {
+  1: 'Dès que possible',
+  2: 'Si ça se présente',
+  3: 'Un jour',
+}
+
 export interface FilterState {
   /* null is both editions. The catalogue holds each card twice and searching a name
      across the two is the normal case when you cannot remember which one you own. */
@@ -28,6 +37,10 @@ export interface FilterState {
   rarities: string[]
   colors: string[]
   owned: boolean | null
+  /* Meaningless to Search -- a card has no priority, only a wishlist entry does --
+     so it always stays empty there. Kept on the one shared shape anyway rather than
+     a second FilterState, same reasoning as the rest of this file. */
+  priorities: number[]
   sort: Sort
   columns: number
 }
@@ -36,6 +49,7 @@ export const EMPTY: Omit<FilterState, 'sort' | 'columns' | 'language'> = {
   rarities: [],
   colors: [],
   owned: null,
+  priorities: [],
 }
 
 /* What is on, in words, for the trigger that opens this panel — a filter you cannot
@@ -55,6 +69,7 @@ export function appliedLabels(state: FilterState, baseline?: Language | null): s
     state.owned === true ? 'Possédées' : state.owned === false ? 'Manquantes' : null,
     ...state.colors,
     ...state.rarities,
+    ...state.priorities.map((level) => PRIORITY_LABELS[level]),
   ].filter(Boolean) as string[]
 }
 
@@ -62,8 +77,9 @@ export function isFiltered(state: FilterState, baseline?: Language | null): bool
   return appliedLabels(state, baseline).length > 0
 }
 
-const toggle = (list: string[], value: string) =>
-  list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+function toggle<T>(list: T[], value: T): T[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+}
 
 export function FilterSheet({
   open,
@@ -75,6 +91,7 @@ export function FilterSheet({
   loading,
   columns = true,
   owned = true,
+  priority = false,
 }: {
   open: boolean
   onClose: () => void
@@ -89,6 +106,9 @@ export function FilterSheet({
      change the answer is a control that lies. */
   columns?: boolean
   owned?: boolean
+  /* The reverse of the two above: a card in the catalogue has no priority, only a
+     wishlist entry does, so this defaults off and only Recherchées turns it on. */
+  priority?: boolean
 }) {
   const set = <K extends keyof FilterState>(key: K, value: FilterState[K]) =>
     onChange({ ...state, [key]: value })
@@ -166,6 +186,24 @@ export function FilterSheet({
             </Chip>
           ))}
         </Group>
+
+        {priority && (
+        <Group label="Priorité">
+          {[1, 2, 3].map((level) => {
+            const stars = 4 - level
+            return (
+              <Chip
+                key={level}
+                active={state.priorities.includes(level)}
+                onClick={() => set('priorities', toggle(state.priorities, level))}
+              >
+                {'★'.repeat(stars)}
+                {'☆'.repeat(3 - stars)} {PRIORITY_LABELS[level]}
+              </Chip>
+            )
+          })}
+        </Group>
+        )}
 
         <Group label="Trier">
           <Segmented<Sort>
