@@ -1,11 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../lib/auth'
+import { CollectionProvider } from '../lib/collection'
 import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
 import type { Card, ScanResult } from '../lib/types'
 import { Search, resetSearchMemory } from './Search'
+
+// MemoryRouter's history is separate from window.location -- reading the URL a
+// search produces means asking the router itself, from inside its own tree.
+function LocationProbe() {
+  return <p data-testid="location-search">{useLocation().search}</p>
+}
 
 /* Chercher par image: le pipeline de scan existant, entré depuis une image choisie
    ou collée plutôt que depuis une capture caméra. Contrairement à Scanner, taper sur
@@ -30,7 +37,10 @@ const CONFIDENT_RESULT: ScanResult = {
   }],
 }
 
-function mount(scanResponse: () => Response | Promise<Response>) {
+function mount(
+  scanResponse: () => Response | Promise<Response>,
+  initialPath = '/search',
+) {
   resetSearchMemory()
   const scanCalls: string[] = []
 
@@ -46,21 +56,38 @@ function mount(scanResponse: () => Response | Promise<Response>) {
     if (url.includes('/search-history')) {
       return { ok: true, status: 200, json: async () => [], text: async () => '' } as Response
     }
+    // Suggestions (typing a non-empty query) reads the collection to mark owned
+    // cards -- empty here, since none of these tests are about ownership.
+    if (url.includes('/collection/stats')) {
+      return {
+        ok: true, status: 200, text: async () => '',
+        json: async () => ({
+          distinct_cards: 0, total_quantity: 0, by_language: {}, by_rarity: {},
+          acquisition_total: 0,
+        }),
+      } as Response
+    }
+    if (url.includes('/collection')) {
+      return { ok: true, status: 200, json: async () => [], text: async () => '' } as Response
+    }
     // Auth boot (refresh) and anything else this screen does not otherwise care about.
     void init
     return { ok: false, status: 401, json: async () => ({}), text: async () => '' } as Response
   }))
 
   const rendered = render(
-    <MemoryRouter initialEntries={['/search']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <AuthProvider>
         <LanguageProvider>
-          <ToastProvider>
-            <Routes>
-              <Route path="/search" element={<Search />} />
-              <Route path="/card/:cardId" element={<p>Fiche de la carte</p>} />
-            </Routes>
-          </ToastProvider>
+          <CollectionProvider>
+            <ToastProvider>
+              <Routes>
+                <Route path="/search" element={<Search />} />
+                <Route path="/card/:cardId" element={<p>Fiche de la carte</p>} />
+              </Routes>
+              <LocationProbe />
+            </ToastProvider>
+          </CollectionProvider>
         </LanguageProvider>
       </AuthProvider>
     </MemoryRouter>,
@@ -153,5 +180,32 @@ describe('recherche par image sur Chercher', () => {
 
     expect(scanCalls).toHaveLength(0)
     expect(screen.queryByText('Recherche par image')).toBeNull()
+  })
+})
+
+describe('la recherche est dans l’URL', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const noScan = async () =>
+    ({ ok: false, status: 404, json: async () => ({}), text: async () => '' }) as Response
+
+  it('une URL partagée restaure le texte et les filtres', async () => {
+    mount(noScan, '/search?q=Luffy&rarity=Leader&lang=jp')
+
+    expect(await screen.findByLabelText('Rechercher une carte')).toHaveValue('Luffy')
+    expect(
+      screen.getByRole('button', { name: /Filtres actifs :.*Leader/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('taper une recherche le reflète dans l’URL', async () => {
+    mount(noScan)
+    fireEvent.change(screen.getByLabelText('Rechercher une carte'), {
+      target: { value: 'Zoro' },
+    })
+
+    await waitFor(() => expect(screen.getByTestId('location-search').textContent).toContain('q=Zoro'), {
+      timeout: 1000,
+    })
   })
 })

@@ -128,6 +128,7 @@ export function Button({
   disabled,
   full,
   type = 'button',
+  loading,
 }: {
   children: ReactNode
   onClick?: () => void
@@ -136,6 +137,11 @@ export function Button({
   disabled?: boolean
   full?: boolean
   type?: 'button' | 'submit'
+  /* Keeps the label -- "Se connecter" says what pressing it does, and a request
+     in flight does not change that -- rather than swapping it for "Un instant…",
+     which said only that something was happening and not what. A small ring
+     appears alongside it instead, and the button disables the same as before. */
+  loading?: boolean
 }) {
   const look: Record<string, CSSProperties> = {
     primary: {
@@ -160,12 +166,25 @@ export function Button({
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       style={look[variant]}
       className={`inline-flex min-h-[var(--touch)] items-center justify-center gap-2 rounded-[2px] px-5 whitespace-nowrap transition-[filter,opacity] hover:brightness-110 active:brightness-95 disabled:opacity-35 ${
         size === 'lg' ? 'min-h-[3.25rem] px-6' : 'text-sm'
       } ${full ? 'w-full' : ''}`}
     >
+      {loading && (
+        <span
+          aria-hidden
+          className="size-4 shrink-0 rounded-full border-2"
+          style={{
+            borderColor: 'currentColor',
+            borderTopColor: 'transparent',
+            opacity: 0.7,
+            animation: 'hz-spin .8s linear infinite',
+          }}
+        />
+      )}
       {children}
     </button>
   )
@@ -629,6 +648,19 @@ export function Sounding({
   label?: string
   onLeave?: () => void
 }) {
+  /* Held back for a beat: every caller mounts this the instant a request starts and
+     unmounts it the instant one resolves, so a fast response used to flash this on
+     screen for a single frame -- motion nobody had time to read, only noise. A
+     request that finishes within the delay never shows a loading state at all,
+     which is the point; nothing here can also enforce a minimum *visible* time
+     once shown, since by then this component has no say over when its caller
+     unmounts it. */
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const delay = window.setTimeout(() => setVisible(true), 200)
+    return () => window.clearTimeout(delay)
+  }, [])
+
   const [stage, setStage] = useState(0)
   useEffect(() => {
     const slow = window.setTimeout(() => setStage(1), 4000)
@@ -638,6 +670,8 @@ export function Sounding({
       window.clearTimeout(stall)
     }
   }, [])
+
+  if (!visible) return null
   const note =
     stage === 2
       ? 'Toujours rien remonté. Tu peux repartir, ça finira en arrière-plan.'

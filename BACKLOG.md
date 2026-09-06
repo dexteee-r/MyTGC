@@ -33,6 +33,54 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Corrections issues de l'audit contre la checklist Vercel « Web Interface
+  Guidelines »**, demandé le 2026-08-29 (« je te laisse tout corriger »).
+  - **Deep-linking sur Chercher, Collection et Recherchées.** Tout ce qui décide
+    quelles cartes sont affichées vit désormais dans l'URL — texte de recherche,
+    édition, couleurs, raretés, possédé/manquant, tri, vue, groupe actif — plutôt
+    que seulement dans une variable de module ou un `useState` perdu au démontage.
+    Un lien partagé, ou le bouton Précédent du navigateur, reproduit maintenant la
+    recherche elle-même. `left` (Chercher, Collection) reste en place à côté :
+    l'URL décide de l'état initial, `left` reste ce qui permet à un aller-retour
+    vers une fiche carte de ne pas redéclencher une requête ni perdre le défilement,
+    deux choses que l'URL seule ne peut pas faire. 6 nouveaux tests (restauration
+    depuis une URL, et l'inverse — un changement de filtre reflété dans l'URL — via
+    une sonde `useLocation()` puisque `MemoryRouter` ne touche jamais
+    `window.location`). Vérifié en direct sur les trois pages : recharger une URL
+    avec des paramètres restaure exactement le même écran.
+  - **Ne plus désactiver un bouton avant même la première tentative.** Trouvé sur
+    6 boutons (connexion, création de compte, réinitialisation, changement de mot
+    de passe, création/renommage de groupe) : un mot de passe trop court ou un nom
+    vide désactivait le bouton plutôt que de laisser l'essai se faire et d'expliquer
+    pourquoi. Les trois formulaires de mot de passe valident maintenant au moment
+    du clic et affichent le même message d'erreur stylé que les autres refus
+    (`role="alert"`) ; les trois boutons de groupe s'appuyaient déjà sur une garde
+    interne identique dans leur fonction, donc les laisser cliquables ne change
+    rien côté serveur. 6 nouveaux tests, dont un qui a débusqué un vrai piège :
+    `getByLabelText` de Testing Library ne résout pas un `<label>` qui enveloppe
+    à la fois le champ et un second contrôle (le bouton œil pour afficher le mot
+    de passe) — pas un bug de l'appli, `<label>` associe bien le premier élément
+    labellisable en HTML réel, seulement un angle mort de l'outil de test.
+  - **Les boutons de chargement gardent leur libellé.** `Button` gagne une prop
+    `loading` : un petit anneau apparaît à côté du texte plutôt que de le
+    remplacer par « Un instant… », qui ne disait plus ce que le bouton faisait.
+    Appliqué aux 4 boutons qui avaient ce remplacement.
+  - **`spellCheck={false}`** sur les champs email et code d'invitation (connexion,
+    inscription, réinitialisation) — jamais utile sur un email ou un code.
+  - **Le spinner de chargement (`Sounding`) ne clignote plus sur une réponse
+    rapide.** Un délai de 200 ms avant affichage : une réponse qui arrive avant
+    n'affiche jamais rien. 2 nouveaux tests avec les minuteurs simulés de vitest.
+  - **`color-scheme: dark`** posé globalement — l'app n'a qu'un seul thème, jamais
+    déclaré comme tel jusqu'ici. Corrige en théorie le contraste des `<option>`
+    du `<select>` État (fiche carte) en dark mode Windows, la seule anomalie de
+    l'audit qui reste **non vérifiable depuis cet environnement** : le popup
+    natif d'un `<select>` est dessiné par l'OS, hors de portée d'une capture
+    d'écran ou d'un test — comme les bugs propres à Safari/iOS déjà documentés
+    ailleurs, à confirmer sur une vraie machine Windows le jour où ça compte.
+  - 225 tests frontend au total (14 nouveaux), tous verts ; `tsc -b` et
+    `vite build` propres à chaque étape. Chaque comportement changé cassé exprès
+    puis rétabli pour confirmer qu'un test l'attrape.
+
 - **Filtre par priorité (étoiles) sur Recherchées**, demandé le 2026-08-29 juste après
   l'ajout des étoiles. `PRIORITY_LABELS` déplacé de `Wishlist.tsx` vers `Filters.tsx`
   (partagé par les deux, plutôt que dupliqué) : `FilterState` gagne `priorities:

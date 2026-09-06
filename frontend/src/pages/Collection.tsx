@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Edition } from '../components/Edition'
 import { GroupPicker } from '../components/GroupPicker'
 import { ChevronLeftIcon, FolderIcon, InfoIcon, LinkIcon } from '../components/icons'
@@ -189,19 +189,75 @@ export function resetCollectionMemory() {
   left = { view: 'all', language: null, sortChain: DEFAULT_SORT, activeGroupId: null, packFilter: [] }
 }
 
+/* Encodes the sort chain as `key:direction` pairs joined by commas -- ordered,
+   since the chain's own order is what breaks ties between criteria, and a plain
+   set of flags would lose it. */
+function serialiseSort(chain: SortCriterion[]): string {
+  return chain.map((c) => `${c.key}:${c.direction}`).join(',')
+}
+
+function parseSort(raw: string | null): SortCriterion[] {
+  if (!raw) return DEFAULT_SORT
+  const parsed = raw
+    .split(',')
+    .map((pair) => {
+      const [key, direction] = pair.split(':')
+      return { key, direction } as SortCriterion
+    })
+    .filter(
+      (c): c is SortCriterion =>
+        c.key in SORT_LABEL && (c.direction === 'asc' || c.direction === 'desc'),
+    )
+  return parsed.length ? parsed : DEFAULT_SORT
+}
+
+function paramsFromState(
+  view: View,
+  language: Language | null,
+  sortChain: SortCriterion[],
+  activeGroupId: number | null,
+  packFilter: string[],
+): URLSearchParams {
+  const params = new URLSearchParams()
+  if (view !== 'all') params.set('view', view)
+  if (language) params.set('lang', language)
+  if (!isDefaultSort(sortChain)) params.set('sort', serialiseSort(sortChain))
+  if (activeGroupId != null) params.set('group', String(activeGroupId))
+  if (packFilter.length) params.set('pack', packFilter.join(','))
+  return params
+}
+
 export function Collection() {
   const { entries, stats, ready } = useCollection()
   const { show } = useToast()
-  const [sortChain, setSortChainState] = useState<SortCriterion[]>(left.sortChain)
-  const [view, setViewState] = useState<View>(left.view)
-  const [language, setLanguageState] = useState<Language | null>(left.language)
-  const [packFilter, setPackFilterState] = useState<string[]>(left.packFilter)
+  const [searchParams, setSearchParams] = useSearchParams()
+  /* Captured once: this decides only the very first render's state, and the sync
+     effect below keeps writing back into the same URLSearchParams object the hook
+     hands out on every later render, which would otherwise make this re-evaluate
+     to true forever. */
+  const urlHadState = useRef([...searchParams.keys()].length > 0).current
+  const [sortChain, setSortChainState] = useState<SortCriterion[]>(
+    urlHadState ? parseSort(searchParams.get('sort')) : left.sortChain,
+  )
+  const [view, setViewState] = useState<View>(
+    urlHadState ? ((searchParams.get('view') as View | null) ?? 'all') : left.view,
+  )
+  const [language, setLanguageState] = useState<Language | null>(
+    urlHadState ? (searchParams.get('lang') as Language | null) : left.language,
+  )
+  const [packFilter, setPackFilterState] = useState<string[]>(
+    urlHadState ? (searchParams.get('pack')?.split(',').filter(Boolean) ?? []) : left.packFilter,
+  )
   const [infoOpen, setInfoOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [valueHistory, setValueHistory] = useState<ValuePoint[]>([])
 
-  const [activeGroupId, setActiveGroupIdState] = useState<number | null>(left.activeGroupId)
+  const [activeGroupId, setActiveGroupIdState] = useState<number | null>(
+    urlHadState
+      ? (searchParams.get('group') ? Number(searchParams.get('group')) : null)
+      : left.activeGroupId,
+  )
   const [myGroups, setMyGroups] = useState<CollectionGroup[] | null>(null)
   const [groupEntries, setGroupEntries] = useState<CollectionEntry[] | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
@@ -246,6 +302,19 @@ export function Collection() {
       return next
     })
   }
+
+  /* Mirrors the same five values into the URL, so a link to this page (or the
+     browser's own Back button) reproduces the view rather than always opening on
+     "Tout" sorted by date. `left` still exists alongside this: it is what makes
+     opening a card and returning land back here at all, since a full remount reads
+     `left` if the URL that comes back is bare -- see `resetCollectionMemory` above
+     for why the two cannot simply be merged into one mechanism in a test file. */
+  useEffect(() => {
+    setSearchParams(paramsFromState(view, language, sortChain, activeGroupId, packFilter), {
+      replace: true,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, language, sortChain, activeGroupId, packFilter])
 
   /* Clicking a chip that isn't in the chain yet appends it -- lowest priority,
      joining an existing combo rather than displacing it. Clicking the SAME
@@ -756,7 +825,7 @@ export function Collection() {
                       className="t-code min-h-[var(--touch)] w-full min-w-0 rounded-full px-4 outline-none"
                       style={{ background: 'var(--surface-recessed)' }}
                     />
-                    <Button variant="quiet" disabled={!newGroupName.trim()} onClick={createGroup}>
+                    <Button variant="quiet" onClick={createGroup}>
                       Créer
                     </Button>
                   </div>
@@ -794,7 +863,7 @@ export function Collection() {
                     className="t-code min-h-[var(--touch)] w-full min-w-0 rounded-full px-4 outline-none"
                     style={{ background: 'var(--surface-recessed)' }}
                   />
-                  <Button variant="quiet" disabled={!renameValue.trim()} onClick={renameActiveGroup}>
+                  <Button variant="quiet" onClick={renameActiveGroup}>
                     OK
                   </Button>
                 </div>

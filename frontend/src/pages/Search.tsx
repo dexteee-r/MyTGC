@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CardGrid } from '../components/CardGrid'
 import { Edition } from '../components/Edition'
 import {
@@ -8,6 +8,7 @@ import {
   appliedLabels,
   isFiltered,
   type FilterState,
+  type Sort,
 } from '../components/Filters'
 import { ImageIcon, SearchIcon } from '../components/icons'
 import { Suggestions } from '../components/Suggestions'
@@ -16,7 +17,7 @@ import { api, imageUrl } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useLanguage } from '../lib/language'
 import { useToast } from '../lib/toast'
-import type { Card, ScanCandidate, ScanResult } from '../lib/types'
+import type { Card, Language, ScanCandidate, ScanResult } from '../lib/types'
 import { SearchHistoryUI } from '../components/SearchHistoryUI'
 import { useSearchHistory } from '../lib/useSearchHistory'
 
@@ -48,13 +49,39 @@ export function resetSearchMemory() {
   left = null
 }
 
+/* Everything that decides which cards are on screen -- the query text, the edition,
+   colour and rarity filters, whether owned/missing is restricted, the sort -- lives
+   in the URL rather than only in `left`. `left` still exists for what the URL cannot
+   reasonably carry (the loaded page of results and the scroll position, so returning
+   from a card does not re-fetch and jump to the top), but a link to a search, or the
+   browser's own Back button, now reproduces the search itself. Columns is excluded
+   deliberately: it is a standing account preference, not a fact about this search. */
+function paramsFromFilters(query: string, filters: FilterState): URLSearchParams {
+  const params = new URLSearchParams()
+  if (query) params.set('q', query)
+  if (filters.language) params.set('lang', filters.language)
+  if (filters.rarities.length) params.set('rarity', filters.rarities.join(','))
+  if (filters.colors.length) params.set('color', filters.colors.join(','))
+  if (filters.owned != null) params.set('owned', String(filters.owned))
+  if (filters.sort !== 'code') params.set('sort', filters.sort)
+  return params
+}
+
 export function Search() {
   const { language } = useLanguage()
   const { user, setUser } = useAuth()
   const { history, addSearch } = useSearchHistory()
   const { show } = useToast()
   const navigate = useNavigate()
-  const [query, setQuery] = useState(left?.query ?? '')
+  const [searchParams, setSearchParams] = useSearchParams()
+  /* Captured once, before any state initialiser reads it -- setSearchParams below
+     mutates what useSearchParams returns on the next render, and by then the URL
+     already agrees with `query`/`filters`, so re-deriving from it a second time is
+     redundant at best. */
+  const urlHadState = useRef([...searchParams.keys()].length > 0).current
+  const [query, setQuery] = useState(
+    urlHadState ? (searchParams.get('q') ?? '') : (left?.query ?? ''),
+  )
   const [cards, setCards] = useState<Card[]>(left?.cards ?? [])
   const [total, setTotal] = useState(left?.total ?? 0)
   const [loading, setLoading] = useState(!left)
@@ -65,16 +92,28 @@ export function Search() {
   const [imageResult, setImageResult] = useState<ScanResult | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
-  /* Seeded from the account: it opens on the edition set in the log book, and on the
-     number of columns chosen there. Changing the edition here is a change of mind
-     about this search; changing the columns is a taste, and that one is written back. */
+  /* Seeded from the URL first (a shared link or Back/Forward), then from where the
+     search was left, then from the account: it opens on the edition set in the log
+     book, and on the number of columns chosen there. Changing the edition here is a
+     change of mind about this search; changing the columns is a taste, and that one
+     is written back rather than shared. */
   const [filters, setFilters] = useState<FilterState>(
-    left?.filters ?? {
-      language,
-      ...EMPTY,
-      sort: 'code',
-      columns: user?.grid_columns ?? 2,
-    },
+    urlHadState
+      ? {
+          language: (searchParams.get('lang') as Language | null) ?? language,
+          rarities: searchParams.get('rarity')?.split(',').filter(Boolean) ?? [],
+          colors: searchParams.get('color')?.split(',').filter(Boolean) ?? [],
+          owned: searchParams.has('owned') ? searchParams.get('owned') === 'true' : null,
+          priorities: [],
+          sort: (searchParams.get('sort') as Sort | null) ?? 'code',
+          columns: left?.filters.columns ?? user?.grid_columns ?? 2,
+        }
+      : (left?.filters ?? {
+          language,
+          ...EMPTY,
+          sort: 'code',
+          columns: user?.grid_columns ?? 2,
+        }),
   )
   const scroll = useRef(left?.scroll ?? 0)
 
@@ -115,8 +154,13 @@ export function Search() {
       returning.current = false
       return
     }
-    // Debounced: a keystroke should not fire a query against 9,447 rows.
-    const timer = setTimeout(runSearch, 220)
+    // Debounced: a keystroke should not fire a query against 9,447 rows, and the
+    // same delay covers the URL -- replacing it on every keystroke would otherwise
+    // make Back step through each letter typed rather than each search made.
+    const timer = setTimeout(() => {
+      runSearch()
+      setSearchParams(paramsFromFilters(query, filters), { replace: true })
+    }, 220)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filters])

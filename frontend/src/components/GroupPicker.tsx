@@ -85,7 +85,7 @@ export function GroupPicker({
                 className="t-code min-h-[var(--touch)] w-full min-w-0 rounded-full px-4 outline-none"
                 style={{ background: 'var(--surface-recessed)' }}
               />
-              <Button variant="quiet" disabled={!name.trim() || busy} onClick={createAndPick}>
+              <Button variant="quiet" loading={busy} onClick={createAndPick}>
                 Créer
               </Button>
             </div>

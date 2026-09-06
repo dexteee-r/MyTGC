@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../lib/auth'
 import { CollectionProvider } from '../lib/collection'
@@ -7,6 +7,13 @@ import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
 import type { Card, CollectionEntry, CollectionGroup, CollectionStats } from '../lib/types'
 import { Collection, resetCollectionMemory } from './Collection'
+
+// MemoryRouter keeps its own history, entirely separate from window.location --
+// asserting the URL a filter change produces means reading it from inside the
+// router's own tree, not from the real browser location the test never touches.
+function LocationProbe() {
+  return <p data-testid="location-search">{useLocation().search}</p>
+}
 
 // The filters now survive a real unmount/remount (so "Retour" from a card comes
 // back to the same narrowed list) via a module-level variable -- which a fresh
@@ -107,7 +114,11 @@ function stats(over: Partial<CollectionStats> = {}): CollectionStats {
 function mount(
   entries: CollectionEntry[],
   figures: CollectionStats,
-  options: { groups?: CollectionGroup[]; groupCards?: CollectionEntry[] } = {},
+  options: {
+    groups?: CollectionGroup[]
+    groupCards?: CollectionEntry[]
+    initialPath?: string
+  } = {},
 ) {
   const calls: { url: string; method: string; body?: string }[] = []
   // Mutable, seeded from options.groups -- so a create/rename/delete round trip
@@ -166,12 +177,13 @@ function mount(
 
   return {
     ...render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[options.initialPath ?? '/collection']}>
         <AuthProvider>
           <LanguageProvider>
             <CollectionProvider>
               <ToastProvider>
                 <Collection />
+                <LocationProbe />
               </ToastProvider>
             </CollectionProvider>
           </LanguageProvider>
@@ -695,6 +707,35 @@ describe('les filtres survivent à un aller-retour sur une fiche carte', () => {
     mount([entry('OP01-001', 'jp', 1)], stats({ total_quantity: 1, distinct_cards: 1 }))
 
     expect(await screen.findByRole('button', { name: 'Filtres actifs : JP' })).toBeTruthy()
+  })
+})
+
+describe('la vue, le tri et l’édition sont dans l’URL', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('une URL partagée rouvre sur la même vue, le même tri et la même édition', async () => {
+    mount(
+      [entry('OP01-001', 'jp', 3), entry('OP01-002', 'jp', 1)],
+      stats({ total_quantity: 4, distinct_cards: 2 }),
+      { initialPath: '/collection?view=doubles&lang=jp&sort=price:asc' },
+    )
+
+    expect(await screen.findByRole('button', { name: /Filtres actifs :/ })).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('JP'),
+    )
+    // Doubles view: only the card held more than once is on the table.
+    expect(await screen.findAllByRole('link', { name: /en collection/ })).toHaveLength(1)
+  })
+
+  it('changer un filtre le reflète dans l’URL', async () => {
+    mount([entry('OP01-001', 'jp', 1)], stats({ total_quantity: 1, distinct_cards: 1 }))
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    fireEvent.click(await screen.findByRole('tab', { name: /^JP/ }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location-search').textContent).toContain('lang=jp'),
+    )
   })
 })
 

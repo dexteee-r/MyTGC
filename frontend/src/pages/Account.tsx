@@ -104,10 +104,16 @@ export function Account() {
   const distinct = stats?.distinct_cards ?? 0
   const share = catalogue > 0 ? (distinct / catalogue) * 100 : null
 
+  const newPasswordTooShort = next.length > 0 && next.length < MIN_PASSWORD
+
   const changePassword = async (event: React.FormEvent) => {
     event.preventDefault()
-    setBusy(true)
     setError(null)
+    if (newPasswordTooShort) {
+      setError(`${MIN_PASSWORD} caractères minimum.`)
+      return
+    }
+    setBusy(true)
     try {
       await api.changePassword({ current_password: current, new_password: next })
       setCurrent('')
@@ -283,7 +289,6 @@ export function Account() {
           <input
             type="password"
             required
-            minLength={MIN_PASSWORD}
             autoComplete="new-password"
             value={next}
             onChange={(event) => setNext(event.target.value)}
@@ -297,7 +302,7 @@ export function Account() {
           </p>
         )}
         <div className="pt-4">
-          <Button type="submit" variant="quiet" disabled={busy || next.length < MIN_PASSWORD}>
+          <Button type="submit" variant="quiet" loading={busy}>
             Changer le mot de passe
           </Button>
         </div>

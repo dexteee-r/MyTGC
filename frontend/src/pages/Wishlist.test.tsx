@@ -1,10 +1,16 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../lib/toast'
 import type { Card, WishlistEntry } from '../lib/types'
 import { WishlistProvider } from '../lib/wishlist'
 import { Wishlist } from './Wishlist'
+
+// MemoryRouter's history is separate from window.location -- reading the URL a
+// filter produces means asking the router itself, from inside its own tree.
+function LocationProbe() {
+  return <p data-testid="location-search">{useLocation().search}</p>
+}
 
 /* Recherchées has two prices per card -- the cote (market_price) and the price
    constaté typed in by hand -- and "trier par prix" was asked to mean the cote,
@@ -27,16 +33,17 @@ function entry(id: string, marketPrice: number | null, priority = 1): WishlistEn
   }
 }
 
-function mount(entries: WishlistEntry[]) {
+function mount(entries: WishlistEntry[], initialPath = '/wishlist') {
   vi.stubGlobal('fetch', vi.fn(async () => ({
     ok: true, status: 200, json: async () => entries, text: async () => '',
   }) as Response))
 
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialPath]}>
       <WishlistProvider>
         <ToastProvider>
           <Wishlist />
+          <LocationProbe />
         </ToastProvider>
       </WishlistProvider>
     </MemoryRouter>,
@@ -45,6 +52,14 @@ function mount(entries: WishlistEntry[]) {
 
 const posterNames = () =>
   screen.getAllByRole('button', { name: /^Retirer / }).map((el) => el.getAttribute('aria-label'))
+
+// Scoped to the sheet itself: a poster's own star row carries an aria-label
+// containing the same priority wording ("1 étoile — Un jour"), so an unscoped
+// query for that text would match both and fail on the ambiguity.
+const openFilters = async () => {
+  fireEvent.click(screen.getByRole('button', { name: /Filtres/ }))
+  return within(await screen.findByRole('dialog', { name: 'Filtres' }))
+}
 
 describe('tri par prix sur Recherchées', () => {
   beforeEach(() => vi.unstubAllGlobals())
@@ -121,14 +136,6 @@ describe('étoiles de priorité sur Recherchées', () => {
 describe('filtre par priorité sur Recherchées', () => {
   beforeEach(() => vi.unstubAllGlobals())
 
-  // Scoped to the sheet itself: a poster's own star row carries an aria-label
-  // containing the same priority wording ("1 étoile — Un jour"), so an unscoped
-  // query for that text would match both and fail on the ambiguity.
-  const openFilters = async () => {
-    fireEvent.click(screen.getByRole('button', { name: /Filtres/ }))
-    return within(await screen.findByRole('dialog', { name: 'Filtres' }))
-  }
-
   it('ne garde que les cartes du niveau de priorité choisi', async () => {
     mount([entry('OP01-001', null, 1), entry('OP01-002', null, 3)])
     await screen.findByText('OP01-001')
@@ -168,5 +175,29 @@ describe('filtre par priorité sur Recherchées', () => {
 
     fireEvent.click(dialog.getByRole('button', { name: 'Tout effacer' }))
     expect(posterNames()).toHaveLength(2)
+  })
+})
+
+describe('les filtres de Recherchées sont dans l’URL', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('une URL partagée restaure le filtre de priorité', async () => {
+    mount([entry('OP01-001', null, 1), entry('OP01-002', null, 3)], '/wishlist?priority=3')
+    await screen.findByText('OP01-002')
+
+    expect(posterNames()).toHaveLength(1)
+    expect(posterNames()[0]).toContain('OP01-002')
+  })
+
+  it('choisir une priorité le reflète dans l’URL', async () => {
+    mount([entry('OP01-001', null, 1), entry('OP01-002', null, 3)])
+    await screen.findByText('OP01-001')
+
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByRole('button', { name: /Un jour/ }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location-search').textContent).toContain('priority=3'),
+    )
   })
 })

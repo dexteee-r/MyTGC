@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Edition, printingLabel } from '../components/Edition'
 import {
   EMPTY,
@@ -8,14 +8,42 @@ import {
   appliedLabels,
   isFiltered,
   type FilterState,
+  type Sort,
 } from '../components/Filters'
 import { LinkIcon } from '../components/icons'
 import { ShareDialog } from '../components/ShareDialog'
 import { Button, EmptyState, PageHeader, Screen, Sounding } from '../components/ui'
 import { api, imageUrl } from '../lib/api'
 import { useToast } from '../lib/toast'
-import type { WishlistEntry } from '../lib/types'
+import type { Language, WishlistEntry } from '../lib/types'
 import { useWishlist } from '../lib/wishlist'
+
+/* The same idea as Search and Collection's own deep-linking: what narrows the want
+   list lives in the URL, not only in a `useState` this screen forgets the moment it
+   unmounts. Unlike those two there is no `left` module variable to fall back to --
+   the list itself already survives a remount (it lives in WishlistProvider), and a
+   filter left applied silently was never this screen's problem before. */
+function paramsFromFilters(filters: FilterState): URLSearchParams {
+  const params = new URLSearchParams()
+  if (filters.language) params.set('lang', filters.language)
+  if (filters.rarities.length) params.set('rarity', filters.rarities.join(','))
+  if (filters.colors.length) params.set('color', filters.colors.join(','))
+  if (filters.priorities.length) params.set('priority', filters.priorities.join(','))
+  if (filters.sort !== 'code') params.set('sort', filters.sort)
+  return params
+}
+
+function filtersFromParams(params: URLSearchParams): FilterState {
+  return {
+    language: (params.get('lang') as Language | null) ?? null,
+    rarities: params.get('rarity')?.split(',').filter(Boolean) ?? [],
+    colors: params.get('color')?.split(',').filter(Boolean) ?? [],
+    priorities: params.get('priority')?.split(',').filter(Boolean).map(Number) ?? [],
+    owned: null,
+    sort: (params.get('sort') as Sort | null) ?? 'code',
+    columns: 2,
+  }
+}
 
 /* ── The hunt ───────────────────────────────────────────────────────────────
    The only screen made of paper in the whole app.
@@ -42,14 +70,15 @@ const INK = '#221c12'
 export function Wishlist() {
   const { show } = useToast()
   const { entries, ready, remove: removeFromWishlist, patch: patchWishlist } = useWishlist()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
-  const [filters, setFilters] = useState<FilterState>({
-    language: null,
-    ...EMPTY,
-    sort: 'code',
-    columns: 2,
-  })
+  const [filters, setFilters] = useState<FilterState>(() => filtersFromParams(searchParams))
+
+  useEffect(() => {
+    setSearchParams(paramsFromFilters(filters), { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters])
 
   /* Filtered in the browser rather than on the server: the want list is a handful of
      rows already in hand, and a round trip to narrow six posters would be slower than

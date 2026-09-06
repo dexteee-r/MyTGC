@@ -119,6 +119,13 @@ body {
   font-family: var(--font-sans);
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
+  /* One theme, always dark -- there is no light variant to switch to. Without this,
+     native widgets that read the page's own colour scheme (a <select>'s dropdown
+     popup, scrollbars, the OS-drawn date picker) fall back to the platform default,
+     which on Windows is light: the popup then paints its <option> rows with system
+     colours that were never told this page is dark, and can land unreadably close
+     to the app's own explicit background/color on the <select> itself. */
+  color-scheme: dark;
 }
 
 /* ── Voices ─────────────────────────────────────────────────────────────────── */

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
-import { Dialog, Segmented, Sheet, Stepper } from './ui'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Dialog, Segmented, Sheet, Sounding, Stepper } from './ui'
 
 /* aria-modal="true" is a promise: focus starts inside the overlay, Tab never
    reaches the page underneath, and closing gives the trigger its focus back.
@@ -169,5 +169,28 @@ describe('Stepper — le chiffre rejoue son animation à chaque tap', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ajouter un exemplaire' }))
     const after = screen.getByText('1')
     expect(after).not.toBe(before)
+  })
+})
+
+/* Every caller mounts Sounding the instant a request starts and unmounts it the
+   instant one resolves -- so a fast response used to flash a spinner on screen for
+   a single frame, motion nobody had time to read. Held back behind a short delay
+   instead: a request that finishes within it never shows a loading state at all. */
+describe('Sounding — pas de scintillement sur une réponse rapide', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('ne montre rien tant que le délai n’est pas passé', () => {
+    render(<Sounding label="Sondage du catalogue" />)
+    expect(screen.queryByRole('status')).toBeNull()
+
+    act(() => vi.advanceTimersByTime(150))
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('apparaît une fois le délai passé', () => {
+    render(<Sounding label="Sondage du catalogue" />)
+    act(() => vi.advanceTimersByTime(200))
+    expect(screen.getByRole('status')).toHaveTextContent('Sondage du catalogue')
   })
 })

@@ -36,8 +36,15 @@ export function SignIn() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
-    setBusy(true)
     setError(null)
+    // Checked on submit rather than disabling the button while typing: a control
+    // that never lets you press it gives no reason why, and the same message it
+    // would otherwise deny you the chance to see belongs right here.
+    if (tooShort) {
+      setError(`${MIN_PASSWORD} caractères minimum.`)
+      return
+    }
+    setBusy(true)
     try {
       if (mode === 'in') await signIn(email, password)
       else await signUp(email, password, name || undefined, code || undefined)
@@ -79,6 +86,7 @@ export function SignIn() {
             type="email"
             required
             autoComplete="email"
+            spellCheck={false}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="mt-2 min-h-12 w-full rounded-xl bg-[var(--surface-rail)] px-4 outline-none"
@@ -92,6 +100,7 @@ export function SignIn() {
               type="text"
               required
               autoComplete="off"
+              spellCheck={false}
               value={code}
               onChange={(event) => setCode(event.target.value)}
               className="mt-2 min-h-12 w-full rounded-xl bg-[var(--surface-rail)] px-4 outline-none"
@@ -128,7 +137,6 @@ export function SignIn() {
                  field does not change which flow it is, so this stays put either
                  way. */
               autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-              minLength={mode === 'up' ? MIN_PASSWORD : undefined}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="min-h-12 w-full rounded-xl bg-[var(--surface-rail)] py-2 pr-12 pl-4 outline-none"
@@ -166,8 +174,8 @@ export function SignIn() {
         )}
 
         <div className="pt-6">
-          <Button type="submit" size="lg" full disabled={busy || tooShort}>
-            {busy ? 'Un instant…' : mode === 'in' ? 'Se connecter' : 'Créer le compte'}
+          <Button type="submit" size="lg" full loading={busy}>
+            {mode === 'in' ? 'Se connecter' : 'Créer le compte'}
           </Button>
         </div>
       </form>

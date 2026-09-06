@@ -107,13 +107,24 @@ describe('choisir un nouveau mot de passe (token dans l’URL)', () => {
     ).toBeTruthy()
   })
 
-  it('un mot de passe trop court désactive le bouton', async () => {
+  it('le bouton reste cliquable même si le mot de passe est trop court', async () => {
     mount('/reset-password?token=abc123')
     fireEvent.change(await screen.findByLabelText('Nouveau mot de passe', { exact: false }), {
       target: { value: 'court' },
     })
     expect(
       (await screen.findByRole('button', { name: 'Choisir ce mot de passe' }) as HTMLButtonElement).disabled,
-    ).toBe(true)
+    ).toBe(false)
+  })
+
+  it('un mot de passe trop court affiche un message et n’appelle pas le serveur', async () => {
+    const { calls } = mount('/reset-password?token=abc123')
+    fireEvent.change(await screen.findByLabelText('Nouveau mot de passe', { exact: false }), {
+      target: { value: 'court' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Choisir ce mot de passe' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('10 caractères minimum')
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 })
