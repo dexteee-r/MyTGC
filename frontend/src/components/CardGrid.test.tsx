@@ -19,7 +19,7 @@ const card: Card = {
   image_url: '/images/en/OP01-001.png', printings: [],
 }
 
-function mount(collection: unknown[], wishlist: unknown[] = [], showPrice = false) {
+function mount(collection: unknown[], wishlist: unknown[] = []) {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
     ok: true,
     status: 200,
@@ -37,7 +37,7 @@ function mount(collection: unknown[], wishlist: unknown[] = [], showPrice = fals
     <MemoryRouter>
       <CollectionProvider>
         <WishlistProvider>
-          <CardTile card={card} showPrice={showPrice} />
+          <CardTile card={card} />
         </WishlistProvider>
       </CollectionProvider>
     </MemoryRouter>,
@@ -112,28 +112,21 @@ describe('card tile', () => {
     ).toBeInTheDocument()
   })
 
-  it('ne montre pas de cote tant que showPrice n’est pas demandé', async () => {
-    // Chercher passe showArt mais jamais showPrice: cet écran sert à identifier une
-    // carte, pas à l'estimer.
-    mount(held(1))
-    await waitFor(() => expect(screen.getByRole('link').querySelector('img')).not.toBeNull())
-    expect(screen.queryByText('4,75 €')).toBeNull()
-  })
-
-  it('montre la valeur du tas, pas le prix unitaire, quand showPrice est demandé', async () => {
-    // 3 exemplaires à 4,75 € : le badge doit dire ce que vaut la pile, comme le tri
-    // "Valeur" de la Collection le compte déjà -- pas le prix d'une seule carte.
-    mount(held(3), [], true)
+  it('montre la valeur du tas, pas le prix unitaire, dans le bandeau au survol', async () => {
+    // 3 exemplaires à 4,75 € : le bandeau doit dire ce que vaut la pile, comme le
+    // tri "Valeur" de la Collection le compte déjà -- pas le prix d'une seule carte.
+    mount(held(3))
     await waitFor(() => expect(screen.getByRole('link').querySelector('img')).not.toBeNull())
     expect(screen.getByText('14,25 €')).toBeInTheDocument()
   })
 
-  it('n’affiche aucune cote sur une pochette vide même avec showPrice', async () => {
-    // Rien à estimer sur une carte non possédée: pas de badge à côté d'un pochette
-    // vide, qui n'a pas d'image sur laquelle l'ancrer.
-    mount([], [], true)
+  it('montre le prix même sur une pochette vide quand la carte est cotée', async () => {
+    // Le prix reste un repère utile même sans image -- une tuile "manquante" dans
+    // Extensions n'a pas d'art mais garde son bouton d'ajout ; le prix rejoint la
+    // même bande plutôt que de dépendre de l'art pour s'afficher.
+    mount([])
     await screen.findByRole('link')
-    expect(screen.queryByText('4,75 €')).toBeNull()
+    expect(screen.getByText('4,75 €')).toBeInTheDocument()
   })
 
   it('marque une carte déjà recherchée plutôt que de proposer de la réajouter', async () => {

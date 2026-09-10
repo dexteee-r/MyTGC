@@ -41,7 +41,6 @@ export function CardGrid({
   onEndReached,
   loadingMore,
   showArt,
-  showPrice,
   columns: preferred = 2,
   initialScroll = 0,
   onScroll,
@@ -50,10 +49,6 @@ export function CardGrid({
   onEndReached?: () => void
   loadingMore?: boolean
   showArt?: boolean
-  /* Extensions and Collection are where value is the point of looking; Chercher is
-     for identifying a card, not appraising it, so this stays opt-in per screen
-     rather than a property of the grid itself. */
-  showPrice?: boolean
   /* Two is readable, three fits more, and which is right is a taste rather than a
      viewport question -- so the caller decides and the account remembers. */
   columns?: number
@@ -174,12 +169,7 @@ export function CardGrid({
             }}
           >
             {rows[row.index].map((card) => (
-              <CardTile
-                key={`${card.language}-${card.id}`}
-                card={card}
-                showArt={showArt}
-                showPrice={showPrice}
-              />
+              <CardTile key={`${card.language}-${card.id}`} card={card} showArt={showArt} />
             ))}
           </div>
         ))}
@@ -189,13 +179,7 @@ export function CardGrid({
   )
 }
 
-export function CardTile({
-  card, showArt, showPrice,
-}: {
-  card: Card
-  showArt?: boolean
-  showPrice?: boolean
-}) {
+export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
   const { ownedOf } = useCollection()
   const { wantedOf, add: addToWishlist } = useWishlist()
   const { show } = useToast()
@@ -213,6 +197,11 @@ export function CardTile({
   const price = card.market_price == null
     ? null
     : (owned ? owned.quantity : 1) * card.market_price
+  /* Neither half of the band depends on art being shown -- the add gesture never
+     did (a "manquante" tile in Extensions has no art but still needs it), and a
+     known price is just as useful context on a card not yet owned. */
+  const canAddToWishlist = !owned && !wanted
+  const showBand = price != null || canAddToWishlist
 
   return (
     // The "add to wishlist" button used to live inside this Link -- a button
@@ -268,13 +257,6 @@ export function CardTile({
             {variant}
           </span>
         )}
-        {showPrice && art && price != null && (
-          <span
-            className="t-numeral absolute bottom-0 left-0 bg-sea-900/90 px-1.5 py-0.5 text-[0.65rem] text-sun-500"
-          >
-            {money(price)}
-          </span>
-        )}
         {owned && owned.quantity > 1 && (
           /* Only worth saying when it is more than one. A "1" on every card you own
              is noise on a screen whose whole job is showing what you own. Struck in
@@ -309,31 +291,51 @@ export function CardTile({
 
           A sibling of the Link above, not a child of it: a button nested inside an
           anchor is invalid HTML, and a screen reader has no good way to say which
-          one it just announced. */}
-      {!owned && !wanted && (
-        <button
-          onClick={() => {
-            addToWishlist({ id: card.id, language: card.language })
-              .then(() => show(`${card.name} ajoutée aux recherchées`))
-              .catch(() => show("Échec de l'ajout"))
-          }}
-          aria-label={`Ajouter ${card.name} aux recherchées`}
-          className="absolute right-1 bottom-1 hidden size-9 place-items-center rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:hover)]:grid"
+          one it just announced.
+
+          Price and the "add to wishlist" gesture used to be two independent
+          overlays (a badge, a button) -- merged into one band so the tile has a
+          single hover surface instead of two things fading in at different
+          corners. `pointer-events-none` on the band itself so its transparent
+          reach past the gradient never steals a tap meant for the Link beneath
+          it; the button opts back in. */}
+      {showBand && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 hidden items-end justify-between gap-2 p-1.5 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:flex"
           style={{
-            background: 'var(--gradient-sun)',
-            color: 'var(--color-paper-ink)',
-            boxShadow: 'var(--shadow-action)',
+            height: '42%',
+            background: 'linear-gradient(to top, rgba(4,18,26,.92), rgba(4,18,26,.55) 55%, rgba(4,18,26,0))',
           }}
         >
-          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" aria-hidden>
-            <path
-              d="M5 3h10v14l-5-3.6L5 17V3Z"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+          {price != null ? (
+            <span className="t-numeral text-[1.05rem] text-sun-500">{money(price)}</span>
+          ) : <span />}
+          {canAddToWishlist && (
+            <button
+              onClick={() => {
+                addToWishlist({ id: card.id, language: card.language })
+                  .then(() => show(`${card.name} ajoutée aux recherchées`))
+                  .catch(() => show("Échec de l'ajout"))
+              }}
+              aria-label={`Ajouter ${card.name} aux recherchées`}
+              className="pointer-events-auto grid size-8 shrink-0 place-items-center rounded-full"
+              style={{
+                background: 'var(--gradient-sun)',
+                color: 'var(--color-paper-ink)',
+                boxShadow: 'var(--shadow-action)',
+              }}
+            >
+              <svg viewBox="0 0 20 20" width="14" height="14" fill="none" aria-hidden>
+                <path
+                  d="M5 3h10v14l-5-3.6L5 17V3Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

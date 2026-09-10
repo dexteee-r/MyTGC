@@ -1196,18 +1196,24 @@ function Seated({
     <div className="sunken aspect-[600/838] w-full" />
   )
   const value = pileValue(entry)
-  const priceBadge = src && value != null && (
-    <span
-      className="t-numeral absolute bottom-0 left-0 px-1.5 py-0.5 text-[0.7rem]"
-      style={{ background: 'rgba(4,18,26,.86)' }}
+  /* Pointer-only, same reasoning as CardGrid's own hover band: a control that
+     appeared on touch would fire on the tap meant to open the card, so the
+     figure stays hidden there rather than half-shown. */
+  const priceBand = src && value != null && (
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 hidden items-end p-1.5 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:flex"
+      style={{
+        height: '42%',
+        background: 'linear-gradient(to top, rgba(4,18,26,.92), rgba(4,18,26,.55) 55%, rgba(4,18,26,0))',
+      }}
     >
-      {money(value)}
-    </span>
+      <span className="t-numeral text-[1.05rem] text-sun-500">{money(value)}</span>
+    </div>
   )
 
   if (selecting) {
     return (
-      <li className="relative">
+      <li className="group relative">
         <button
           onClick={onToggleSelect}
           aria-pressed={selected}
@@ -1215,7 +1221,7 @@ function Seated({
           className="block w-full"
         >
           {image}
-          {priceBadge}
+          {priceBand}
           {/* A ring around the chosen ones rather than dimming the rest: the job is
               to pick out which are selected, not to make the others harder to read. */}
           {selected && (
@@ -1240,14 +1246,14 @@ function Seated({
   }
 
   return (
-    <li className="relative">
+    <li className="group relative">
       <Link
         to={`/card/${encodeURIComponent(entry.card_id)}?language=${entry.language}`}
         aria-label={`${entry.card?.name ?? entry.card_id}, ${entry.quantity} en collection`}
         className="block"
       >
         {image}
-        {priceBadge}
+        {priceBand}
         {entry.quantity > 1 && (
           <span
             className="t-numeral absolute right-0 bottom-0 px-1.5 py-0.5 text-[0.7rem]"

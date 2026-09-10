@@ -223,7 +223,7 @@ export function PackDetail() {
           </EmptyState>
         </div>
       ) : (
-        <CardGrid cards={cards} onEndReached={loadMore} loadingMore={cards.length < total} showPrice />
+        <CardGrid cards={cards} onEndReached={loadMore} loadingMore={cards.length < total} />
       )}
     </div>
   )
