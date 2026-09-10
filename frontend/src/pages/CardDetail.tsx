@@ -360,6 +360,27 @@ export function CardDetail() {
                   {language === 'jp' ? 'Pas de cote en édition japonaise' : 'Tirage non coté'}
                 </p>
               )}
+              {/* A link out, never a figure of our own: Cardmarket's own terms require
+                  their written agreement before any third party presents their prices,
+                  and their robots.txt names ClaudeBot specifically to keep out of the
+                  site entirely -- so nothing about their market is fetched, stored or
+                  shown here. This sends the person to look for themselves, the same way
+                  they already do by hand, in one tap instead of a manual search.
+                  `_p1`/`_r1` is our own suffix for a printing Cardmarket doesn't know
+                  about, so the search runs on the base card number, never the raw id. */}
+              <a
+                href={`https://www.cardmarket.com/fr/OnePiece/Products/Search?category=-1&searchString=${encodeURIComponent(card.id.split('_')[0])}&searchMode=v2`}
+                target="_blank"
+                rel="noreferrer"
+                className="t-code mt-1.5 inline-flex items-center gap-1.5 text-[var(--text-secondary)] underline underline-offset-4"
+              >
+                {/* Their own mark, kept as-is rather than redrawn in the app's stroke
+                    style like every other icon here -- the point of a brand mark on an
+                    outbound link is instant recognition, which a reinterpretation would
+                    undercut. Their published site icon, not their price data. */}
+                <img src="/cardmarket-mark.png" alt="" width={16} height={16} className="shrink-0" />
+                Voir sur Cardmarket ↗
+              </a>
             </div>
           </div>
 

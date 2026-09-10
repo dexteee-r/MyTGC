@@ -159,6 +159,20 @@ describe('la fiche carte', () => {
     expect(screen.getByText('Tirage non coté')).toBeTruthy()
   })
 
+  it('lien externe vers Cardmarket, jamais une cote à nous', async () => {
+    // Le seul sourçage EU praticable trouvé : ni scraping (robots.txt nomme
+    // ClaudeBot) ni API tierce fiable (couverture partielle) -- juste un lien de
+    // recherche, aucun prix Cardmarket stocké ou affiché ici. Présent même sans
+    // cote US : l'un ne dépend pas de l'autre.
+    mount({ card: { market_price: null } })
+    const link = await screen.findByRole('link', { name: 'Voir sur Cardmarket ↗' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://www.cardmarket.com/fr/OnePiece/Products/Search?category=-1&searchString=OP01-001&searchMode=v2',
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
   it('enregistre une note quand on quitte le champ', async () => {
     mount({ collection: [holding] })
     await screen.findByText('Monkey.D.Luffy')
