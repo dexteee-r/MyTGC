@@ -106,6 +106,51 @@ total without its coverage would read as an appraisal. Where a card has no readi
 sheet says which of the two reasons applies rather than showing nothing, because an
 empty space there reads as a broken feature.
 
+## DON!! cards
+
+punk-records does not list DON!! cards at all — confirmed by running the import above
+and finding zero `category = 'Don'` rows, which section 4 of `PROJECT_CONTEXT.md`
+already anticipated. A second, independent script covers them:
+
+```bash
+py backend/scripts/import_don_cards.py
+```
+
+Source is [optcgapi.com](https://optcgapi.com/api/allDonCards/), a free, keyless
+community API — the only one found with a dedicated DON!! endpoint. **English only**;
+no equivalent Japanese source exists, the same shape of gap prices already have.
+Run it after `import_catalogue.py`: each entry names its own set only inside its own
+card name (`"... - The Azure Sea's Seven (OP14)"`), and the script cross-references
+that against the `cards` already imported to inherit the real `pack_id`/`pack_name`/
+`release_date` — a DON!! card lands in the same extension it shipped with rather than
+a generic bucket. Two known compound codes are remapped by hand: the English market
+bundled OP-14 and OP-15 with EB-04 into `OP14-EB04`/`OP15-EB04` (see
+`app/release_dates.py`), which optcgapi's plain "(OP14)" name would otherwise miss
+entirely. A promotional or tournament DON!! with no parseable set (about a fifth of
+them — anniversary packs, colour variants, tournament prizes) falls back to a shared
+synthetic `pack_id = 'DON'`, the same treatment a Promo with no printed code already
+gets.
+
+**The id is deliberately not `f"DON-{card_image_id}"` (e.g. `DON-don_7`).**
+`/cards/{id}` groups sibling printings by `id.split("_")[0]` (`OP01-001` /
+`OP01-001_p1`) — that underscore would have collapsed all ~180 DON!! cards into
+"printings" of one another. The id is `DON-007` instead: no underscore, so nothing
+to collide with.
+
+`download_images.py` and `compute_phashes.py --region art --all` need no changes —
+both already read `img_url`/hash generically, with no assumption about which host or
+category a row belongs to. Measured 2026-09-06 on the ~180 successfully downloaded
+(a handful of source images were missing upstream, not on this end): 178 hashed
+uniquely, one collision — two printings of the identical Tournament Pack Vol. 2 promo,
+the same "same artwork, different print marker" pattern already tolerated everywhere
+else in the catalogue. `ART_BOX`'s top 5–42% crop was calibrated for a character
+card's illustration band above its watermark; a DON!! card's own art fills nearly the
+whole face with no watermark at all, so this crop is not using the *most* distinctive
+region — but it already separates them well enough in the catalogue that no change was
+needed. Untested against a real photographed physical DON!! card, the same way the
+rest of the catalogue was calibrated on 24 real photos rather than by inspection alone
+— confirm on a real card before calling scan support proven.
+
 ## Build step 3 — images and pHashes
 
 Two scripts, deliberately separate: downloading ~2.5 GB from Bandai's servers is the slow

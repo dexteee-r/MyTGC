@@ -33,6 +33,53 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Cartes DON!! : collectionnables et scannables**, demandé le 2026-09-06. Absentes
+  de punk-records depuis toujours (confirmé : 0 ligne `category='Don'`), déjà
+  anticipé mais jamais rempli dans `PROJECT_CONTEXT.md` section 4.
+  - Nouvelle source cherchée sur le web : [optcgapi.com](https://optcgapi.com/api/allDonCards/),
+    gratuite, sans clé — seule API trouvée avec un point d'accès dédié aux DON!!.
+    Anglais uniquement, comme les cotes.
+  - Nouveau script `backend/scripts/import_don_cards.py`, sur le modèle
+    d'`import_catalogue.py` : 187 cartes DON!! importées, `category='Don'`. Chaque
+    carte porte son extension d'origine seulement dans son propre nom
+    (« ... (OP14) ») — rattachée au vrai `pack_id`/`pack_name`/`release_date` déjà en
+    base plutôt qu'à un panier générique (150/187). Deux codes composés remis à la
+    main (`OP-14`→`OP14-EB04`, `OP-15`→`OP15-EB04` : le marché anglais a groupé ces
+    deux extensions avec EB-04, déjà documenté dans `release_dates.py` — trouvé en
+    creusant pourquoi 6 cartes ne se rattachaient pas alors qu'elles auraient dû).
+    Le reste (environ un cinquième — packs anniversaire, variantes de couleur, prix
+    de tournoi) n'a réellement aucune extension à rattacher, panier générique `DON`
+    assumé plutôt que cherché à tout prix.
+  - **Bug trouvé en vérifiant, pas en écrivant le code** : le premier essai
+    fabriquait des id du type `DON-don_7` — l'underscore y entre en collision avec
+    la convention de l'app pour les tirages alternatifs (`OP01-001_p1`), qui regroupe
+    par `id.split('_')[0]`. Résultat vu en direct : les 187 cartes DON!! s'affichaient
+    comme « tirages » les unes des autres sur la fiche carte. Corrigé en `DON-007`
+    (sans underscore), les 187 lignes déjà insérées purgées et réimportées proprement.
+  - `download_images.py` et `compute_phashes.py --region art --all` réutilisés tels
+    quels, aucune modification : les deux lisent déjà `img_url`/hachent sans
+    supposer une source ni une catégorie. 179/183 images téléchargées avec succès (4
+    manquantes côté optcgapi lui-même, pas de notre fait).
+  - **Séparabilité mesurée, pas supposée** : 178 cartes sur 179 hachées de façon
+    unique ; la seule collision oppose deux tirages du même don de tournoi
+    (« Tournament Pack Vol. 2 » normal et [Winner]) — même illustration, même genre
+    de collision déjà toléré partout ailleurs dans le catalogue. `ART_BOX` (bande
+    5-42% de hauteur, calibrée pour l'illustration d'une carte personnage au-dessus
+    de son filigrane) n'utilise pas la zone la plus distinctive d'une carte DON!!
+    (illustration proche pleine carte, aucun filigrane) mais sépare déjà
+    suffisamment bien pour ne rien changer au pipeline de reconnaissance — `/scan`
+    n'a nécessité aucune modification de code, `recognition.Catalogue` ne filtre
+    jamais par catégorie.
+  - Aucun changement frontend nécessaire : `category`/`coût`/`puissance`/`couleur`
+    vides s'affichent déjà proprement partout (`Fact` rend « — », `ColorBar` sur un
+    tableau vide) — vérifié en direct sur une vraie fiche DON!! (extension, nom,
+    image, tirage non coté, bouton recherchées, tous corrects).
+  - Suite de tests backend et frontend toujours vertes après coup.
+  - **Non vérifié : la reconnaissance sur une vraie carte DON!! physique
+    photographiée.** Comme le reste du catalogue, calibré sur 24 photos réelles
+    plutôt que par inspection seule — à confirmer avant d'annoncer le scan DON!!
+    comme éprouvé, pas seulement plausible.
+
 - **Corrections issues de l'audit contre la checklist Vercel « Web Interface
   Guidelines »**, demandé le 2026-08-29 (« je te laisse tout corriger »).
   - **Deep-linking sur Chercher, Collection et Recherchées.** Tout ce qui décide
