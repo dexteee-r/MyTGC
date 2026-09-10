@@ -19,7 +19,7 @@ const card: Card = {
   image_url: '/images/en/OP01-001.png', printings: [],
 }
 
-function mount(collection: unknown[], wishlist: unknown[] = []) {
+function mount(collection: unknown[], wishlist: unknown[] = [], showPrice = false) {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => ({
     ok: true,
     status: 200,
@@ -37,7 +37,7 @@ function mount(collection: unknown[], wishlist: unknown[] = []) {
     <MemoryRouter>
       <CollectionProvider>
         <WishlistProvider>
-          <CardTile card={card} />
+          <CardTile card={card} showPrice={showPrice} />
         </WishlistProvider>
       </CollectionProvider>
     </MemoryRouter>,
@@ -110,6 +110,30 @@ describe('card tile', () => {
     expect(
       screen.getByRole('button', { name: 'Ajouter Monkey.D.Luffy aux recherchées' }),
     ).toBeInTheDocument()
+  })
+
+  it('ne montre pas de cote tant que showPrice n’est pas demandé', async () => {
+    // Chercher passe showArt mais jamais showPrice: cet écran sert à identifier une
+    // carte, pas à l'estimer.
+    mount(held(1))
+    await waitFor(() => expect(screen.getByRole('link').querySelector('img')).not.toBeNull())
+    expect(screen.queryByText('4,75 €')).toBeNull()
+  })
+
+  it('montre la valeur du tas, pas le prix unitaire, quand showPrice est demandé', async () => {
+    // 3 exemplaires à 4,75 € : le badge doit dire ce que vaut la pile, comme le tri
+    // "Valeur" de la Collection le compte déjà -- pas le prix d'une seule carte.
+    mount(held(3), [], true)
+    await waitFor(() => expect(screen.getByRole('link').querySelector('img')).not.toBeNull())
+    expect(screen.getByText('14,25 €')).toBeInTheDocument()
+  })
+
+  it('n’affiche aucune cote sur une pochette vide même avec showPrice', async () => {
+    // Rien à estimer sur une carte non possédée: pas de badge à côté d'un pochette
+    // vide, qui n'a pas d'image sur laquelle l'ancrer.
+    mount([], [], true)
+    await screen.findByRole('link')
+    expect(screen.queryByText('4,75 €')).toBeNull()
   })
 
   it('marque une carte déjà recherchée plutôt que de proposer de la réajouter', async () => {

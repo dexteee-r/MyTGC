@@ -30,12 +30,13 @@ beforeEach(() => resetCollectionMemory())
 
 function entry(
   id: string, language: 'en' | 'jp', quantity: number, marketPrice: number | null = null,
+  imageUrl: string | null = null,
 ): CollectionEntry {
-  const card: Card | null = marketPrice === null ? null : {
+  const card: Card | null = marketPrice === null && imageUrl === null ? null : {
     id, language, name: id, pack_id: '1', pack_code: null, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: marketPrice, image_url: null, printings: [],
+    market_price: marketPrice, image_url: imageUrl, printings: [],
   }
   return {
     id: id.length + quantity, card_id: id, language, quantity, condition: null,
@@ -222,6 +223,26 @@ describe('la valeur sur la page collection', () => {
     mount([entry('OP01-001', 'jp', 3)], stats({ market_total: 0, market_priced: 0 }))
     await waitFor(() => expect(screen.getByText('aucune carte cotée')).toBeTruthy())
     expect(screen.queryByText('0 €')).toBeNull()
+  })
+})
+
+describe('le badge de cote sur une tuile', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('montre la valeur du tas, pas le prix unitaire', async () => {
+    // 3 exemplaires à 9,20 € : le badge doit dire ce que vaut la pile, la même
+    // valeur que la vue Doubles compte pour "possédées" -- pas le prix d'une carte.
+    mount([entry('OP01-001', 'en', 3, 9.2, '/images/en/OP01-001.png')], stats())
+    expect(await screen.findByText('27,60 €')).toBeTruthy()
+  })
+
+  it('ne montre aucun badge sur une carte sans cote', async () => {
+    mount(
+      [entry('OP01-001', 'en', 2, null, '/images/en/OP01-001.png')],
+      stats({ market_total: 0, market_priced: 0 }),
+    )
+    await screen.findByRole('link')
+    expect(screen.queryByText(/€/)).toBeNull()
   })
 })
 

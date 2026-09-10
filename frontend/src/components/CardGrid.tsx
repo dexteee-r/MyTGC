@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { imageUrl } from '../lib/api'
 import { useCollection } from '../lib/collection'
+import { money } from '../lib/money'
 import type { Card } from '../lib/types'
 import { useWishlist } from '../lib/wishlist'
 import { variantOf } from './Edition'
@@ -40,6 +41,7 @@ export function CardGrid({
   onEndReached,
   loadingMore,
   showArt,
+  showPrice,
   columns: preferred = 2,
   initialScroll = 0,
   onScroll,
@@ -48,6 +50,10 @@ export function CardGrid({
   onEndReached?: () => void
   loadingMore?: boolean
   showArt?: boolean
+  /* Extensions and Collection are where value is the point of looking; Chercher is
+     for identifying a card, not appraising it, so this stays opt-in per screen
+     rather than a property of the grid itself. */
+  showPrice?: boolean
   /* Two is readable, three fits more, and which is right is a taste rather than a
      viewport question -- so the caller decides and the account remembers. */
   columns?: number
@@ -168,7 +174,12 @@ export function CardGrid({
             }}
           >
             {rows[row.index].map((card) => (
-              <CardTile key={`${card.language}-${card.id}`} card={card} showArt={showArt} />
+              <CardTile
+                key={`${card.language}-${card.id}`}
+                card={card}
+                showArt={showArt}
+                showPrice={showPrice}
+              />
             ))}
           </div>
         ))}
@@ -178,7 +189,13 @@ export function CardGrid({
   )
 }
 
-export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
+export function CardTile({
+  card, showArt, showPrice,
+}: {
+  card: Card
+  showArt?: boolean
+  showPrice?: boolean
+}) {
   const { ownedOf } = useCollection()
   const { wantedOf, add: addToWishlist } = useWishlist()
   const { show } = useToast()
@@ -191,6 +208,11 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
      because you search to identify a card, not to audit what you are missing. */
   const seated = Boolean(owned)
   const art = src && (seated || showArt)
+  /* The pile, not the unit — matches the ×N badge already on this tile when there is
+     one, and matches how Collection's own "Valeur" sort and totals already count. */
+  const price = card.market_price == null
+    ? null
+    : (owned ? owned.quantity : 1) * card.market_price
 
   return (
     // The "add to wishlist" button used to live inside this Link -- a button
@@ -244,6 +266,13 @@ export function CardTile({ card, showArt }: { card: Card; showArt?: boolean }) {
             style={{ background: 'rgba(4,18,26,.86)', color: 'var(--color-paper-100)' }}
           >
             {variant}
+          </span>
+        )}
+        {showPrice && art && price != null && (
+          <span
+            className="t-numeral absolute bottom-0 left-0 bg-sea-900/90 px-1.5 py-0.5 text-[0.65rem] text-sun-500"
+          >
+            {money(price)}
           </span>
         )}
         {owned && owned.quantity > 1 && (

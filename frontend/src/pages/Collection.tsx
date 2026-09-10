@@ -1195,6 +1195,15 @@ function Seated({
   ) : (
     <div className="sunken aspect-[600/838] w-full" />
   )
+  const value = pileValue(entry)
+  const priceBadge = src && value != null && (
+    <span
+      className="t-numeral absolute bottom-0 left-0 px-1.5 py-0.5 text-[0.7rem]"
+      style={{ background: 'rgba(4,18,26,.86)' }}
+    >
+      {money(value)}
+    </span>
+  )
 
   if (selecting) {
     return (
@@ -1206,6 +1215,7 @@ function Seated({
           className="block w-full"
         >
           {image}
+          {priceBadge}
           {/* A ring around the chosen ones rather than dimming the rest: the job is
               to pick out which are selected, not to make the others harder to read. */}
           {selected && (
@@ -1237,6 +1247,7 @@ function Seated({
         className="block"
       >
         {image}
+        {priceBadge}
         {entry.quantity > 1 && (
           <span
             className="t-numeral absolute right-0 bottom-0 px-1.5 py-0.5 text-[0.7rem]"
