@@ -10,8 +10,8 @@ Group=mytcg
 # Same file, same parser as every other unit here — see mytcg-prices.service for why
 # this is a unit and not a crontab line (the env file's CRLF).
 EnvironmentFile=/etc/mytcg/mytcg.env
-WorkingDirectory=/srv/mytcg/app
-ExecStart=/srv/mytcg/app/.venv/bin/python backend/scripts/import_prices_jp.py
+WorkingDirectory=/opt/mytcg/app
+ExecStart=/opt/mytcg/app/.venv/bin/python backend/scripts/import_prices_jp.py
 # 59 sets, one request each plus a courtesy pause between them (see the script's own
 # PAUSE) plus the ECB rate lookup. A measured dev run is well under a minute; this
 # margin covers a slower link to Japan.
