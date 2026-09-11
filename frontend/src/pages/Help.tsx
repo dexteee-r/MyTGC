@@ -77,10 +77,11 @@ export function Help() {
 
         <Section title="Les cotes">
           <P>
-            Elles viennent de TCGplayer, un marché anglophone — les cartes japonaises
-            n'en ont donc jamais. Un tirage alternatif (V.2, R.1…) n'est coté que si sa
-            place dans la liste des tirages ne fait aucun doute ; sinon la fiche le dit
-            plutôt que d'afficher un chiffre qui pourrait être celui d'une autre carte.
+            Elles viennent de TCGplayer pour l'anglais, d'une boutique japonaise
+            (yuyu-tei) pour le japonais. Un tirage alternatif (V.2, R.1…) n'est coté
+            que si sa place dans la liste des tirages ne fait aucun doute ; sinon la
+            fiche le dit plutôt que d'afficher un chiffre qui pourrait être celui
+            d'une autre carte.
           </P>
         </Section>
 

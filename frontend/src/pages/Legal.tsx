@@ -131,12 +131,15 @@ export function Legal() {
 
         <Section title="Les prix">
           <P>
-            Les cotes viennent de tcgcsv.com, un miroir quotidien de TCGplayer, converties
-            en euros. Ce sont des prix du marché américain, pas des prix Cardmarket.
+            Les cotes anglaises viennent de tcgcsv.com, un miroir quotidien de
+            TCGplayer, converties en euros — un prix de marché américain. Les cotes
+            japonaises viennent de yuyu-tei.jp, une boutique de cartes en ligne : le
+            prix de vente d'un seul revendeur, pas une moyenne de marché. Dans les deux
+            cas, jamais des prix Cardmarket.
           </P>
           <P>
             Ton navigateur ne contacte jamais ces sources — c'est le serveur qui les
-            relève, tous les trois jours.
+            relève.
           </P>
         </Section>
       </div>

@@ -33,6 +33,105 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Prix japonais via yuyu-tei.jp**, demandé le 2026-09-11 juste après le refus de
+  scraper Cardmarket (voir entrée suivante) : « aucune source JP gratuite » n'était
+  vrai qu'à l'échelle de tcgcsv, pas à celle du web.
+  - Vérifié avant d'écrire une ligne, comme pour Cardmarket : `robots.txt` sans
+    `Disallow` générique (seulement des `Crawl-delay` nommés Bing/Ahrefs/Slurp),
+    aucune page de conditions trouvée qui interdirait la présentation des prix
+    ailleurs — rien de comparable au blocage nommé `ClaudeBot` de Cardmarket.
+  - Nouveau script `backend/scripts/import_prices_jp.py`, sur le modèle
+    d'`import_prices.py` : une page HTML statique par extension
+    (`yuyu-tei.jp/sell/opc/s/op15`), un petit parseur `HTMLParser` maison plutôt
+    qu'une dépendance nouvelle (BeautifulSoup) — cohérent avec le reste du pipeline,
+    resté sur la bibliothèque standard depuis le début. Code/rareté/nom lus d'un
+    coup dans l'attribut `alt` de l'image de chaque carte, prix dans le premier
+    `<strong>` — un `<del>` à côté n'est qu'une promo passagère, pas un second prix,
+    piégé une fois en testant sur une vraie carte en solde (680 € affiché au lieu du
+    980 € barré).
+  - **Seuls les tirages normaux sont cotés**, volontairement moins ambitieux que
+    l'appariement des tirages alternatifs côté EN. Mesuré sur le vrai catalogue
+    avant de trancher : un numéro de carte porte ici de 1 à 11 tirages (réimpressions,
+    parallèles, un palier « super parallèle » *au sein même* des parallèles...), bien
+    au-delà du cas à deux qu'`import_prices.py` qualifiait déjà de le plus risqué de
+    son propre code. Apparier une égalité à 11 par position aurait été une supposition
+    déguisée en formule — tous les suffixes `_p1`/`_r1`/... restent donc non cotés,
+    sans tentative. Le tirage normal reste sans ambiguïté : un numéro, une fiche
+    boutique à rareté non parallèle, aussi fiable que la carte de base côté EN.
+  - Slugs d'extension dérivés du `pack_code` déjà en base (`OP-15` → `op15`), jamais
+    devinés à l'aveugle ni scrapés depuis la navigation de yuyu-tei — donc une
+    extension inconnue de notre catalogue n'est simplement jamais interrogée. Promos
+    et DON!! (sans `pack_code`) hors périmètre : leurs fiches vivent sous des
+    sous-pages numérotées (`s/special/4/`) plutôt qu'une page par extension, une forme
+    différente que ce script ne tente pas de parcourir.
+  - **Résultat mesuré, pas espéré** : `--dry-run` puis exécution réelle, 59/59
+    extensions lues sans erreur, **100 % des tirages normaux cotés** (2 679 cartes),
+    1 603 tirages alternatifs laissés de côté par choix. 2 679 lignes écrites dans
+    `price_history` pour le 2026-09-11.
+  - `main.py` filtre déjà `price_history` par `language` dans son sous-select de
+    `market_price` — aucun changement backend nécessaire, les prix JP sont apparus
+    partout où un prix s'affiche déjà dès l'écriture en base.
+  - **Bug trouvé en vérifiant, pas en écrivant le code** : la fiche carte, le Compte,
+    la fiche d'aide de Collection, l'écran d'aide et la page légale affirmaient tous
+    « prix du marché américain (TCGplayer) » sans condition — vrai avant, faux dès
+    qu'une carte JP a une cote. Les cinq corrigés pour nommer les deux sources
+    (TCGplayer pour l'anglais, yuyu-tei pour le japonais) plutôt que d'en garder un
+    qui mentait par omission. La page légale en particulier ne prétend plus une
+    cadence de rafraîchissement (« tous les trois jours ») que le script JP n'a pas
+    encore, faute d'être déployé sur un timer en prod.
+  - 12 nouveaux tests backend (`test_prices_jp.py`), aucun réseau — parseur testé
+    contre une page HTML fixe reproduisant le cas du solde et le cas super-parallèle,
+    logique d'agrégation extraite en fonction pure (`accumulate_plain_prices`) pour
+    rester testable sans appel réseau, sur le modèle exact de `pair()` côté EN. Un
+    cassé-restauré confirme que l'exclusion des parallèles est bien attrapée par les
+    tests. 231 tests backend au total, tous verts.
+  - Vérifié en direct sur le vrai compte de dev : OP15-060 (エネル, JP) affiche
+    1,23 € (220 ¥ × taux du jour), la mention change bien en « boutique JP (yuyu-tei) »
+    sur cette carte précise et reste « marché US » côté anglais, le total du Compte
+    passe de n'inclure que l'anglais à couvrir les deux langues.
+  - **Pas encore fait** : timer systemd en prod (le script tourne pour l'instant à la
+    main, comme `import_prices.py` avant sa propre automatisation) ; extension au JP
+    du chantier deep-link Cardmarket, qui reste EN-only pour l'instant côté marché
+    de référence externe cité sur la fiche.
+
+- **Refonte de l'affichage des prix**, demandé le 2026-09-10 : « le système
+  d'affichage des pricing des cartes je la trouve pas opti et limitante ». Trois
+  chantiers distincts qui se sont enchaînés dans la même session.
+  - **Badge de prix sur les tuiles**, absent jusque-là de Chercher/Collection/
+    Extensions — la cote n'existait que sur la fiche carte, les totaux et le tri de
+    Recherchées. Portée cadrée par question posée avant de coder : Collection +
+    Extensions d'abord (pas Chercher, qui sert à identifier une carte, pas à
+    l'estimer), valeur du tas (quantité × cote) plutôt que le prix unitaire, cohérent
+    avec ce que le tri « Valeur » de Collection compte déjà.
+  - **Remplacé par un bandeau unique au survol**, sur croquis fourni par
+    l'utilisateur : un fondu noir du bas vers le haut regroupant prix et bouton
+    « ajouter aux recherchées », plutôt que deux éléments indépendants apparaissant à
+    des coins différents de la tuile. Étendu à Chercher au passage (question posée :
+    partout, en remplacement du badge, plutôt que coexistant) — y compris sur une
+    pochette vide non possédée si elle est cotée, puisque le geste d'ajout n'a jamais
+    dépendu de l'art affiché. Invisible sur tactile par choix explicite, même
+    technique `[@media(hover:hover)]` que l'ancien bouton seul. Taille du texte du
+    prix montée de `0.7rem` à `1.05rem` après retour direct (« je la trouve petite et
+    on passe à côté »). 5 puis plusieurs tests de plus cassés-restaurés à chaque
+    étape ; 230 tests frontend au total, tous verts à la fin. Vérifié en direct sur
+    Collection, Extensions et Chercher à chaque itération.
+  - **Lien « Voir sur Cardmarket »** sur la fiche carte, après un aller-retour sur ce
+    qui est faisable : scraper Cardmarket directement est explicitement refusé
+    (`robots.txt` nomme `ClaudeBot` sous `Disallow: /`, et leurs CGU §9 exigent un
+    accord écrit préalable avant que quiconque présente leurs prix ailleurs) — donc
+    aucun prix Cardmarket n'est jamais montré ni stocké. À la place, un lien de
+    recherche construit uniquement à partir du code carte
+    (`/OnePiece/Products/Search?searchString=...&searchMode=v2`, format confirmé par
+    l'utilisateur depuis son propre navigateur) : un lien direct vers la fiche
+    produit a été écarté après vérification — le même numéro de carte atterrit sous
+    trois segments d'extension différents et imprévisibles selon le tirage
+    (`Unnumbered-Promos`, `The-Best-Vol-2-Non-English`,
+    `Emperors-in-the-New-World`, tous trois vus pour une seule vraie carte). Icône de
+    marque ajoutée ensuite (leur propre `apple-touch-icon`, gardée telle quelle
+    plutôt que redessinée dans le style de l'app — le but d'un logo de marque est la
+    reconnaissance immédiate). 2 nouveaux tests, un cassé-restauré. Vérifié en direct :
+    href correct, ouverture dans un nouvel onglet.
+
 - **Cartes DON!! : collectionnables et scannables**, demandé le 2026-09-06. Absentes
   de punk-records depuis toujours (confirmé : 0 ligne `category='Don'`), déjà
   anticipé mais jamais rempli dans `PROJECT_CONTEXT.md` section 4.

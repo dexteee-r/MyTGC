@@ -194,13 +194,14 @@ export function Account() {
             <Quarter value={money(stats.market_total)} label="valeur estimée" />
             <Quarter value={money(stats.acquisition_total)} label="prix payé" />
           </dl>
-          {/* Where the number comes from, in the place where it could mislead. The
-              feed is the American market and it does not cover everything, so the
+          {/* Where the number comes from, in the place where it could mislead. Two
+              feeds now, not one -- TCGplayer for English, one Japanese shop
+              (yuyu-tei) for Japanese -- and neither covers everything, so the
               screen says both rather than letting a total pass for an appraisal. */}
           <p className="px-5 pt-3 text-sm text-[var(--text-secondary)]">
             {stats.market_priced === 0
               ? "Aucune carte de ta collection n'est cotée pour l'instant."
-              : `Cotées : ${stats.market_priced} carte${stats.market_priced > 1 ? 's' : ''} sur ${stats.total_quantity}. Prix du marché américain (TCGplayer), convertis en euros au taux du jour — pas des prix Cardmarket.`}
+              : `Cotées : ${stats.market_priced} carte${stats.market_priced > 1 ? 's' : ''} sur ${stats.total_quantity}. Prix du marché américain (TCGplayer) pour l'anglais, d'une boutique japonaise (yuyu-tei) pour le japonais, convertis en euros au taux du jour — jamais des prix Cardmarket.`}
           </p>
         </section>
       )}

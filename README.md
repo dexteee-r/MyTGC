@@ -90,10 +90,23 @@ matter of qualifying. TCGplayer stopped taking new applications in late 2024. Pr
 therefore come from [tcgcsv.com](https://tcgcsv.com), a keyless daily mirror of
 TCGplayer's own catalogue, converted from dollars at the day's ECB reference rate.
 
+Scraping Cardmarket directly was checked and ruled out, not just left unconsidered:
+their `robots.txt` names `ClaudeBot` specifically under a blanket `Disallow: /`, and
+their own terms (§9, API use) require "prior written agreement" before any third party
+may present their prices at all — a scrape would breach that regardless of how
+politely it were done. The card sheet instead carries a **"Voir sur Cardmarket"**
+link, built only from the card's own printed number against Cardmarket's public search
+page (`/OnePiece/Products/Search?searchString=...`) — never a direct product-page
+guess, since the same card number can sit under three unrelated-looking expansion
+slugs there (`Unnumbered-Promos`, `The-Best-Vol-2-Non-English`,
+`Emperors-in-the-New-World`, all three seen for one real card), which this catalogue
+has no way to predict. No Cardmarket page is ever fetched by the server or the
+browser; it is a plain outbound `<a>`, the same as any other link to another site.
+
 That has consequences the UI states rather than hides:
 
-- The figures are the **American** market. A converted US price is not a Cardmarket price.
-- Only the English printing is covered; there is no free feed for the Japanese one.
+- The English figures are the **American** market. A converted US price is not a
+  Cardmarket price.
 - Alternate arts are priced only when both sources agree on how many printings of a
   number exist. Neither side numbers them the same way, and an alternate art runs
   ~30× the plain card, so a confident wrong figure would corrupt the total far worse
@@ -105,6 +118,48 @@ returns `market_total` alongside `market_priced`, and the account screen shows b
 total without its coverage would read as an appraisal. Where a card has no reading the
 sheet says which of the two reasons applies rather than showing nothing, because an
 empty space there reads as a broken feature.
+
+## JP prices
+
+```bash
+py backend/scripts/import_prices_jp.py         # --dry-run to see coverage first
+```
+
+The gap the English section above used to describe as permanent — "no free feed for
+the Japanese printing" — turned out not to be. [yuyu-tei.jp](https://yuyu-tei.jp) is a
+real card shop, not an aggregator, and lists its current retail sell price per card on
+one static HTML page per set (`yuyu-tei.jp/sell/opc/s/op15`). No JavaScript to run, and
+its `robots.txt` carries no blanket `Disallow` — only named crawl-delays for
+Bing/Ahrefs/Yahoo's Slurp — and no terms page was found claiming what stopped
+Cardmarket above. Checked before writing a line of the script, the same as everything
+else priced in this app.
+
+The price taken is the shop's current sell price; a `<del>` struck-through figure
+beside it is only a temporary discount marker, not a second price. Yen is converted to
+euros at the day's ECB rate, same source and reasoning as the dollar conversion next
+door — one unit throughout the app, never a mix.
+
+**Only plain printings are priced**, deliberately less ambitious than the English
+side's alternate-art pairing. Measured against the real catalogue before deciding this:
+a card number here can carry anywhere from 1 to 11 printings (reprints, parallels, a
+further "super parallel" tier within parallels...), well past the two-way case
+`import_prices.py` already calls its riskiest logic. Position-pairing an 11-way tie the
+way the English side pairs a 2-way one would be a guess wearing a formula's clothes, so
+every `_p1`/`_r1`/... suffix goes unpriced here — no attempt made at matching them to
+yuyu-tei's own parallel tiers. The plain printing is still unambiguous: one number, one
+listing with a non-parallel rarity marker, exactly as reliable as the English base card.
+Measured result: **100% of plain printings priced**, 0 requests failed, across all 59
+numbered sets this catalogue knows about.
+
+Only numbered boosters, starters, EB and PRB sets are covered — the set slug is derived
+from this catalogue's own `pack_code` (`OP-15` → `op15`), not scraped from yuyu-tei's
+own navigation, so a set this database does not know about is simply never requested.
+Promo cards and DON!! (no `pack_code`) are out of scope: their yuyu-tei listings live
+under numbered sub-pages (`s/special/4/`) rather than one page per set, a different
+shape this script does not attempt to walk.
+
+Not yet on a production timer the way the English import is — run manually so far,
+each snapshot dated the day it actually ran.
 
 ## DON!! cards
 

@@ -351,13 +351,17 @@ export function CardDetail() {
                   <p className="t-numeral text-[1.5rem] leading-none">
                     {money(card.market_price)}
                   </p>
+                  {/* Two different kinds of figure, said plainly rather than under one
+                      shared label: the US side is TCGplayer's own aggregated market
+                      price, the JP side is one shop's (yuyu-tei) current sell price --
+                      not the same kind of number, so not the same words either. */}
                   <p className="t-code pt-1.5 text-[var(--text-faint)]">
-                    cote indicative · marché US
+                    {language === 'jp' ? 'cote indicative · boutique JP (yuyu-tei)' : 'cote indicative · marché US'}
                   </p>
                 </>
               ) : (
                 <p className="t-code text-[var(--text-faint)]">
-                  {language === 'jp' ? 'Pas de cote en édition japonaise' : 'Tirage non coté'}
+                  Tirage non coté
                 </p>
               )}
               {/* A link out, never a figure of our own: Cardmarket's own terms require

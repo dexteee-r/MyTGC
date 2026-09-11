@@ -746,7 +746,8 @@ export function Collection() {
           </p>
           <p>
             La <strong style={{ color: 'var(--text-primary)' }}>valeur estimée</strong> vient
-            de tcgcsv (le marché américain, converti en euros au taux du jour), pas de
+            de tcgcsv (le marché américain) pour l'anglais et de yuyu-tei (une boutique
+            japonaise) pour le japonais, converties en euros au taux du jour — jamais de
             Cardmarket. Elle ne couvre pas toutes les cartes — la ligne « X sur Y
             cotées » dit ce qui manque plutôt que de laisser un total partiel se lire
             comme une estimation complète.
