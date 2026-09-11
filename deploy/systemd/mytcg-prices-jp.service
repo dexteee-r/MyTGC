@@ -1,0 +1,36 @@
+[Unit]
+Description=MyTCG Japanese price snapshot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mytcg
+Group=mytcg
+# Same file, same parser as every other unit here — see mytcg-prices.service for why
+# this is a unit and not a crontab line (the env file's CRLF).
+EnvironmentFile=/etc/mytcg/mytcg.env
+WorkingDirectory=/srv/mytcg/app
+ExecStart=/srv/mytcg/app/.venv/bin/python backend/scripts/import_prices_jp.py
+# 59 sets, one request each plus a courtesy pause between them (see the script's own
+# PAUSE) plus the ECB rate lookup. A measured dev run is well under a minute; this
+# margin covers a slower link to Japan.
+TimeoutStartSec=10min
+
+# --- hardening ---------------------------------------------------------------
+# Identical to mytcg-prices.service: this job also reaches the open internet and
+# writes to the database, so it carries the same directive set for the same reason.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# ProtectSystem=strict makes everything read-only; this is the exception.
+ReadWritePaths=/var/lib/mytcg

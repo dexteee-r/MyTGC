@@ -1,0 +1,15 @@
+[Unit]
+Description=Refresh MyTCG Japanese card prices every three days
+
+[Timer]
+# 21:20 UTC — twenty minutes after the English snapshot (mytcg-prices.timer, 21:00),
+# not because either depends on the other, but so two jobs that both hit the open
+# internet and write to the same database don't start at the exact same second by
+# coincidence. yuyu-tei has no published refresh schedule to time against, unlike
+# tcgcsv's own daily file.
+OnCalendar=*-*-01/3 21:20:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

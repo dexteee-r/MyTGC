@@ -144,6 +144,35 @@ The script now refuses to run against an empty catalogue rather than reporting n
 prices and exiting cheerfully, so a misconfigured environment shows up as a failed unit
 instead of prices that quietly never update.
 
+## JP prices
+
+`mytcg-prices-jp.timer` runs `backend/scripts/import_prices_jp.py` every three days at
+21:20 UTC, twenty minutes after the English snapshot so the two do not start at the
+exact same second. Same install pattern:
+
+```bash
+sudo cp deploy/systemd/mytcg-prices-jp.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mytcg-prices-jp.timer
+sudo systemctl start mytcg-prices-jp.service   # first run, then check the journal
+journalctl -u mytcg-prices-jp -n 30 --no-pager
+```
+
+The last line should read something like `2679 prix écrits pour le <date>` and `59/59
+extensions lues` with no `!` lines above it — a `!` marks one set's page that failed to
+fetch, not a fatal error, but worth a second look if it appears every run.
+
+Scraped from yuyu-tei.jp, a real shop, not an aggregator — see `README.md`'s own "JP
+prices" section for why this one was scraped when Cardmarket explicitly was not (their
+`robots.txt` names `ClaudeBot` under a blanket `Disallow`; yuyu-tei's carries no such
+rule). Only plain printings are priced, by design — a card number there can carry up
+to 11 printings, and every `_p1`/`_r1`/... suffix is left unpriced rather than paired
+by guesswork. No API restart needed: `market_price` is a live per-request subquery in
+`main.py`, not something held in memory the way the `/scan` catalogue is.
+
+Same "nothing breaks if it does not run" as the English side — JP prices simply stay
+frozen at whatever the last snapshot found.
+
 ## Catalogue updates
 
 A new set (e.g. a new booster) needs three scripts re-run on the host — nothing here
@@ -235,7 +264,8 @@ shipping.
 | `nginx/mytcg.elmzn.be.conf` | Site: static frontend, `/api` proxy, card art served from disk, CSP and related headers |
 | `systemd/mytcg-api.service` | The API, hardened, with `--proxy-headers` |
 | `systemd/mytcg-backup.{service,timer}` | Nightly database snapshot |
-| `systemd/mytcg-prices.{service,timer}` | Price snapshot every three days |
+| `systemd/mytcg-prices.{service,timer}` | Price snapshot every three days (English, tcgcsv) |
+| `systemd/mytcg-prices-jp.{service,timer}` | Price snapshot every three days (Japanese, yuyu-tei) |
 | `systemd/mytcg-autodeploy.{service,timer}` | Five-minute check for a green commit on `main` |
 | `scripts/autodeploy.sh` | Deploys only when CI passed |
 | `mytcg.env.example` | Template for `/etc/mytcg/mytcg.env` |
