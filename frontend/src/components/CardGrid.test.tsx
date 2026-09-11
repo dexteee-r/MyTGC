@@ -16,7 +16,7 @@ const card: Card = {
   pack_code: 'OP-01', pack_name: 'ROMANCE DAWN', rarity: 'Leader', category: 'Leader',
   colors: ['Red'], cost: 5, power: 5000, counter: null, attributes: [], types: [],
   effect: null, trigger: null, release_date: '2022-12-02', market_price: 4.75,
-  image_url: '/images/en/OP01-001.png', printings: [],
+  image_url: '/images/en/OP01-001.png', artist: null, printings: [],
 }
 
 function mount(collection: unknown[], wishlist: unknown[] = []) {

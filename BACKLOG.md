@@ -33,6 +33,46 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Filtre par illustrateur**, demandé le 2026-09-12 : « j'aimerai ajouer une nouvel
+  catégorie dans les filtre du site » clarifié en « la catégorie des désinateur/thèmes »,
+  avec 17 liens limitlesstcg.com (une page de recherche par illustrateur) et l'instruction
+  explicite de « créer aussi au passage une db en format JSON pour lier les cartes aux
+  dessinateurs ».
+  - Vérifié avant d'écrire une ligne, comme pour Cardmarket et yuyu-tei.jp :
+    `robots.txt` de limitlesstcg.com entièrement permissif (`Disallow:` vide), aucune
+    page de conditions trouvée qui interdirait le grattage.
+    Nouveau script `backend/scripts/import_artists.py`, même approche que les deux
+    imports de prix : un `HTMLParser` maison, pas de dépendance nouvelle.
+  - **Erreur SSL propre à cette machine** : `urllib.request.urlopen` refusait
+    `onepiece.limitlesstcg.com` (« certificate has expired ») alors que `curl` passait
+    sans problème sur le même hôte — chaîne de confiance par défaut de Python cassée
+    sous Windows pour ce site précis, pas un vrai certificat expiré. Contournée avec
+    un contexte SSL explicite (`ssl.create_default_context(cafile=certifi.where())`),
+    scopé à ce seul script ; `certifi` ajouté à `requirements.txt`.
+  - **Ambiguïté mesurée, jamais devinée**, même politique que l'appariement des tirages
+    alternatifs côté prix EN :
+    - Un numéro de carte crédité à deux illustrateurs *différents* (reprints réels
+      distincts, non repérables via le marqueur `?v=N` des résultats de recherche —
+      confirmé en visitant `/cards/ST01-011` en direct) est retiré du mapping plutôt
+      que d'en garder un au hasard. 17 codes concernés, tous exclus.
+    - Une même personne créditée avec une casse différente d'un tirage à l'autre
+      (« sowsow » / « SOWSOW ») n'est pas un conflit : un seul nom canonique retenu par
+      lot de recherche (le premier rencontré), pour ne pas fabriquer une fausse
+      ambiguïté à partir d'une simple différence de frappe sur le site source.
+  - **Résultat mesuré** : 277 numéros de carte dans `backend/scripts/artists.json`
+    (nouveau fichier, versionné, régénérable par le script), 17 conflits réels
+    écartés. Appliqué à la base de dev : 553 lignes mises à jour (les deux langues
+    reçoivent le même crédit), 0 non trouvées.
+  - Colonne `artist` ajoutée aux cartes (schéma + migration additive + modèle +
+    endpoint `/cards`), et un groupe de puces « Illustrateur » (17 noms, liste
+    figée volontairement — pas de round-trip réseau pour la peupler) dans le panneau
+    de filtres partagé entre Chercher et Recherchées.
+  - 12 nouveaux tests (10 pour le parseur/la fusion de conflits sans réseau, 2 au
+    niveau de l'endpoint), plus les 7 fichiers de tests frontend existants mis à jour
+    pour le nouveau champ obligatoire `Card.artist`. Vérifié en direct sur Chercher :
+    le filtre « Nakamaru » fait passer le compte de 5 030 à 19 cartes, chip actif,
+    grille cohérente avec le résultat.
+
 - **`deploy/` entièrement désynchronisé de la vraie machine : `/srv/mytcg` partout
   dans le dépôt, `/opt/mytcg` en prod depuis le 06/09**, découvert le 2026-09-11 en
   déployant le timer de prix JP (voir plus bas) — premier démarrage en échec

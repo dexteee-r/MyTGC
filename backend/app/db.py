@@ -55,6 +55,7 @@ LATE_COLUMNS = [
     ("collection", "notes", "TEXT"),
     ("users", "share_collection_token", "TEXT"),
     ("users", "share_wishlist_token", "TEXT"),
+    ("cards", "artist", "TEXT"),
 ]
 
 

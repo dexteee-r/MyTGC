@@ -26,7 +26,7 @@ function entry(
     rarity: over.rarity ?? null, category: null, colors: [], cost: null, power: null,
     counter: null, attributes: [], types: [], effect: null, trigger: null,
     release_date: null, market_price: over.marketPrice ?? null,
-    image_url: `/images/en/${id}.png`, printings: [],
+    image_url: `/images/en/${id}.png`, artist: null, printings: [],
   }
   return {
     card_id: id, language: over.language ?? 'en', quantity: over.quantity ?? 1,

@@ -19,6 +19,31 @@ export const RARITIES = [
   'Promo',
 ]
 
+/* The user's own curated list of illustrators to browse by -- not the whole
+   catalogue's roster, which nothing here tries to discover on its own. Kept as a
+   literal so the chip list never depends on a network round trip; regenerate
+   backend/scripts/artists.json and copy its distinct values here when a name is
+   added or removed. */
+export const ARTISTS = [
+  'AKIRA EGAWA',
+  'Akanegumo',
+  'BISAI',
+  'Gege Akutami',
+  'Hayaken-sarena',
+  'K Akagishi',
+  'Kazuno Yuikawa',
+  'Makitoshi',
+  'Mitsuaki Matsumoto',
+  'Nakamaru',
+  'Norikoi',
+  'Ono Tako',
+  'Peach Momoko',
+  'Ryo Nakama',
+  'SHIE NANAHARA',
+  'SOWSOW',
+  'Yosuke Adachi',
+]
+
 export type Sort = 'code' | 'set' | 'name' | 'date' | 'price_asc' | 'price_desc'
 
 /* Shared with Wishlist.tsx, which also uses it on the poster's own stamp and star
@@ -36,6 +61,7 @@ export interface FilterState {
   language: Language | null
   rarities: string[]
   colors: string[]
+  artists: string[]
   owned: boolean | null
   /* Meaningless to Search -- a card has no priority, only a wishlist entry does --
      so it always stays empty there. Kept on the one shared shape anyway rather than
@@ -48,6 +74,7 @@ export interface FilterState {
 export const EMPTY: Omit<FilterState, 'sort' | 'columns' | 'language'> = {
   rarities: [],
   colors: [],
+  artists: [],
   owned: null,
   priorities: [],
 }
@@ -69,6 +96,7 @@ export function appliedLabels(state: FilterState, baseline?: Language | null): s
     state.owned === true ? 'Possédées' : state.owned === false ? 'Manquantes' : null,
     ...state.colors,
     ...state.rarities,
+    ...state.artists,
     ...state.priorities.map((level) => PRIORITY_LABELS[level]),
   ].filter(Boolean) as string[]
 }
@@ -181,6 +209,18 @@ export function FilterSheet({
               key={name}
               active={state.rarities.includes(name)}
               onClick={() => set('rarities', toggle(state.rarities, name))}
+            >
+              {name}
+            </Chip>
+          ))}
+        </Group>
+
+        <Group label="Illustrateur">
+          {ARTISTS.map((name) => (
+            <Chip
+              key={name}
+              active={state.artists.includes(name)}
+              onClick={() => set('artists', toggle(state.artists, name))}
             >
               {name}
             </Chip>

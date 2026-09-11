@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS cards (
     trigger       TEXT,
     img_url       TEXT,                  -- remote source URL
     release_date  TEXT,                  -- ISO date, from app/release_dates.py
+    artist        TEXT,                  -- illustrator, base printing only -- see
+                                          -- scripts/import_artists.py / artists.json
     image_path    TEXT,                  -- local cache path, NOT the image blob
     r_phash       INTEGER,
     g_phash       INTEGER,

@@ -90,6 +90,30 @@ def test_the_edition_filter_separates_two_printings_of_one_number(client):
     assert ids(search(client, account, language="jp")) == ["OP01-001"]
 
 
+def test_filtering_by_illustrator_matches_the_credited_card(client):
+    account = register(client)
+    seed_extra()
+    conn = db.connect()
+    conn.execute("UPDATE cards SET artist = ? WHERE id = ?", ("Bisai", "OP02-002"))
+    conn.commit()
+    conn.close()
+    assert ids(search(client, account, artist=["Bisai"], language="en")) == ["OP02-002"]
+
+
+def test_several_illustrators_widen_the_result_rather_than_emptying_it(client):
+    account = register(client)
+    seed_extra()
+    conn = db.connect()
+    conn.executemany(
+        "UPDATE cards SET artist = ? WHERE id = ?",
+        [("Bisai", "OP02-001"), ("Nakamaru", "OP02-002")],
+    )
+    conn.commit()
+    conn.close()
+    result = ids(search(client, account, artist=["Bisai", "Nakamaru"], language="en"))
+    assert set(result) == {"OP02-001", "OP02-002"}
+
+
 def test_owned_splits_the_catalogue_in_two(client):
     account = register(client)
     seed_extra()

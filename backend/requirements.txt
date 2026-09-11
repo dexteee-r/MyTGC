@@ -21,6 +21,11 @@ argon2-cffi>=25.1              # Argon2id password hashing
 PyJWT>=2.13                    # access tokens
 pydantic[email]>=2.13          # email validation
 
+# Illustrator import (scripts/import_artists.py)
+certifi>=2026.7                # already pulled in by requests, but named here since
+                                # this script needs it explicitly -- see its own comment
+                                # on why the default ssl context fails against this host
+
 # Tests
 pytest>=9.1
 httpx>=0.28

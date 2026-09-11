@@ -62,6 +62,7 @@ function paramsFromFilters(query: string, filters: FilterState): URLSearchParams
   if (filters.language) params.set('lang', filters.language)
   if (filters.rarities.length) params.set('rarity', filters.rarities.join(','))
   if (filters.colors.length) params.set('color', filters.colors.join(','))
+  if (filters.artists.length) params.set('artist', filters.artists.join(','))
   if (filters.owned != null) params.set('owned', String(filters.owned))
   if (filters.sort !== 'code') params.set('sort', filters.sort)
   return params
@@ -103,6 +104,7 @@ export function Search() {
           language: (searchParams.get('lang') as Language | null) ?? language,
           rarities: searchParams.get('rarity')?.split(',').filter(Boolean) ?? [],
           colors: searchParams.get('color')?.split(',').filter(Boolean) ?? [],
+          artists: searchParams.get('artist')?.split(',').filter(Boolean) ?? [],
           owned: searchParams.has('owned') ? searchParams.get('owned') === 'true' : null,
           priorities: [],
           sort: (searchParams.get('sort') as Sort | null) ?? 'code',
@@ -131,6 +133,7 @@ export function Search() {
     language: filters.language ?? undefined,
     rarity: filters.rarities,
     color: filters.colors,
+    artist: filters.artists,
     owned: filters.owned ?? undefined,
     sort: filters.sort,
     limit: PAGE,

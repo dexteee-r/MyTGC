@@ -36,7 +36,7 @@ function entry(
     id, language, name: id, pack_id: '1', pack_code: null, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: marketPrice, image_url: imageUrl, printings: [],
+    market_price: marketPrice, image_url: imageUrl, artist: null, printings: [],
   }
   return {
     id: id.length + quantity, card_id: id, language, quantity, condition: null,
@@ -49,7 +49,7 @@ function entryWithRarity(id: string, rarity: string | null): CollectionEntry {
     id, language: 'en', name: id, pack_id: '1', pack_code: null, pack_name: null,
     rarity, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: null, image_url: null, printings: [],
+    market_price: null, image_url: null, artist: null, printings: [],
   }
   return {
     id: id.length, card_id: id, language: 'en', quantity: 1, condition: null,
@@ -62,7 +62,7 @@ function entryInSet(cardId: string, packCode: string | null): CollectionEntry {
     id: cardId, language: 'en', name: cardId, pack_id: '1', pack_code: packCode, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: null, image_url: null, printings: [],
+    market_price: null, image_url: null, artist: null, printings: [],
   }
   return {
     id: cardId.length, card_id: cardId, language: 'en', quantity: 1, condition: null,
@@ -82,7 +82,7 @@ function comboEntry(over: {
     pack_code: over.packCode ?? null, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: over.marketPrice ?? null, image_url: null, printings: [],
+    market_price: over.marketPrice ?? null, image_url: null, artist: null, printings: [],
   }
   return {
     id: over.id.length, card_id: over.id, language: 'en', quantity: over.quantity ?? 1,
@@ -96,7 +96,7 @@ function entryOnDate(cardId: string, dateAdded: string): CollectionEntry {
     id: cardId, language: 'en', name: cardId, pack_id: '1', pack_code: null, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: null, image_url: null, printings: [],
+    market_price: null, image_url: null, artist: null, printings: [],
   }
   return {
     id: cardId.length, card_id: cardId, language: 'en', quantity: 1, condition: null,
@@ -1039,7 +1039,7 @@ function entryInPack(
     id: cardId, language, name: cardId, pack_id: packCode ?? '1', pack_code: packCode, pack_name: packName,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: null, image_url: null, printings: [],
+    market_price: null, image_url: null, artist: null, printings: [],
   }
   return {
     id: cardId.length, card_id: cardId, language, quantity: 1, condition: null,

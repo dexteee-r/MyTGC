@@ -26,6 +26,7 @@ export interface Card {
   trigger: string | null
   release_date: string | null
   market_price: number | null
+  artist: string | null
   image_url: string | null
   printings: string[]
 }

@@ -24,7 +24,7 @@ const CARD: Card = {
   pack_code: 'OP-01', pack_name: 'ROMANCE DAWN', rarity: 'Leader', category: 'Leader',
   colors: ['Red'], cost: 5, power: 5000, counter: null, attributes: [], types: [],
   effect: null, trigger: null, release_date: '2022-12-02', market_price: 4.75,
-  image_url: null, printings: [],
+  image_url: null, artist: null, printings: [],
 }
 
 const CONFIDENT_RESULT: ScanResult = {
@@ -43,6 +43,7 @@ function mount(
 ) {
   resetSearchMemory()
   const scanCalls: string[] = []
+  const cardCalls: string[] = []
 
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.includes('/scan')) {
@@ -50,6 +51,7 @@ function mount(
       return scanResponse()
     }
     if (url.includes('/cards?')) {
+      cardCalls.push(url)
       return { ok: true, status: 200, json: async () => ({ items: [], total: 0 }),
                text: async () => '' } as Response
     }
@@ -92,7 +94,7 @@ function mount(
       </AuthProvider>
     </MemoryRouter>,
   )
-  return { ...rendered, scanCalls }
+  return { ...rendered, scanCalls, cardCalls }
 }
 
 function pasteImage() {
@@ -196,6 +198,20 @@ describe('la recherche est dans l’URL', () => {
     expect(
       screen.getByRole('button', { name: /Filtres actifs :.*Leader/ }),
     ).toBeInTheDocument()
+  })
+
+  it('une URL partagée restaure aussi le filtre par illustrateur', async () => {
+    mount(noScan, '/search?q=Luffy&artist=Nakamaru')
+
+    expect(
+      await screen.findByRole('button', { name: /Filtres actifs :.*Nakamaru/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('le filtre par illustrateur atteint bien la requête au catalogue', async () => {
+    const { cardCalls } = mount(noScan, '/search?q=Luffy&artist=Nakamaru')
+    await waitFor(() => expect(cardCalls.length).toBeGreaterThan(0))
+    expect(cardCalls.some((url) => url.includes('artist=Nakamaru'))).toBe(true)
   })
 
   it('taper une recherche le reflète dans l’URL', async () => {

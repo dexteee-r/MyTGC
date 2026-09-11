@@ -28,6 +28,7 @@ function paramsFromFilters(filters: FilterState): URLSearchParams {
   if (filters.language) params.set('lang', filters.language)
   if (filters.rarities.length) params.set('rarity', filters.rarities.join(','))
   if (filters.colors.length) params.set('color', filters.colors.join(','))
+  if (filters.artists.length) params.set('artist', filters.artists.join(','))
   if (filters.priorities.length) params.set('priority', filters.priorities.join(','))
   if (filters.sort !== 'code') params.set('sort', filters.sort)
   return params
@@ -38,6 +39,7 @@ function filtersFromParams(params: URLSearchParams): FilterState {
     language: (params.get('lang') as Language | null) ?? null,
     rarities: params.get('rarity')?.split(',').filter(Boolean) ?? [],
     colors: params.get('color')?.split(',').filter(Boolean) ?? [],
+    artists: params.get('artist')?.split(',').filter(Boolean) ?? [],
     priorities: params.get('priority')?.split(',').filter(Boolean).map(Number) ?? [],
     owned: null,
     sort: (params.get('sort') as Sort | null) ?? 'code',
@@ -93,6 +95,8 @@ export function Wishlist() {
         filters.colors.length &&
         !(entry.card?.colors ?? []).some((c) => filters.colors.includes(c))
       )
+        return false
+      if (filters.artists.length && !filters.artists.includes(entry.card?.artist ?? ''))
         return false
       if (filters.priorities.length && !filters.priorities.includes(entry.priority))
         return false

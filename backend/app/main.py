@@ -39,6 +39,7 @@ from app.models import (DEFAULT_PRIORITY, Card, CardPage, ChangePasswordRequest,
 
 CARD_COLUMNS = ("id, language, name, pack_id, pack_code, pack_name, rarity, category,"
                 " colors, cost, power, counter, attributes, types, image_path, release_date,"
+                " artist,"
                 # The latest snapshot, carried on the card itself so every screen that
                 # already shows a card -- the sheet, the want list, a scan result --
                 # gets the figure without a second round trip. Correlated rather than
@@ -483,6 +484,7 @@ def search_cards(
     rarity: list[str] | None = Query(None, description="repeatable; any of them matches"),
     category: str | None = None,
     color: list[str] | None = Query(None, description="repeatable; any of them matches"),
+    artist: list[str] | None = Query(None, description="repeatable; any of them matches"),
     owned: bool | None = Query(None, description="restrict to cards in the collection"),
     sort: str = Query("code", description="code | set | name | date | price_asc | price_desc"),
     offset: int = Query(0, ge=0),
@@ -513,6 +515,9 @@ def search_cards(
         # a hypothetical 'Blackish'.
         where.append("(" + " OR ".join("colors LIKE ?" for _ in color) + ")")
         params += [f'%"{c}"%' for c in color]
+    if artist:
+        where.append(f"artist IN ({', '.join('?' * len(artist))})")
+        params += artist
     if owned is not None:
         clause = "EXISTS" if owned else "NOT EXISTS"
         where.append(f"{clause} (SELECT 1 FROM collection c"

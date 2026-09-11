@@ -16,12 +16,14 @@ function LocationProbe() {
    constaté typed in by hand -- and "trier par prix" was asked to mean the cote,
    the same number the catalogue itself sorts by, never the hand-typed one. */
 
-function entry(id: string, marketPrice: number | null, priority = 1): WishlistEntry {
+function entry(
+  id: string, marketPrice: number | null, priority = 1, artist: string | null = null,
+): WishlistEntry {
   const card: Card | null = {
     id, language: 'en', name: id, pack_id: '1', pack_code: null, pack_name: null,
     rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
     attributes: [], types: [], effect: null, trigger: null, release_date: null,
-    market_price: marketPrice, image_url: null, printings: [],
+    market_price: marketPrice, image_url: null, artist, printings: [],
   }
   return {
     id: id.length, card_id: id, language: 'en', priority, alert_threshold: null,
@@ -88,6 +90,34 @@ describe('tri par prix sur Recherchées', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Prix décroissant' }))
     expect(posterNames().at(-1)).toContain('OP01-001')
+  })
+})
+
+describe('filtre par illustrateur sur Recherchées', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('ne garde que les cartes de l’illustrateur choisi', async () => {
+    mount([
+      entry('OP01-001', 5, 1, 'Nakamaru'),
+      entry('OP01-002', 5, 1, 'BISAI'),
+    ])
+    await screen.findByText('OP01-001')
+
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByText('Nakamaru'))
+
+    expect(posterNames()).toHaveLength(1)
+    expect(posterNames()[0]).toContain('OP01-001')
+  })
+
+  it('une carte sans illustrateur connu disparaît du filtre plutôt que de rester par défaut', async () => {
+    mount([entry('OP01-001', 5, 1, 'Nakamaru'), entry('OP01-002', 5, 1, null)])
+    await screen.findByText('OP01-001')
+
+    const dialog = await openFilters()
+    fireEvent.click(dialog.getByText('Nakamaru'))
+
+    expect(posterNames()).toHaveLength(1)
   })
 })
 

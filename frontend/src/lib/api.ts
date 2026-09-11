@@ -100,6 +100,7 @@ export interface CardQuery {
   rarity?: string[]
   category?: string
   color?: string[]
+  artist?: string[]
   owned?: boolean
   /* `set` orders by the printed code, `date` by the real release date -- the two
      differ, because the set codes of the OP, EB and PRB families interleave in time.
