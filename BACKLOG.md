@@ -33,6 +33,28 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **`deploy/` entièrement désynchronisé de la vraie machine : `/srv/mytcg` partout
+  dans le dépôt, `/opt/mytcg` en prod depuis le 06/09**, découvert le 2026-09-11 en
+  déployant le timer de prix JP (voir plus bas) — premier démarrage en échec
+  (`203/EXEC`, exécutable introuvable) parce que le fichier neuf n'avait aucun
+  mécanisme de repli, contrairement à `deploy.sh`/`autodeploy.sh` qui lisent
+  `MYTCG_APP_DIR`/`MYTCG_WEB_DIR` en priorité et ne se sont donc jamais trompés —
+  c'est cette différence de comportement qui a caché la dérive pendant 5 jours.
+  - Confirmé par l'assistant homelab, en direct sur la machine, avant toute
+    correction en masse : migration complète et déjà effective partout (checkout,
+    venv, build frontend, Nginx, utilisateur système, `/etc/mytcg/mytcg.env`),
+    `/srv/` vide depuis. Pas une supposition — vérifié poste par poste avant de
+    toucher au dépôt.
+  - `/srv/mytcg` → `/opt/mytcg` remplacé partout : les 5 unités systemd, la conf
+    Nginx, `deploy/README.md`. Les deux scripts (`deploy.sh`/`autodeploy.sh`)
+    gardent leur mécanisme `${MYTCG_APP_DIR:-...}` — seule la valeur par défaut
+    change, le principe qui a évité la casse ailleurs reste en place.
+  - Section « One-off: moving deploy/ into the checkout » supprimée plutôt que
+    « corrigée » : elle documentait un déplacement ponctuel déjà terminé depuis des
+    semaines, et un remplacement en masse `/srv`→`/opt` y aurait laissé un chemin
+    (`/opt/mytcg/deploy`) qui n'a jamais existé — un historique inventé est pire
+    qu'un historique absent.
+
 - **Filtres complets sur une collection partagée**, demandé le 2026-09-11 juste après
   le filtre Doublons ci-dessous : « faut ajouter les filtres de la page collection
   pour que celui qui regarde la collection partagée puisse mieux faire ses

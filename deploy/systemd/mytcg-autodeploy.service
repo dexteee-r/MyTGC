@@ -8,7 +8,7 @@ Type=oneshot
 User=mytcg
 Group=mytcg
 EnvironmentFile=/etc/mytcg/mytcg.env
-ExecStart=/srv/mytcg/app/deploy/scripts/autodeploy.sh
+ExecStart=/opt/mytcg/app/deploy/scripts/autodeploy.sh
 
 # Exits non-zero when CI is red, which surfaces in `systemctl status` and the
 # journal rather than being swallowed.

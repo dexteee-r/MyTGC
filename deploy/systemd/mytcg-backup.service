@@ -7,7 +7,7 @@ Type=oneshot
 User=mytcg
 Group=mytcg
 EnvironmentFile=/etc/mytcg/mytcg.env
-ExecStart=/srv/mytcg/app/deploy/scripts/backup.sh
+ExecStart=/opt/mytcg/app/deploy/scripts/backup.sh
 # --- hardening ---------------------------------------------------------------
 NoNewPrivileges=yes
 PrivateTmp=yes

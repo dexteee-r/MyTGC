@@ -1,7 +1,7 @@
 # Deploying MyTCG
 
 These files live in the repository and arrive with the checkout, at
-`/srv/mytcg/app/deploy`. Nothing here has to be copied over by hand.
+`/opt/mytcg/app/deploy`. Nothing here has to be copied over by hand.
 
 They used to sit outside it, on the reasoning that they describe one host while the
 repository is the same for everyone. That reasoning cost more than it saved: a timer
@@ -29,9 +29,9 @@ host is unreachable from outside.
 ## Layout on the host
 
 ```
-/srv/mytcg/app          the git checkout
-/srv/mytcg/app/deploy       these files, arriving with it
-/srv/mytcg/frontend     built frontend, published by Nginx
+/opt/mytcg/app          the git checkout
+/opt/mytcg/app/deploy       these files, arriving with it
+/opt/mytcg/frontend     built frontend, published by Nginx
 /var/lib/mytcg          database, image cache, punk-records clone
 /var/backups/mytcg      nightly database snapshots
 /etc/mytcg/mytcg.env    secrets and paths (root:mytcg, 0640)
@@ -109,7 +109,7 @@ success. So `deploy.sh` compares the two and says so at the end of its output. I
 rather than fails: a unit waiting to be installed should not block an application fix.
 
 ```bash
-sudo cp /srv/mytcg/app/deploy/systemd/* /etc/systemd/system/
+sudo cp /opt/mytcg/app/deploy/systemd/* /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
@@ -187,7 +187,7 @@ if [ -d "$MYTCG_DATA_DIR/punk-records" ]; then
 else
   git clone --depth 1 https://github.com/buhbbl/punk-records.git "$MYTCG_DATA_DIR/punk-records"
 fi
-cd /srv/mytcg/app
+cd /opt/mytcg/app
 .venv/bin/python backend/scripts/import_catalogue.py
 .venv/bin/python backend/scripts/download_images.py --workers 8
 .venv/bin/python backend/scripts/compute_phashes.py --region art --all
@@ -212,29 +212,6 @@ running process matching against the old card count until it restarts. `/health`
 `catalogue` field is the way to confirm the new total actually loaded, not just that
 the import script printed one.
 
-## One-off: moving deploy/ into the checkout
-
-Until this directory joined the repository it was copied to `/srv/mytcg/deploy`, and
-two units still point there. Leaving both copies in place is how they drift, which is
-the failure this move exists to end — so the old one goes.
-
-```bash
-# 1. Take the new units and the corrected paths from the checkout.
-sudo cp /srv/mytcg/app/deploy/systemd/*.service /srv/mytcg/app/deploy/systemd/*.timer \
-        /etc/systemd/system/
-sudo systemctl daemon-reload
-
-# 2. Prove the two that changed path still start.
-sudo systemctl restart mytcg-api.service && systemctl is-active mytcg-api.service
-sudo systemctl start mytcg-backup.service && journalctl -u mytcg-backup -n 20 --no-pager
-
-# 3. Only then remove the copy that is no longer referenced.
-sudo rm -rf /srv/mytcg/deploy
-```
-
-Step 2 before step 3, not after: a wrong path in a unit is invisible until the thing
-next runs, and `mytcg-backup` next runs at 04:15.
-
 ## Updating
 
 Automatic. `mytcg-autodeploy.timer` checks every five minutes whether `main` has moved
@@ -250,7 +227,7 @@ independent of however the site is published.
 By hand, when you want it now:
 
 ```bash
-sudo -u mytcg /srv/mytcg/app/deploy/scripts/deploy.sh
+sudo -u mytcg /opt/mytcg/app/deploy/scripts/deploy.sh
 ```
 
 Either path backs up, pulls, rebuilds, **runs the test suite**, then restarts. The

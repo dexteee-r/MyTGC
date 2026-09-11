@@ -4,15 +4,15 @@
 # Safe to re-run: it pulls, rebuilds, migrates and restarts. It does not touch the
 # database beyond running migrations, and it never deletes the image cache.
 #
-#   sudo -u mytcg /srv/mytcg/app/deploy/scripts/deploy.sh
+#   sudo -u mytcg /opt/mytcg/app/deploy/scripts/deploy.sh
 
 set -euo pipefail
 
 # These files sit beside the checkout, not inside it: they are infrastructure for
 # one host, and the repository is the same for everyone.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_DIR="${MYTCG_APP_DIR:-/srv/mytcg/app}"
-WEB_DIR="${MYTCG_WEB_DIR:-/srv/mytcg/frontend}"
+APP_DIR="${MYTCG_APP_DIR:-/opt/mytcg/app}"
+WEB_DIR="${MYTCG_WEB_DIR:-/opt/mytcg/frontend}"
 BRANCH="${MYTCG_BRANCH:-main}"
 
 echo "==> Backing up the database first"

@@ -23,7 +23,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_DIR="${MYTCG_APP_DIR:-/srv/mytcg/app}"
+APP_DIR="${MYTCG_APP_DIR:-/opt/mytcg/app}"
 BRANCH="${MYTCG_BRANCH:-main}"
 # Derived from the checkout's own remote, not hardcoded. A hardcoded name is wrong
 # the moment the repository is renamed — and it was: the first version of this
