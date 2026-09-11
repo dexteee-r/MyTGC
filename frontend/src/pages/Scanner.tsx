@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LiveScan } from '../components/LiveScan'
-import { CameraIcon } from '../components/icons'
+import { CameraIcon, InfoIcon } from '../components/icons'
 import {
   Adrift,
   Button,
@@ -264,6 +264,21 @@ export function Scanner() {
           </span>{' '}
           est celle qui sera enregistrée — l'illustration est identique dans les deux, elle
           ne peut pas être devinée.
+        </p>
+      )}
+
+      {/* Leader/SuperRare are foil-printed, and a reflection on the illustration is the
+          one failure mode the recognition pipeline cannot see past (diagnosis.py only
+          catches burned-out white, not a coloured/prismatic reflection) -- documented as
+          an accepted limit rather than a bug, see BACKLOG.md. A sleeve or blister adds a
+          second reflective surface on top of the foil, so removing it is worth saying
+          before the scan fails rather than only after. */}
+      {!result && !busy && !missed && (
+        <p className="flex items-start gap-2 px-5 pt-2 text-sm text-[var(--text-secondary)]">
+          <InfoIcon className="mt-0.5 size-4 shrink-0" />
+          Carte Leader ou Super Rare (holographique) : sors-la de sa pochette ou de son
+          blister et incline-la légèrement — le reflet sous la lumière est la cause la
+          plus fréquente d'une carte non reconnue.
         </p>
       )}
 

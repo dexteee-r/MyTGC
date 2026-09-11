@@ -33,6 +33,30 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Notice retrait pochette/blister sur Scanner, et filtre Doubles sur une collection
+  partagée**, demandées ensemble le 2026-09-11.
+  - **Scanner** : une ligne avec l'icône ⓘ, sous le rappel de cadrage déjà présent,
+    quand aucun résultat n'est affiché — « Carte Leader ou Super Rare (holographique) :
+    sors-la de sa pochette ou de son blister et incline-la légèrement — le reflet sous
+    la lumière est la cause la plus fréquente d'une carte non reconnue. » Reprend le
+    diagnostic déjà posé et accepté comme limite connue (voir plus bas, « Suite du scan
+    en continu ») — le détecteur de reflet ne voit qu'un blanc brûlé, jamais un reflet
+    coloré/prismatique — plutôt que d'inventer une nouvelle explication. Une pochette
+    ajoute une seconde surface réfléchissante par-dessus le foil, donc son retrait
+    complète le contournement déjà documenté (incliner la carte) sans le remplacer.
+  - **Collection partagée** : un `Segmented` « Tout / Doubles » identique à celui de la
+    page Collection de l'utilisateur connecté, filtrant sur `quantity > 1` — jusque-là
+    la personne qui reçoit un lien de partage voyait tout en bloc, sans pouvoir isoler
+    ce qui est échangeable. Le badge numérique sur l'onglet compte les vrais doublons,
+    pas seulement leur présence. Message dédié (« Aucun double pour l'instant. ») plutôt
+    qu'une grille vide silencieuse quand ce filtre ne retourne rien.
+  - 4 nouveaux tests (`SharedCollection.test.tsx`, jusque-là sans aucune couverture),
+    deux cassés-restaurés pendant l'écriture (le seuil de doublons, le compte du badge).
+    234 tests frontend au total, tous verts. Vérifié en direct : la notice s'affiche
+    bien sur Scanner (caméra ou non), le lien de partage réel du compte de dev bascule
+    de 24 références à 16 doublons au clic, partage réactivé puis désactivé après coup
+    pour ne rien laisser en l'état sur la base de dev.
+
 - **Prix japonais via yuyu-tei.jp**, demandé le 2026-09-11 juste après le refus de
   scraper Cardmarket (voir entrée suivante) : « aucune source JP gratuite » n'était
   vrai qu'à l'échelle de tcgcsv, pas à celle du web.

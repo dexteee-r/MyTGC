@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ApiError, api, imageUrl } from '../lib/api'
 import { Sky } from '../components/Sky'
-import { Spinner } from '../components/ui'
+import { Segmented, Spinner } from '../components/ui'
 import type { SharedCollection as SharedCollectionData, SharedCollectionEntry } from '../lib/types'
+
+type View = 'all' | 'doubles'
 
 /* ── Someone else's binder, through the glass ────────────────────────────────
    Reached from a link, never from the tab bar — a stranger arriving here has no
@@ -18,6 +20,7 @@ export function SharedCollection() {
   const { token = '' } = useParams()
   const [data, setData] = useState<SharedCollectionData | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [view, setView] = useState<View>('all')
 
   useEffect(() => {
     api
@@ -25,6 +28,12 @@ export function SharedCollection() {
       .then(setData)
       .catch((error) => setNotFound(error instanceof ApiError && error.status === 404))
   }, [token])
+
+  // Doubles only, the same threshold the owner's own Collection screen uses for its
+  // "Doubles" tab -- a stranger looking for a trade cares about what is spare, not
+  // about seeing the whole binder a second time filtered down to nothing useful.
+  const doubles = data?.entries.filter((entry) => entry.quantity > 1) ?? []
+  const shown = view === 'doubles' ? doubles : (data?.entries ?? [])
 
   return (
     <div className="relative h-full overflow-hidden">
@@ -58,11 +67,31 @@ export function SharedCollection() {
                   Rien n'est encore rangé ici.
                 </p>
               ) : (
-                <ul className="mt-6 grid grid-cols-3 gap-1.5 lg:grid-cols-6">
-                  {data.entries.map((entry) => (
-                    <Tile key={`${entry.card_id}-${entry.language}`} entry={entry} />
-                  ))}
-                </ul>
+                <>
+                  <div className="pt-5">
+                    <Segmented
+                      value={view}
+                      options={[
+                        { value: 'all', label: 'Tout' },
+                        { value: 'doubles', label: 'Doubles', badge: doubles.length || undefined },
+                      ]}
+                      onChange={setView}
+                      label="Filtrer"
+                    />
+                  </div>
+
+                  {shown.length === 0 ? (
+                    <p className="pt-8 text-sm text-[var(--text-secondary)]">
+                      Aucun double pour l'instant.
+                    </p>
+                  ) : (
+                    <ul className="mt-6 grid grid-cols-3 gap-1.5 lg:grid-cols-6">
+                      {shown.map((entry) => (
+                        <Tile key={`${entry.card_id}-${entry.language}`} entry={entry} />
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </>
           )}
