@@ -373,6 +373,10 @@ class SharedCollectionEntry(BaseModel):
     language: Language
     quantity: int
     condition: Condition | None = None
+    # Not private the way acquisition_price/notes are (see the endpoint) -- when a
+    # card entered the binder is what lets a viewer sort/filter the way the owner's
+    # own Collection screen already does by default.
+    date_added: str
     card: Card | None = None
 
 

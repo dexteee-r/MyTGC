@@ -7,6 +7,8 @@ endpoints return -- checked by asserting the key is absent from the JSON, not
 just null, since a null still proves the model carries the field.
 """
 
+from datetime import date
+
 from conftest import register
 
 
@@ -80,6 +82,22 @@ def test_the_shared_collection_lists_what_is_owned(client):
     assert entry["card_id"] == "OP01-001"
     assert entry["quantity"] == 3
     assert entry["card"]["name"] == "Monkey.D.Luffy"
+
+
+def test_the_shared_collection_carries_a_real_date_added(client):
+    """Not private the way acquisition_price/notes are (see the test below) -- a
+    viewer sorting/filtering the shared grid the way the owner's own Collection
+    screen does by default needs this."""
+    account = register(client)
+    client.post("/collection", json={"card_id": "OP01-001", "language": "en"},
+                headers=account["headers"])
+    token = client.post("/collection/share", headers=account["headers"]).json()["token"]
+
+    entry = client.get(f"/shared/collection/{token}").json()["entries"][0]
+    # The server stamps this automatically on add -- today, not a fixed fixture
+    # value, which is exactly what would expose the field being wired to the wrong
+    # column (e.g. a fixed placeholder that happens to look date-shaped).
+    assert entry["date_added"] == date.today().isoformat()
 
 
 def test_the_shared_collection_never_carries_acquisition_price_or_notes(client):

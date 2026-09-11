@@ -1006,6 +1006,7 @@ def get_shared_collection(conn: Conn, token: str):
     entries = [
         SharedCollectionEntry(card_id=r["card_id"], language=r["language"],
                               quantity=r["quantity"], condition=r["condition"],
+                              date_added=r["date_added"],
                               card=_card_for(conn, r["card_id"], r["language"]))
         for r in rows
     ]

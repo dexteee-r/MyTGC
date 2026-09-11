@@ -246,6 +246,7 @@ export interface SharedCollectionEntry {
   language: Language
   quantity: number
   condition: Condition | null
+  date_added: string
   card: Card | null
 }
 

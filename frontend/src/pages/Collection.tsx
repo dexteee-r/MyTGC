@@ -69,7 +69,7 @@ function pileValue(entry: CollectionEntry): number | null {
    Leader, and Promo spans free giveaways to tournament prizes -- so they are placed
    after SecretRare as the rarest tier rather than folded into the five-step scale,
    Treasure Rare last as the game's actual chase rarity. */
-const RARITY_RANK: Record<string, number> = {
+export const RARITY_RANK: Record<string, number> = {
   Common: 0, Uncommon: 1, Rare: 2, SuperRare: 3, SecretRare: 4,
   Leader: 5, Promo: 6, Special: 7, TreasureRare: 8,
 }

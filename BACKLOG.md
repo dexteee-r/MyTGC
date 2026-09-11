@@ -33,6 +33,37 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Filtres complets sur une collection partagée**, demandé le 2026-09-11 juste après
+  le filtre Doublons ci-dessous : « faut ajouter les filtres de la page collection
+  pour que celui qui regarde la collection partagée puisse mieux faire ses
+  recherches ». Même vocabulaire que la page Collection de l'utilisateur connecté
+  (Édition, Extension, Valeur, Rareté, Doublons d'abord), mais tri à choix unique
+  plutôt que la chaîne combinable de Collection.tsx — une puissance que personne n'a
+  demandée pour quelqu'un qui feuillette une seule fois, pas qui curate son propre
+  classeur au quotidien.
+  - `date_added` ajouté à `SharedCollectionEntry` (backend) : pas privé comme
+    `acquisition_price`/les notes (voir `test_sharing.py`), juste nécessaire pour
+    trier par date d'ajout comme Collection le fait par défaut. `RARITY_RANK` exporté
+    de `Collection.tsx` plutôt que redéfini une seconde fois, pour que la même table
+    de classement ne puisse pas diverger entre les deux pages.
+  - Filtrage et tri entièrement côté client — la collection partagée est déjà chargée
+    en un bloc (même raisonnement que documenté dans le fichier lui-même), donc rien
+    à interroger côté serveur pour ce filtre.
+  - **Bug de vérification, pas de code** : après avoir ajouté `date_added` au modèle
+    et redémarré le serveur de dev, la page continuait de planter
+    (`undefined.localeCompare`) — le process uvicorn *précédent* n'avait jamais été
+    tué (`pkill` sous Git Bash ne termine pas fiablement un `python.exe` natif
+    Windows), donc toutes les requêtes continuaient de toucher l'ancien code malgré
+    un nouveau process démarré proprement à côté sur le même port. Repéré via
+    `Get-CimInstance Win32_Process`, qui a montré deux process uvicorn avec des
+    heures de démarrage différentes ; le bon a été terminé par PID exact
+    (`Stop-Process -Id`), pas par nom.
+  - 6 nouveaux tests, deux cassés-restaurés pendant l'écriture (le filtre
+    d'extension, la valeur triée par tas et non par prix unitaire). 240 tests
+    frontend, 232 tests backend, tous verts. Vérifié en direct avec le vrai lien de
+    partage du compte de dev : filtre par extension (24 → 1 carte), remise à zéro,
+    partage réactivé puis désactivé après coup pour ne rien laisser en l'état.
+
 - **Notice retrait pochette/blister sur Scanner, et filtre Doubles sur une collection
   partagée**, demandées ensemble le 2026-09-11.
   - **Scanner** : une ligne avec l'icône ⓘ, sous le rappel de cadrage déjà présent,
