@@ -30,6 +30,17 @@ if (!window.matchMedia) {
     }) as MediaQueryList
 }
 
+/* jsdom ships no ResizeObserver either, and CardGrid measures its own scroll
+   element with one to know how many columns fit -- a no-op stub is enough for a
+   test that renders the real grid rather than just CardTile in isolation. */
+if (!window.ResizeObserver) {
+  window.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()

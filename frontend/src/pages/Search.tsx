@@ -374,6 +374,7 @@ export function Search() {
           onEndReached={loadMore}
           loadingMore={cards.length < total}
           initialScroll={scroll.current}
+          scrollbarDesktop
           onScroll={(top) => {
             scroll.current = top
           }}

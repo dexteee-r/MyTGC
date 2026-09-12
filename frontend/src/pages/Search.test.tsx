@@ -40,6 +40,7 @@ const CONFIDENT_RESULT: ScanResult = {
 function mount(
   scanResponse: () => Response | Promise<Response>,
   initialPath = '/search',
+  cardItems: Card[] = [],
 ) {
   resetSearchMemory()
   const scanCalls: string[] = []
@@ -52,7 +53,7 @@ function mount(
     }
     if (url.includes('/cards?')) {
       cardCalls.push(url)
-      return { ok: true, status: 200, json: async () => ({ items: [], total: 0 }),
+      return { ok: true, status: 200, json: async () => ({ items: cardItems, total: cardItems.length }),
                text: async () => '' } as Response
     }
     if (url.includes('/search-history')) {
@@ -214,6 +215,37 @@ describe('la recherche est dans l’URL', () => {
     expect(cardCalls.some((url) => url.includes('artist=Nakamaru'))).toBe(true)
   })
 
+  // DON!! cards carry rarity: 'DON!!' in the catalogue -- the literal value, "!!"
+  // included, has to survive a round trip through the URL (URLSearchParams percent-
+  // encodes it to %21%21) and back into the chip's own active state. Restoring the
+  // *label* alone would pass even if the "DON!!" chip had never been added to the
+  // Rareté group at all (appliedLabels only echoes state.rarities back, regardless
+  // of what RARITIES contains) -- so this opens the sheet and checks the chip
+  // itself, the thing the RARITIES literal actually controls.
+  it('une carte DON!! peut être choisie dans le groupe Rareté du panneau de filtres', async () => {
+    mount(noScan)
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+    expect(await screen.findByRole('button', { name: 'DON!!' })).toBeInTheDocument()
+  })
+
+  it('une URL partagée restaure aussi le filtre de rareté DON!!, chip actif inclus', async () => {
+    mount(noScan, '/search?q=Luffy&rarity=DON!!')
+
+    expect(
+      await screen.findByRole('button', { name: /Filtres actifs :.*DON!!/ }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Filtres/ }))
+    const chip = await screen.findByRole('button', { name: 'DON!!' })
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('le filtre de rareté DON!! atteint bien la requête au catalogue', async () => {
+    const { cardCalls } = mount(noScan, '/search?q=Luffy&rarity=DON!!')
+    await waitFor(() => expect(cardCalls.length).toBeGreaterThan(0))
+    expect(cardCalls.some((url) => url.includes('rarity=DON%21%21'))).toBe(true)
+  })
+
   it('taper une recherche le reflète dans l’URL', async () => {
     mount(noScan)
     fireEvent.change(screen.getByLabelText('Rechercher une carte'), {
@@ -223,5 +255,30 @@ describe('la recherche est dans l’URL', () => {
     await waitFor(() => expect(screen.getByTestId('location-search').textContent).toContain('q=Zoro'), {
       timeout: 1000,
     })
+  })
+})
+
+/* Chercher opts into the same visible desktop rail Collection and Recherchées
+   already show on their own long lists -- off by default on CardGrid (PackDetail,
+   its other caller, keeps the app's usual chromeless scroll), on here specifically. */
+describe('barre de défilement sur Chercher', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const noScan = async () =>
+    ({ ok: false, status: 404, json: async () => ({}), text: async () => '' }) as Response
+
+  it('le mur de résultats affiche le rail visible sur desktop', async () => {
+    // jsdom lays nothing out (clientWidth stays 0), so the virtualizer never
+    // actually paints a row -- the container CardGrid renders once cards.length > 0
+    // is what is under test here, not a specific card tile.
+    const { cardCalls } = mount(noScan, '/search', [CARD])
+    await waitFor(() => expect(cardCalls.length).toBeGreaterThan(0))
+
+    const wall = await waitFor(() => {
+      const el = document.querySelector('.no-scrollbar')
+      expect(el).toBeTruthy()
+      return el!
+    })
+    expect(wall).toHaveClass('scrollbar-desktop')
   })
 })

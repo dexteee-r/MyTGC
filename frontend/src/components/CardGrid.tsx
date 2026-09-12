@@ -44,6 +44,7 @@ export function CardGrid({
   columns: preferred = 2,
   initialScroll = 0,
   onScroll,
+  scrollbarDesktop = false,
 }: {
   cards: Card[]
   onEndReached?: () => void
@@ -57,6 +58,10 @@ export function CardGrid({
      to come through here rather than being done to it from outside. */
   initialScroll?: number
   onScroll?: (top: number) => void
+  /* Off by default, same as Screen's own default: PackDetail's wall stays the app's
+     usual chromeless scroll. Chercher opts in, the same visible desktop rail
+     Collection and Recherchées already show on their own long lists. */
+  scrollbarDesktop?: boolean
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(3)
@@ -150,7 +155,7 @@ export function CardGrid({
     <div
       ref={scrollRef}
       onScroll={onScroll ? (event) => onScroll(event.currentTarget.scrollTop) : undefined}
-      className="no-scrollbar h-full overflow-y-auto px-3 pb-28"
+      className={`no-scrollbar h-full overflow-y-auto px-3 pb-28 ${scrollbarDesktop ? 'scrollbar-desktop' : ''}`}
     >
       {/* The wall itself: the groove colour shows between the glyphs, and the whole
           surface is sunk a hair below the slab around it. */}

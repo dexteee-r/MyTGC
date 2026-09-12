@@ -33,6 +33,49 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Filtre DON!! dans Rareté, rail de scroll visible sur Chercher**, demandés
+  ensemble le 2026-09-12, tâche urgente.
+  - `'DON!!'` ajouté à `RARITIES` (`Filters.tsx`) : les cartes DON!! portent déjà
+    `rarity = 'DON!!'` en base (vérifié avant de toucher au code), donc aucun
+    changement backend nécessaire — le filtre existant `rarity IN (...)` gère la
+    valeur telle quelle. Le caractère spécial n'est pas cosmétique : `!` passe tel
+    quel par `encodeURIComponent` mais `URLSearchParams` l'encode en `%21` dans la
+    query string, un aller-retour qu'un premier test avait glissé sans vérifier
+    (voir plus bas).
+  - **Rail de défilement visible sur Chercher**, comme Collection et Recherchées
+    l'ont déjà (`scrollbar-desktop`, rail fin ≥1024px, chromeless en dessous) —
+    seule Chercher ne l'avait pas puisqu'elle ne passe pas par `<Screen>` mais par
+    `CardGrid` directement. Nouvelle prop `scrollbarDesktop` sur `CardGrid`
+    (par défaut `false`), activée seulement depuis `Search.tsx` — PackDetail,
+    l'autre appelant, garde le défilement chromeless habituel de l'appli, non
+    demandé pour lui cette fois.
+  - **Premier test à faire vraiment rendre `CardGrid` dans cette suite** :
+    `ResizeObserver` n'existe pas sous jsdom et n'avait jamais été sollicité
+    jusqu'ici (`CardGrid.test.tsx` ne teste que `CardTile`, jamais la grille
+    virtualisée entière). Stub minimal ajouté à `vitest.setup.ts`, même needed
+    que `matchMedia` juste au-dessus. jsdom ne fait aucune mise en page réelle
+    (`clientWidth` reste 0), donc les tests sur la grille vérifient que le
+    conteneur existe et porte la bonne classe plutôt qu'un rendu de carte précis.
+  - **Premier jet de test insuffisant, corrigé avant de committer** : vérifier
+    seulement que l'URL restaure le *libellé* « Filtres actifs : DON!! » aurait
+    été vert même si la puce DON!! n'avait jamais été ajoutée au groupe Rareté —
+    `appliedLabels` recopie `state.rarities` tel quel, peu importe ce que contient
+    `RARITIES`. Les tests finaux ouvrent le panneau et vérifient la puce elle-même
+    (`aria-pressed`), pas seulement le texte qui l'accompagne. Deux
+    cassés-restaurés pendant l'écriture (RARITIES sans `'DON!!'`, puis la classe
+    `scrollbar-desktop` retirée de `Search.tsx`) pour confirmer que les tests
+    auraient vraiment détecté chaque régression.
+  - **Vérifié en direct sur mobile (375×812) après coup**, sur demande explicite
+    de re-vérifier le responsive sur tout le site : Classeur, Chercher (filtre
+    DON!! : 5 030 → 187 cartes), Recherchées (14 → 6), Collection (groupe
+    Illustrateur, vide à raison sur ce compte), Extensions, une fiche extension,
+    Scanner, une fiche carte, Compte, Mentions légales — rien de cassé. Un clic
+    simulé par le pane de prévisualisation n'ouvrait pas la feuille de filtres sur
+    Collection en émulation mobile alors que `.click()` en JS direct fonctionnait
+    (probablement l'émulation tactile du pane, pas un bug de l'appli — le même
+    bouton s'ouvre normalement au doigt sur un vrai téléphone) ; noté ici plutôt
+    que laissé sans explication si ça reparaît.
+
 - **Filtre par illustrateur**, demandé le 2026-09-12 : « j'aimerai ajouer une nouvel
   catégorie dans les filtre du site » clarifié en « la catégorie des désinateur/thèmes »,
   avec 17 liens limitlesstcg.com (une page de recherche par illustrateur) et l'instruction

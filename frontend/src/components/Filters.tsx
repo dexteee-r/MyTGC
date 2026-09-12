@@ -17,6 +17,7 @@ export const RARITIES = [
   'Special',
   'TreasureRare',
   'Promo',
+  'DON!!',
 ]
 
 /* The user's own curated list of illustrators to browse by -- not the whole
