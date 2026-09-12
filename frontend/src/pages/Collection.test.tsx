@@ -70,6 +70,19 @@ function entryInSet(cardId: string, packCode: string | null): CollectionEntry {
   }
 }
 
+function entryByArtist(cardId: string, artist: string | null): CollectionEntry {
+  const card: Card = {
+    id: cardId, language: 'en', name: cardId, pack_id: '1', pack_code: null, pack_name: null,
+    rarity: null, category: null, colors: [], cost: null, power: null, counter: null,
+    attributes: [], types: [], effect: null, trigger: null, release_date: null,
+    market_price: null, image_url: null, artist, printings: [],
+  }
+  return {
+    id: cardId.length, card_id: cardId, language: 'en', quantity: 1, condition: null,
+    date_added: '2026-01-01', acquisition_price: null, notes: null, card,
+  }
+}
+
 function comboEntry(over: {
   id: string
   packCode?: string | null
@@ -1172,5 +1185,71 @@ describe('filtre par extension sur la page collection', () => {
 
     fireEvent.click(await extensionChip('OP-02'))
     expect(await screen.findByRole('button', { name: 'Filtres actifs : 2 extensions' })).toBeTruthy()
+  })
+})
+
+/* Illustrateur mirrors Extension exactly: scoped to what is actually held rather
+   than the fixed ARTISTS list Chercher/Recherchées browse the whole catalogue
+   with, since a chip for an artist owning zero cards here would only ever filter
+   down to an empty binder. */
+describe('filtre par illustrateur sur la page collection', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  const openFilters = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: /Filtres/ }))
+  }
+  const artistChip = (name: string) => screen.findByRole('button', { name })
+
+  it('ne liste que les illustrateurs réellement crédités, jamais une carte sans illustrateur', async () => {
+    mount(
+      [
+        entryByArtist('OP01-001', 'Nakamaru'),
+        entryByArtist('OP01-002', 'BISAI'),
+        entryByArtist('OP01-003', null),
+      ],
+      stats({ total_quantity: 3, distinct_cards: 3 }),
+    )
+    await openFilters()
+    expect(await artistChip('Nakamaru')).toBeTruthy()
+    expect(await artistChip('BISAI')).toBeTruthy()
+  })
+
+  it('choisir un illustrateur restreint la liste à ses cartes', async () => {
+    mount(
+      [entryByArtist('OP01-001', 'Nakamaru'), entryByArtist('OP01-002', 'BISAI')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+    fireEvent.click(await artistChip('Nakamaru'))
+
+    expect(await screen.findByRole('link', { name: /OP01-001/ })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /OP01-002/ })).toBeNull()
+  })
+
+  it('« Tout effacer » réinitialise l’illustrateur choisi', async () => {
+    mount(
+      [entryByArtist('OP01-001', 'Nakamaru'), entryByArtist('OP01-002', 'BISAI')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+    fireEvent.click(await artistChip('Nakamaru'))
+    expect(screen.queryByRole('link', { name: /OP01-002/ })).toBeNull()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Tout effacer' })[0])
+    expect(await screen.findByRole('link', { name: /OP01-002/ })).toBeTruthy()
+  })
+
+  it('le résumé des filtres nomme l’illustrateur seul, ou compte s’il y en a plusieurs', async () => {
+    mount(
+      [entryByArtist('OP01-001', 'Nakamaru'), entryByArtist('OP01-002', 'BISAI')],
+      stats({ total_quantity: 2, distinct_cards: 2 }),
+    )
+    await openFilters()
+
+    fireEvent.click(await artistChip('Nakamaru'))
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : Nakamaru' })).toBeTruthy()
+
+    fireEvent.click(await artistChip('BISAI'))
+    expect(await screen.findByRole('button', { name: 'Filtres actifs : 2 illustrateurs' })).toBeTruthy()
   })
 })

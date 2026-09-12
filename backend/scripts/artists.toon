@@ -1,0 +1,278 @@
+artists[277]{card_number,artist}:
+  EB01-006,SOWSOW
+  EB01-007,SHIE NANAHARA
+  EB01-034,Yosuke Adachi
+  EB01-043,BISAI
+  EB01-048,SOWSOW
+  EB01-049,Hayaken-sarena
+  EB01-056,Norikoi
+  EB02-061,Makitoshi
+  EB03-031,BISAI
+  EB03-062,Akanegumo
+  EB04-013,SHIE NANAHARA
+  EB04-025,Yosuke Adachi
+  EB04-027,BISAI
+  EB04-031,Akanegumo
+  EB04-048,Hayaken-sarena
+  EB04-052,Yosuke Adachi
+  OP01-004,Ono Tako
+  OP01-005,Norikoi
+  OP01-006,SOWSOW
+  OP01-008,BISAI
+  OP01-013,Ono Tako
+  OP01-016,Ono Tako
+  OP01-017,Ono Tako
+  OP01-019,BISAI
+  OP01-024,K Akagishi
+  OP01-035,Yosuke Adachi
+  OP01-041,SOWSOW
+  OP01-047,Makitoshi
+  OP01-051,Makitoshi
+  OP01-054,BISAI
+  OP01-060,BISAI
+  OP01-070,AKIRA EGAWA
+  OP01-071,BISAI
+  OP01-073,Hayaken-sarena
+  OP01-084,BISAI
+  OP01-095,Hayaken-sarena
+  OP01-101,Hayaken-sarena
+  OP01-108,BISAI
+  OP02-001,BISAI
+  OP02-004,Hayaken-sarena
+  OP02-009,Hayaken-sarena
+  OP02-011,BISAI
+  OP02-019,BISAI
+  OP02-031,SHIE NANAHARA
+  OP02-038,Hayaken-sarena
+  OP02-041,Makitoshi
+  OP02-055,BISAI
+  OP02-056,Mitsuaki Matsumoto
+  OP02-062,AKIRA EGAWA
+  OP02-083,Hayaken-sarena
+  OP02-093,BISAI
+  OP02-096,BISAI
+  OP02-103,BISAI
+  OP02-108,Mitsuaki Matsumoto
+  OP02-115,Makitoshi
+  OP02-121,BISAI
+  OP03-001,Makitoshi
+  OP03-002,BISAI
+  OP03-018,Makitoshi
+  OP03-024,Makitoshi
+  OP03-047,Mitsuaki Matsumoto
+  OP03-066,BISAI
+  OP03-090,Hayaken-sarena
+  OP03-091,BISAI
+  OP03-092,AKIRA EGAWA
+  OP03-099,BISAI
+  OP03-113,BISAI
+  OP03-114,Hayaken-sarena
+  OP04-005,SOWSOW
+  OP04-014,Makitoshi
+  OP04-015,AKIRA EGAWA
+  OP04-024,SOWSOW
+  OP04-026,Hayaken-sarena
+  OP04-028,BISAI
+  OP04-044,Mitsuaki Matsumoto
+  OP04-048,Mitsuaki Matsumoto
+  OP04-073,SOWSOW
+  OP04-083,Yosuke Adachi
+  OP04-087,Makitoshi
+  OP04-100,Hayaken-sarena
+  OP04-104,Hayaken-sarena
+  OP04-118,SHIE NANAHARA
+  OP05-030,BISAI
+  OP05-035,BISAI
+  OP05-036,BISAI
+  OP05-044,Nakamaru
+  OP05-051,Hayaken-sarena
+  OP05-054,Nakamaru
+  OP05-060,BISAI
+  OP05-062,Peach Momoko
+  OP05-067,Makitoshi
+  OP05-069,AKIRA EGAWA
+  OP05-088,SOWSOW
+  OP05-091,Makitoshi
+  OP05-100,Yosuke Adachi
+  OP06-007,AKIRA EGAWA
+  OP06-026,Hayaken-sarena
+  OP06-035,Hayaken-sarena
+  OP06-086,Yosuke Adachi
+  OP06-087,Nakamaru
+  OP06-091,BISAI
+  OP06-092,Nakamaru
+  OP06-106,SHIE NANAHARA
+  OP06-119,BISAI
+  OP07-003,Hayaken-sarena
+  OP07-008,Nakamaru
+  OP07-010,BISAI
+  OP07-015,AKIRA EGAWA
+  OP07-024,SOWSOW
+  OP07-046,Hayaken-sarena
+  OP07-066,Yosuke Adachi
+  OP07-072,BISAI
+  OP07-086,Hayaken-sarena
+  OP07-104,BISAI
+  OP07-113,BISAI
+  OP07-118,BISAI
+  OP07-119,BISAI
+  OP08-031,SOWSOW
+  OP08-046,BISAI
+  OP08-062,BISAI
+  OP08-064,BISAI
+  OP08-081,Hayaken-sarena
+  OP08-084,Yosuke Adachi
+  OP08-085,Ryo Nakama
+  OP08-102,Mitsuaki Matsumoto
+  OP08-105,SHIE NANAHARA
+  OP09-016,Nakamaru
+  OP09-023,BISAI
+  OP09-026,Hayaken-sarena
+  OP09-046,AKIRA EGAWA
+  OP09-069,Akanegumo
+  OP09-071,SHIE NANAHARA
+  OP09-092,Nakamaru
+  OP09-102,Hayaken-sarena
+  OP09-107,BISAI
+  OP10-010,Nakamaru
+  OP10-023,Hayaken-sarena
+  OP10-024,BISAI
+  OP10-031,Hayaken-sarena
+  OP10-036,BISAI
+  OP10-043,Nakamaru
+  OP10-067,Nakamaru
+  OP10-069,Nakamaru
+  OP10-072,AKIRA EGAWA
+  OP10-076,SHIE NANAHARA
+  OP10-093,Ryo Nakama
+  OP10-101,Ryo Nakama
+  OP10-108,BISAI
+  OP10-119,Makitoshi
+  OP11-016,Akanegumo
+  OP11-030,BISAI
+  OP11-084,Akanegumo
+  OP11-095,AKIRA EGAWA
+  OP11-100,BISAI
+  OP11-106,Kazuno Yuikawa
+  OP11-108,Hayaken-sarena
+  OP12-020,Makitoshi
+  OP12-034,Nakamaru
+  OP12-035,Nakamaru
+  OP12-043,AKIRA EGAWA
+  OP12-065,BISAI
+  OP12-068,Hayaken-sarena
+  OP12-071,BISAI
+  OP12-087,BISAI
+  OP12-094,Akanegumo
+  OP12-107,Akanegumo
+  OP12-112,Akanegumo
+  OP13-010,Ryo Nakama
+  OP13-013,Ryo Nakama
+  OP13-023,BISAI
+  OP13-027,Yosuke Adachi
+  OP13-064,AKIRA EGAWA
+  OP13-073,Nakamaru
+  OP13-074,Nakamaru
+  OP13-080,Gege Akutami
+  OP13-082,Hayaken-sarena
+  OP13-083,Gege Akutami
+  OP13-084,Gege Akutami
+  OP13-089,Gege Akutami
+  OP13-091,Gege Akutami
+  OP13-092,Hayaken-sarena
+  OP13-110,Peach Momoko
+  OP13-118,Makitoshi
+  OP14-004,BISAI
+  OP14-014,BISAI
+  OP14-016,Yosuke Adachi
+  OP14-020,Makitoshi
+  OP14-069,Yosuke Adachi
+  OP14-075,Hayaken-sarena
+  OP14-104,Hayaken-sarena
+  OP14-105,SHIE NANAHARA
+  OP15-002,Akanegumo
+  OP15-044,BISAI
+  OP15-053,Yosuke Adachi
+  OP15-070,Nakamaru
+  OP15-102,Hayaken-sarena
+  OP15-106,Nakamaru
+  OP15-109,Akanegumo
+  OP15-114,BISAI
+  OP15-118,Makitoshi
+  OP15-119,Makitoshi
+  OP16-001,Akanegumo
+  OP16-025,Nakamaru
+  OP16-029,Nakamaru
+  OP16-065,Hayaken-sarena
+  OP16-068,BISAI
+  OP16-069,BISAI
+  OP16-070,BISAI
+  OP16-094,BISAI
+  OP16-095,BISAI
+  OP16-118,Makitoshi
+  OP16-119,AKIRA EGAWA
+  OP17-005,Yosuke Adachi
+  OP17-014,BISAI
+  OP17-015,BISAI
+  OP17-046,SHIE NANAHARA
+  OP17-062,Hayaken-sarena
+  OP17-104,BISAI
+  OP17-114,BISAI
+  P-006,BISAI
+  P-008,Yosuke Adachi
+  P-010,BISAI
+  P-011,SHIE NANAHARA
+  P-025,BISAI
+  P-030,SOWSOW
+  P-031,Makitoshi
+  P-035,Yosuke Adachi
+  P-076,BISAI
+  P-086,BISAI
+  P-100,Akanegumo
+  P-101,SOWSOW
+  P-106,Makitoshi
+  P-111,BISAI
+  P-112,BISAI
+  PRB02-002,AKIRA EGAWA
+  PRB02-015,Akanegumo
+  PRB02-016,SHIE NANAHARA
+  ST01-006,Ono Tako
+  ST01-010,Ono Tako
+  ST01-015,Makitoshi
+  ST02-010,Hayaken-sarena
+  ST03-005,Hayaken-sarena
+  ST03-008,BISAI
+  ST04-008,Hayaken-sarena
+  ST05-008,BISAI
+  ST06-002,BISAI
+  ST06-010,BISAI
+  ST07-009,BISAI
+  ST07-010,BISAI
+  ST08-002,SOWSOW
+  ST08-005,Makitoshi
+  ST09-005,Makitoshi
+  ST10-001,Makitoshi
+  ST10-002,Makitoshi
+  ST10-003,Makitoshi
+  ST10-005,Ono Tako
+  ST10-006,Ono Tako
+  ST10-010,Peach Momoko
+  ST11-001,BISAI
+  ST12-002,SOWSOW
+  ST12-007,SOWSOW
+  ST14-007,BISAI
+  ST15-005,Makitoshi
+  ST16-001,Yosuke Adachi
+  ST17-004,Peach Momoko
+  ST17-005,Hayaken-sarena
+  ST21-009,BISAI
+  ST22-003,Yosuke Adachi
+  ST22-005,Yosuke Adachi
+  ST22-007,BISAI
+  ST25-003,BISAI
+  ST25-004,Hayaken-sarena
+  ST29-004,Kazuno Yuikawa
+  ST30-007,Yosuke Adachi
+  ST30-010,BISAI
+  ST33-004,BISAI
+  ST35-003,Hayaken-sarena

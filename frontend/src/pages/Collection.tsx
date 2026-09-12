@@ -173,12 +173,18 @@ let left: {
   // once, since the two share the same set code -- a card's edition is a
   // separate question the Édition filter already answers on its own.
   packFilter: string[]
+  // Same convention, scoped to what is actually held rather than the fixed
+  // ARTISTS list Chercher/Recherchées browse the whole catalogue with -- see
+  // availableArtists below, the same reasoning availableExtensions already
+  // follows for packFilter.
+  artistFilter: string[]
 } = {
   view: 'all',
   language: null,
   sortChain: DEFAULT_SORT,
   activeGroupId: null,
   packFilter: [],
+  artistFilter: [],
 }
 
 /* Test-only: a fresh `render()` in Vitest still shares this module's `left` with
@@ -186,7 +192,10 @@ let left: {
    it between tests, whichever filters the previous test left active would leak
    into the next one's starting state. */
 export function resetCollectionMemory() {
-  left = { view: 'all', language: null, sortChain: DEFAULT_SORT, activeGroupId: null, packFilter: [] }
+  left = {
+    view: 'all', language: null, sortChain: DEFAULT_SORT, activeGroupId: null,
+    packFilter: [], artistFilter: [],
+  }
 }
 
 /* Encodes the sort chain as `key:direction` pairs joined by commas -- ordered,
@@ -217,6 +226,7 @@ function paramsFromState(
   sortChain: SortCriterion[],
   activeGroupId: number | null,
   packFilter: string[],
+  artistFilter: string[],
 ): URLSearchParams {
   const params = new URLSearchParams()
   if (view !== 'all') params.set('view', view)
@@ -224,6 +234,7 @@ function paramsFromState(
   if (!isDefaultSort(sortChain)) params.set('sort', serialiseSort(sortChain))
   if (activeGroupId != null) params.set('group', String(activeGroupId))
   if (packFilter.length) params.set('pack', packFilter.join(','))
+  if (artistFilter.length) params.set('artist', artistFilter.join(','))
   return params
 }
 
@@ -247,6 +258,9 @@ export function Collection() {
   )
   const [packFilter, setPackFilterState] = useState<string[]>(
     urlHadState ? (searchParams.get('pack')?.split(',').filter(Boolean) ?? []) : left.packFilter,
+  )
+  const [artistFilter, setArtistFilterState] = useState<string[]>(
+    urlHadState ? (searchParams.get('artist')?.split(',').filter(Boolean) ?? []) : left.artistFilter,
   )
   const [infoOpen, setInfoOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -289,6 +303,15 @@ export function Collection() {
   const togglePackFilter = (code: string) => {
     setPackFilter(packFilter.includes(code) ? packFilter.filter((c) => c !== code) : [...packFilter, code])
   }
+  const setArtistFilter = (next: string[]) => {
+    left.artistFilter = next
+    setArtistFilterState(next)
+  }
+  const toggleArtistFilter = (name: string) => {
+    setArtistFilter(
+      artistFilter.includes(name) ? artistFilter.filter((a) => a !== name) : [...artistFilter, name],
+    )
+  }
   const setActiveGroupId = (next: number | null) => {
     left.activeGroupId = next
     setActiveGroupIdState(next)
@@ -310,11 +333,12 @@ export function Collection() {
      `left` if the URL that comes back is bare -- see `resetCollectionMemory` above
      for why the two cannot simply be merged into one mechanism in a test file. */
   useEffect(() => {
-    setSearchParams(paramsFromState(view, language, sortChain, activeGroupId, packFilter), {
-      replace: true,
-    })
+    setSearchParams(
+      paramsFromState(view, language, sortChain, activeGroupId, packFilter, artistFilter),
+      { replace: true },
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, language, sortChain, activeGroupId, packFilter])
+  }, [view, language, sortChain, activeGroupId, packFilter, artistFilter])
 
   /* Clicking a chip that isn't in the chain yet appends it -- lowest priority,
      joining an existing combo rather than displacing it. Clicking the SAME
@@ -360,6 +384,11 @@ export function Collection() {
     // Spelled out for one, counted for several -- the same choice already made
     // for how many "sur Y cotées" reads versus a bare percentage.
     packFilter.length === 1 ? packFilter[0] : packFilter.length > 1 ? `${packFilter.length} extensions` : null,
+    artistFilter.length === 1
+      ? artistFilter[0]
+      : artistFilter.length > 1
+        ? `${artistFilter.length} illustrateurs`
+        : null,
     // The lone default (newest first) reads as nothing chosen, same as before this
     // sort had two directions of its own -- everything else, including that same
     // criterion once it joins a combo, is a choice worth surfacing.
@@ -371,6 +400,7 @@ export function Collection() {
     setLanguage(null)
     setActiveGroupId(null)
     setPackFilter([])
+    setArtistFilter([])
   }
 
   /* A direct door to Groupes, next to Filtres rather than behind it -- Vue still
@@ -482,6 +512,18 @@ export function Collection() {
     return [...byCode].sort(([a], [b]) => a.localeCompare(b))
   }, [entries])
 
+  // Same reasoning as availableExtensions just above: only illustrators actually
+  // credited on a held card show up here, not the fixed ARTISTS list Chercher and
+  // Recherchées browse the whole catalogue with -- a chip for an artist owning zero
+  // cards would filter down to an empty binder every time.
+  const availableArtists = useMemo(() => {
+    const names = new Set<string>()
+    for (const entry of entries) {
+      if (entry.card?.artist) names.add(entry.card.artist)
+    }
+    return [...names].sort((a, b) => a.localeCompare(b))
+  }, [entries])
+
   // Applied before Vue and before Trier: which language and which extensions are
   // on the table decide what there is to view or sort in the first place. The
   // header meta and the "Valeur estimée" total under Tout stay account-wide
@@ -492,9 +534,10 @@ export function Collection() {
       entries.filter(
         (entry) =>
           (!language || entry.language === language) &&
-          (packFilter.length === 0 || (entry.card?.pack_code != null && packFilter.includes(entry.card.pack_code))),
+          (packFilter.length === 0 || (entry.card?.pack_code != null && packFilter.includes(entry.card.pack_code))) &&
+          (artistFilter.length === 0 || (entry.card?.artist != null && artistFilter.includes(entry.card.artist))),
       ),
-    [entries, language, packFilter],
+    [entries, language, packFilter, artistFilter],
   )
 
   /* What is worth trading: every card held more than once. The card you'd keep is
@@ -709,6 +752,11 @@ export function Collection() {
             carte apparaissent dans la liste. Choisis-en plusieurs pour les voir toutes à
             la fois ; une extension possédée dans les deux éditions les compte ensemble,
             l'édition choisie ci-dessus reste une question séparée.
+          </p>
+          <p>
+            <strong style={{ color: 'var(--text-primary)' }}>Illustrateur</strong> ne liste,
+            comme Extension, que les artistes réellement crédités sur une carte que tu
+            possèdes — jamais une liste complète qui filtrerait sur un nom vide.
           </p>
           <p>
             <strong style={{ color: 'var(--text-primary)' }}>Tout / Doubles</strong> change
@@ -1113,6 +1161,18 @@ export function Collection() {
               title={name}
             >
               {code}
+            </Chip>
+          ))}
+        </Group>
+
+        <Group label="Illustrateur">
+          {availableArtists.map((name) => (
+            <Chip
+              key={name}
+              active={artistFilter.includes(name)}
+              onClick={() => toggleArtistFilter(name)}
+            >
+              {name}
             </Chip>
           ))}
         </Group>

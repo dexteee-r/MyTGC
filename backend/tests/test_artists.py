@@ -10,7 +10,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from import_artists import ArtistPageParser, merge_slug_results  # noqa: E402
+import pytest
+
+from import_artists import (  # noqa: E402
+    ArtistPageParser,
+    decode_toon,
+    encode_toon,
+    merge_slug_results,
+)
 
 # A trimmed real page: two prints of one card (its base art, credited to Nakamaru,
 # and -- unrealistically for this actual number, but exercising the real shape --
@@ -143,3 +150,33 @@ def test_a_casing_difference_for_the_same_search_is_not_a_conflict():
 def test_an_artist_with_zero_results_still_reports_something_readable():
     name, base, variants = merge_slug_results([], "nobody-drew-anything", {}, set())
     assert (name, base, variants) == ("nobody-drew-anything", 0, 0)
+
+
+# --- TOON encoding/decoding --------------------------------------------------------
+
+def test_encode_toon_writes_the_declared_header_and_sorted_rows():
+    text = encode_toon({"OP16-025": "Nakamaru", "OP01-006": "SOWSOW"})
+    assert text.splitlines() == [
+        "artists[2]{card_number,artist}:",
+        "  OP01-006,SOWSOW",
+        "  OP16-025,Nakamaru",
+    ]
+
+
+def test_decode_toon_is_the_inverse_of_encode_toon():
+    by_number = {"OP16-025": "Nakamaru", "ST01-011": "Ono Tako"}
+    assert decode_toon(encode_toon(by_number)) == by_number
+
+
+def test_a_name_containing_a_comma_round_trips_quoted():
+    # No real artist in ARTIST_SLUGS needs this, but the quoting rule is applied
+    # rather than assumed unnecessary -- a future name that does need it must not
+    # corrupt the two-column row it shares with its card number.
+    by_number = {"OP01-001": "Smith, Jr."}
+    assert decode_toon(encode_toon(by_number)) == by_number
+    assert '"Smith, Jr."' in encode_toon(by_number)
+
+
+def test_decode_toon_rejects_a_header_that_does_not_match_the_row_count():
+    with pytest.raises(ValueError):
+        decode_toon("artists[2]{card_number,artist}:\n  OP16-025,Nakamaru\n")

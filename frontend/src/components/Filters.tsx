@@ -22,7 +22,7 @@ export const RARITIES = [
 /* The user's own curated list of illustrators to browse by -- not the whole
    catalogue's roster, which nothing here tries to discover on its own. Kept as a
    literal so the chip list never depends on a network round trip; regenerate
-   backend/scripts/artists.json and copy its distinct values here when a name is
+   backend/scripts/artists.toon and copy its distinct values here when a name is
    added or removed. */
 export const ARTISTS = [
   'AKIRA EGAWA',

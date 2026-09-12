@@ -59,10 +59,21 @@ quand celui-ci remontera dans les priorités.
       (« sowsow » / « SOWSOW ») n'est pas un conflit : un seul nom canonique retenu par
       lot de recherche (le premier rencontré), pour ne pas fabriquer une fausse
       ambiguïté à partir d'une simple différence de frappe sur le site source.
-  - **Résultat mesuré** : 277 numéros de carte dans `backend/scripts/artists.json`
+  - **Résultat mesuré** : 277 numéros de carte dans `backend/scripts/artists.toon`
     (nouveau fichier, versionné, régénérable par le script), 17 conflits réels
     écartés. Appliqué à la base de dev : 553 lignes mises à jour (les deux langues
     reçoivent le même crédit), 0 non trouvées.
+  - **Format corrigé après coup, le 2026-09-12** : « pas en json mais en toon »
+    — l'artefact était d'abord `artists.json`, remplacé par `artists.toon` (format
+    TOON, https://github.com/toon-format/spec) sur demande explicite. Encodeur/
+    décodeur maison pour ce seul cas à deux colonnes (`encode_toon`/`decode_toon`
+    dans `import_artists.py`), pas une dépendance externe. Conversion vérifiée sans
+    perte (`decode_toon(encode_toon(x)) == x` sur les 277 entrées réelles), le
+    fichier `.json` supprimé plutôt que gardé en double, le flag CLI renommé
+    `--from-json` → `--from-toon`. 4 nouveaux tests (aller-retour, tri, quoting
+    d'une valeur avec virgule, en-tête incohérent rejeté), un cassé-restauré sur la
+    règle de quoting pour confirmer qu'un nom d'artiste contenant une virgule
+    corromprait sinon la ligne.
   - Colonne `artist` ajoutée aux cartes (schéma + migration additive + modèle +
     endpoint `/cards`), et un groupe de puces « Illustrateur » (17 noms, liste
     figée volontairement — pas de round-trip réseau pour la peupler) dans le panneau
@@ -72,6 +83,26 @@ quand celui-ci remontera dans les priorités.
     pour le nouveau champ obligatoire `Card.artist`. Vérifié en direct sur Chercher :
     le filtre « Nakamaru » fait passer le compte de 5 030 à 19 cartes, chip actif,
     grille cohérente avec le résultat.
+  - **`artists.json` gardé en backup, le 2026-09-12** : sur demande explicite,
+    régénéré depuis `artists.toon` (`decode_toon` puis `json.dumps` identique au
+    format d'origine) et conservé à côté — le script ne le lit plus jamais, seul
+    `artists.toon` fait foi. Pas régénéré automatiquement à chaque run.
+  - **Étendu à la page Collection, le 2026-09-12** : jusque-là seulement sur
+    Chercher et Recherchées. Contrairement à ces deux-là, qui parcourent tout le
+    catalogue avec la liste `ARTISTS` figée de `Filters.tsx`, Collection calcule
+    sa propre liste (`availableArtists`), scopée aux illustrateurs réellement
+    crédités sur une carte *possédée* — même raisonnement que `availableExtensions`
+    juste à côté : une puce pour un artiste dont on ne possède aucune carte ne
+    filtrerait jamais que vers un classeur vide. État persistant dans `left`
+    (survit à un aller-retour sur une fiche carte, comme le reste des filtres de
+    cette page) et dans l'URL (`?artist=`). 4 nouveaux tests, un cassé-restauré sur
+    le prédicat de filtrage. Vérifié en direct : aucune des 24 cartes du compte de
+    dev n'a d'illustrateur connu au départ (chip « Illustrateur » vide, à raison),
+    une carte créditée (OP01-004, Ono Tako) ajoutée temporairement à la collection
+    pour confirmer que le filtre restreint bien 25 → 1 référence, puis retirée pour
+    ne rien laisser en l'état. Non étendu à la collection partagée cette fois-ci
+    (voir plus haut, « Filtres complets sur une collection partagée ») — pas
+    demandé pour ce chantier-ci.
 
 - **`deploy/` entièrement désynchronisé de la vraie machine : `/srv/mytcg` partout
   dans le dépôt, `/opt/mytcg` en prod depuis le 06/09**, découvert le 2026-09-11 en

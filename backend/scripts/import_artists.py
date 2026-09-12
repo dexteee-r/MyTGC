@@ -1,9 +1,9 @@
 """Credit illustrators onto the catalogue, from a hand-picked list of artists.
 
 Usage:
-    py backend/scripts/import_artists.py            # scrape, write artists.json, load it
+    py backend/scripts/import_artists.py            # scrape, write artists.toon, load it
     py backend/scripts/import_artists.py --scrape-only
-    py backend/scripts/import_artists.py --from-json  # skip the network, reload artists.json
+    py backend/scripts/import_artists.py --from-toon  # skip the network, reload artists.toon
 
 The list of artists to track is not the whole catalogue's roster -- it is
 whatever the user has personally noticed and wants to browse by (17 names as of
@@ -28,10 +28,23 @@ guess the price importers next door refuse to make, having been burned by it
 twice on the English side. So a `?v=` result is recorded for the coverage
 report and then dropped, never written as `OPxx-xxx_p2`.
 
-artists.json is a real, checked-in artifact (not gitignored bulk data like
-backend/data/): {"OP16-025": "Nakamaru", ...}, one entry per base card number,
-regenerable by re-running this script but hand-curated in the sense that the
-artist list itself is a deliberate, short selection.
+artists.toon is a real, checked-in artifact (not gitignored bulk data like
+backend/data/), one row per base card number:
+
+    artists[277]{card_number,artist}:
+      OP16-025,Nakamaru
+      ...
+
+TOON (Token-Oriented Object Notation, https://github.com/toon-format/spec) over
+plain JSON at the user's own request -- same data, fewer tokens per row for a
+uniform two-column table like this one. Regenerable by re-running this script,
+but hand-curated in the sense that the artist list itself is a deliberate,
+short selection.
+
+artists.json sits alongside it as a plain backup snapshot of the same data, kept
+at the user's request -- this script never reads it, only artists.toon (via
+`--from-toon`). Not auto-regenerated on every run; refresh it by hand if
+artists.toon changes and the backup should follow.
 """
 
 import argparse
@@ -60,7 +73,7 @@ BASE = "https://onepiece.limitlesstcg.com"
 AGENT = "MyTCG/1.0 (personal collection tracker; contact via github)"
 PAUSE = 0.6
 
-ARTISTS_JSON = Path(__file__).resolve().parent / "artists.json"
+ARTISTS_TOON = Path(__file__).resolve().parent / "artists.toon"
 
 # The user's own curated list, one search slug each. Exactly what reaches
 # `!artist:` in the query -- the site matches it case-insensitively, so the
@@ -204,6 +217,74 @@ def merge_slug_results(
     return display_name, len(base_codes), len(variant_codes)
 
 
+# --- TOON encoding (https://github.com/toon-format/spec) -------------------------
+#
+# Just enough of the spec's tabular form for this one shape -- a uniform,
+# two-column array of (card_number, artist) -- not a general-purpose TOON
+# library. Neither column ever needs quoting in real data (no commas, colons,
+# quotes or leading dashes turn up in a card code or an artist's own name),
+# but the quoting rule from the spec is still applied rather than assumed
+# away, so a future artist name that does need it degrades safely instead of
+# corrupting the file.
+
+_TOON_HEADER = re.compile(r"^artists\[(\d+)\]\{card_number,artist\}:$")
+
+
+def _toon_needs_quoting(value: str) -> bool:
+    if value == "" or value != value.strip():
+        return True
+    if value.lower() in ("true", "false", "null"):
+        return True
+    if re.fullmatch(r"-?\d+(\.\d+)?", value):
+        return True
+    if value[:1] in ("-", "#"):
+        return True
+    if any(ch in value for ch in ',":\\[]{}'):
+        return True
+    return any(ord(ch) < 0x20 for ch in value)
+
+
+def _encode_cell(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False) if _toon_needs_quoting(value) else value
+
+
+def _decode_row(row: str) -> tuple[str, str]:
+    """Splits one `card_number,artist` row, honouring a quoted first cell."""
+    if row.startswith('"'):
+        end = 1
+        while row[end] == "\\" or row[end] != '"':
+            end += 2 if row[end] == "\\" else 1
+        number = json.loads(row[: end + 1])
+        rest = row[end + 2:]  # skip the closing quote and the delimiter
+    else:
+        number, _, rest = row.partition(",")
+    artist = json.loads(rest) if rest.startswith('"') else rest
+    return number, artist
+
+
+def encode_toon(by_number: dict[str, str]) -> str:
+    """`{code: artist}` -> the TOON tabular form written to artists.toon."""
+    lines = [f"artists[{len(by_number)}]{{card_number,artist}}:"]
+    for number in sorted(by_number):
+        lines.append(f"  {_encode_cell(number)},{_encode_cell(by_number[number])}")
+    return "\n".join(lines) + "\n"
+
+
+def decode_toon(text: str) -> dict[str, str]:
+    """The inverse of `encode_toon`, checking the header's own declared count."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    header = _TOON_HEADER.match(lines[0]) if lines else None
+    if not header:
+        raise ValueError("artists.toon : en-tête inattendu (format changé ?)")
+    by_number = dict(_decode_row(line.strip()) for line in lines[1:])
+    declared = int(header.group(1))
+    if len(by_number) != declared:
+        raise ValueError(
+            f"artists.toon : en-tête annonce {declared} lignes, {len(by_number)} lues",
+        )
+    return by_number
+
+
 def scrape() -> dict[str, str]:
     """Base card number -> artist, across every slug in ARTIST_SLUGS."""
     by_number: dict[str, str] = {}
@@ -254,24 +335,21 @@ def apply_to_db(by_number: dict[str, str]) -> tuple[int, int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Credit illustrators onto the catalogue.")
     parser.add_argument("--scrape-only", action="store_true",
-                         help="write artists.json, skip the database")
-    parser.add_argument("--from-json", action="store_true",
-                         help="reload artists.json into the database without scraping")
+                         help="write artists.toon, skip the database")
+    parser.add_argument("--from-toon", action="store_true",
+                         help="reload artists.toon into the database without scraping")
     args = parser.parse_args()
 
-    if args.from_json:
-        by_number = json.loads(ARTISTS_JSON.read_text(encoding="utf-8"))
-        print(f"{len(by_number)} numéros lus depuis {ARTISTS_JSON.name}")
+    if args.from_toon:
+        by_number = decode_toon(ARTISTS_TOON.read_text(encoding="utf-8"))
+        print(f"{len(by_number)} numéros lus depuis {ARTISTS_TOON.name}")
     else:
         by_number = scrape()
         if not by_number:
             print("Aucun artiste n'a renvoyé de carte. Rien n'a été écrit.", file=sys.stderr)
             return 1
-        ARTISTS_JSON.write_text(
-            json.dumps(by_number, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        print(f"\n{len(by_number)} numéros écrits dans {ARTISTS_JSON.name}")
+        ARTISTS_TOON.write_text(encode_toon(by_number), encoding="utf-8")
+        print(f"\n{len(by_number)} numéros écrits dans {ARTISTS_TOON.name}")
 
     if args.scrape_only:
         return 0
