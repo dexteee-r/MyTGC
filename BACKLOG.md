@@ -33,6 +33,31 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **`index.html` sans cache propre en prod**, découvert le 2026-09-12 en vérifiant
+  pourquoi le filtre DON!! restait invisible juste après le déploiement du commit
+  qui l'ajoutait.
+  - **Mesuré avant de conclure à un déploiement raté** : `/health` annonçait déjà
+    le bon commit, et `fetch()` direct sur `/assets/index-*.js` (fichier statique,
+    sans connexion) a confirmé que `'DON!!'` et `'scrollbar-desktop'` étaient bien
+    dans le bundle réellement servi. Le code était en ligne ; ce qui manquait,
+    c'était de le faire recharger.
+  - **Cause** : `/assets/*.js` est mis en cache un an, immuable (`deploy/nginx/
+    mytcg.elmzn.be.conf`) — correct, puisque son nom change à chaque build —, mais
+    `index.html`, seul endroit où vit ce nom de fichier courant, ne portait aucune
+    directive `Cache-Control` à lui. Un navigateur pouvait donc garder une copie
+    de `index.html` pointant vers le *précédent* build indéfiniment, sans jamais la
+    revalider — `/health` prouve seulement que l'API a redémarré, jamais qu'un
+    navigateur donné a effectivement rechargé la page.
+  - **Corrigé** : `location = /index.html { add_header Cache-Control "no-cache"; }`
+    dans la conf Nginx — `no-cache` et non `no-store`, le navigateur garde une
+    copie mais la revalide systématiquement avant de s'en servir.
+  - **Pas auto-déployé** : `deploy.sh` ne touche jamais à Nginx (même raison que
+    les unités systemd, voir `deploy/README.md`), donc ce correctif doit être
+    appliqué à la main sur la machine (copier le fichier de conf au bon endroit,
+    `nginx -t`, `systemctl reload nginx`) avant de régler le problème pour de bon.
+    En attendant, un rechargement forcé du navigateur (Ctrl/Cmd+Maj+R) contourne
+    le souci ponctuellement.
+
 - **Filtre DON!! dans Rareté, rail de scroll visible sur Chercher**, demandés
   ensemble le 2026-09-12, tâche urgente.
   - `'DON!!'` ajouté à `RARITIES` (`Filters.tsx`) : les cartes DON!! portent déjà

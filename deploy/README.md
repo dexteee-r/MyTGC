@@ -47,7 +47,7 @@ no CORS to keep in sync, and the httpOnly refresh cookie works without the SameS
 gymnastics a split origin would need. `VITE_API_BASE` stays unset — the client's
 default of `/api` is already right.
 
-## Two things that will bite if skipped
+## Three things that will bite if skipped
 
 **`MYTCG_SECRET_KEY` must be set.** Without it the API generates one at boot, and
 every session dies on the next restart. It logs a warning saying so.
@@ -56,6 +56,21 @@ every session dies on the next restart. It logs a warning saying so.
 otherwise sees plain HTTP and issues the refresh cookie *without* its `Secure` flag.
 The unit file and the Nginx `X-Forwarded-Proto` mapping are both part of that chain;
 neither works alone.
+
+**`index.html` needs its own `Cache-Control: no-cache`.** `deploy.sh` never touches
+Nginx — same reasoning as systemd units, see "Installing and changing units" below
+— so this has to be applied by hand once, by copying `deploy/nginx/mytcg.elmzn.be.conf`
+over whatever this site's config is called on the host (this file doesn't say where
+that is — confirm the real path there, the same way unit drift is confirmed with
+`systemctl show` rather than assumed), then `sudo nginx -t && sudo systemctl reload
+nginx`. Without it, a deploy can land cleanly — new commit, new hashed bundle under
+`/assets/` (cached a year, immutable, by design), API restarted, `/health` showing
+the new commit — and still look like nothing shipped: a browser's own cached copy
+of `index.html` keeps pointing at the *previous* build's `/assets/index-*.js`
+filename, and nothing forces it to ask again. Confirmed 2026-09-12 exactly that
+way: fetching the deployed bundle directly showed the new code was there the whole
+time. `no-cache`, not `no-store` — the browser still keeps a copy, it just always
+revalidates it first.
 
 ## Data bootstrap
 
