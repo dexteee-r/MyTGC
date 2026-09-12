@@ -53,10 +53,21 @@ quand celui-ci remontera dans les priorités.
     copie mais la revalide systématiquement avant de s'en servir.
   - **Pas auto-déployé** : `deploy.sh` ne touche jamais à Nginx (même raison que
     les unités systemd, voir `deploy/README.md`), donc ce correctif doit être
-    appliqué à la main sur la machine (copier le fichier de conf au bon endroit,
-    `nginx -t`, `systemctl reload nginx`) avant de régler le problème pour de bon.
-    En attendant, un rechargement forcé du navigateur (Ctrl/Cmd+Maj+R) contourne
-    le souci ponctuellement.
+    appliqué à la main sur la machine. En attendant, un rechargement forcé du
+    navigateur (Ctrl/Cmd+Maj+R) contourne le souci ponctuellement.
+  - **Seconde dérive dépôt/prod trouvée en voulant appliquer ce correctif** :
+    l'assistant homelab a comparé la conf réelle (`/etc/nginx/sites-available/
+    mytcg.elmzn.be.conf`) à celle du dépôt avant de la copier — bonne chose, une
+    copie brute aurait écrasé deux protections vivantes que le dépôt n'avait
+    jamais eues : `listen 80 default_server` (fix d'un bug de boot du 15/08, la
+    machine partage le port 80 entre plusieurs sites) et une ACL
+    (`allow 192.168.1.111; allow 127.0.0.1; deny all;`, restreignant l'accès
+    direct au proxy et au localhost). Les deux repliées dans le dépôt à la suite
+    de ce rapport, pour qu'une prochaine copie soit sûre — mais sans garantie que
+    ce soit la dernière dérive existante ; toujours diffuser contre `nginx -T`
+    avant d'écraser, pas seulement se fier à ce fichier.
+  - Appliqué en prod avec `systemctl restart nginx`, pas `reload` — leçon déjà
+    tirée côté homelab sur ce site précis, pas rediscutée ici.
 
 - **Filtre DON!! dans Rareté, rail de scroll visible sur Chercher**, demandés
   ensemble le 2026-09-12, tâche urgente.

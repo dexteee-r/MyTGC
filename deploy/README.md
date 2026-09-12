@@ -59,18 +59,28 @@ neither works alone.
 
 **`index.html` needs its own `Cache-Control: no-cache`.** `deploy.sh` never touches
 Nginx — same reasoning as systemd units, see "Installing and changing units" below
-— so this has to be applied by hand once, by copying `deploy/nginx/mytcg.elmzn.be.conf`
-over whatever this site's config is called on the host (this file doesn't say where
-that is — confirm the real path there, the same way unit drift is confirmed with
-`systemctl show` rather than assumed), then `sudo nginx -t && sudo systemctl reload
-nginx`. Without it, a deploy can land cleanly — new commit, new hashed bundle under
-`/assets/` (cached a year, immutable, by design), API restarted, `/health` showing
-the new commit — and still look like nothing shipped: a browser's own cached copy
-of `index.html` keeps pointing at the *previous* build's `/assets/index-*.js`
-filename, and nothing forces it to ask again. Confirmed 2026-09-12 exactly that
-way: fetching the deployed bundle directly showed the new code was there the whole
-time. `no-cache`, not `no-store` — the browser still keeps a copy, it just always
-revalidates it first.
+— so this has to be applied by hand once, at `/etc/nginx/sites-available/mytcg.elmzn.be.conf`
+on the host (confirmed live 2026-09-12), then `sudo nginx -t && sudo systemctl
+restart nginx` (**`restart`, not `reload`** — a lesson already learned once on this
+exact site, per the homelab side; take it as given rather than re-litigating it).
+Without this header, a deploy can land cleanly — new commit, new hashed bundle
+under `/assets/` (cached a year, immutable, by design), API restarted, `/health`
+showing the new commit — and still look like nothing shipped: a browser's own
+cached copy of `index.html` keeps pointing at the *previous* build's
+`/assets/index-*.js` filename, and nothing forces it to ask again. Confirmed
+2026-09-12 exactly that way: fetching the deployed bundle directly showed the new
+code was there the whole time. `no-cache`, not `no-store` — the browser still keeps
+a copy, it just always revalidates it first.
+
+**Do not `cp` this file over the live one without diffing first.** The live config
+carried two protections this file did not, until they were folded in here on
+2026-09-12 after the homelab side compared the two: `listen 80 default_server`
+(fixes a 2026-08-15 boot bug on a host sharing port 80 across several sites) and an
+`allow`/`deny` ACL restricted to the reverse proxy's own LAN address plus
+localhost. Both should now match — but confirm live with `nginx -T` before
+overwriting, the same "measure, don't assume the repo already reflects the box"
+rule as everywhere else in this file, rather than trusting that this file caught
+every difference that will ever exist.
 
 ## Data bootstrap
 
