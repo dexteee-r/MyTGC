@@ -95,9 +95,12 @@ export function Account() {
     }
   }
 
-  /* Both editions, because this is the whole binder and not the one being browsed. */
+  /* Both editions, because this is the whole binder and not the one being browsed.
+     cards_total, not catalogue: the latter is punk-records provenance only and
+     silently excludes any card from a different importer (DON!! cards, e.g.) even
+     though a real collector can own one. */
   const catalogue = useMemo(
-    () => Object.values(health?.catalogue ?? {}).reduce((sum, n) => sum + n, 0),
+    () => Object.values(health?.cards_total ?? {}).reduce((sum, n) => sum + n, 0),
     [health],
   )
   const started = (packs ?? []).filter((pack) => pack.owned_count > 0).length

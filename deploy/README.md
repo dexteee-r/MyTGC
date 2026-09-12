@@ -276,6 +276,34 @@ that path. First encountered 2026-08-28 shipping OP-17: the LXC had a working
 catalogue, images and pHashes with no `punk-records` directory anywhere on disk. Clone
 it fresh in that case, same command as "Data bootstrap" used originally.
 
+### DON!! cards
+
+A fourth script, not part of the three above and not covered by `punk-records` at
+all: `backend/scripts/import_don_cards.py`, English-only, source is
+optcgapi.com. Run it after `import_catalogue.py` and before the two build-step
+scripts — it just adds rows for `download_images.py`/`compute_phashes.py` to pick
+up, same as everything else:
+
+```bash
+sudo -u mytcg bash -c '
+export MYTCG_DATA_DIR=/var/lib/mytcg
+cd /opt/mytcg/app
+.venv/bin/python backend/scripts/import_don_cards.py
+.venv/bin/python backend/scripts/download_images.py --workers 8
+.venv/bin/python backend/scripts/compute_phashes.py --region art --all
+'
+sudo systemctl restart mytcg-api
+```
+
+**Confirmed still not run on this host as of 2026-09-12**, found the same way the
+`index.html` cache issue was — a just-shipped feature (the DON!! rarity chip on
+Chercher/Recherchées) reported empty on prod, and this time the code and the
+`/cards?rarity=DON!!` query were both fine; the rows themselves were simply never
+there. `/health`'s `catalogue.en` count is the tell: 4843 on prod against 5030 in
+dev, a gap of exactly 187 — the DON!! card count, to the card. Full story of the
+import itself (id format, extension attribution, the two OP14/OP15 compound-code
+remaps) is in the main `README.md`'s own "DON!! cards" section, not repeated here.
+
 **The restart is not optional.** `/scan` matches against `app.state.catalogue`, built
 once at API startup and held in memory — updating the database alone leaves the
 running process matching against the old card count until it restarts. `/health`'s

@@ -33,6 +33,42 @@ quand celui-ci remontera dans les priorités.
 
 ## Fait
 
+- **Filtre DON!! à 0 résultat en prod**, remonté le 2026-09-12 juste après le
+  correctif du cache d'`index.html` ci-dessous — cette fois le code et la requête
+  étaient sains, ce sont les lignes elles-mêmes qui manquaient.
+  - **Mesuré, pas supposé** : `/health` donnait `catalogue.en = 4843` en prod
+    contre `5030` en dev — un écart de 187, exactement le nombre de cartes DON!!
+    (`backend/scripts/import_don_cards.py`, voir [[mytcg-don-cards-status]] côté
+    mémoire). Le script existe depuis le 2026-09-06 mais n'avait jamais tourné
+    sur cet hôte.
+  - **Trou de documentation trouvé au passage** : `deploy/README.md` ne mentionnait
+    ce script nulle part, alors que le `README.md` racine et la mémoire de session
+    disaient tous deux qu'il devait rejoindre le pipeline catalogue en prod. Ajouté
+    dans une nouvelle sous-section « DON!! cards » sous « Catalogue updates ».
+  - **Fait côté homelab** : import lancé et vérifié en base réelle (`SELECT
+    language, COUNT(*) FROM cards GROUP BY language` → en=5030, jp=4961, les 187
+    DON!! bien présentes), images et hashes recalculés, API redémarrée. Un
+    résidu accepté : DON-011 n'a pas d'image (placeholder SVG renvoyé par
+    optcgapi.com elle-même, pas un souci réseau ou d'infra — la carte existe en
+    base, restera juste sans image/scan tant que la source n'en fournit pas une).
+  - **`/health.catalogue` ne remontera jamais à 5030, et ce n'est pas un bug** :
+    cette table (`catalogue_meta`) trace uniquement la provenance du dernier
+    import punk-records (source, commit, date) — `import_don_cards.py` ajoute des
+    lignes dans `cards` mais n'y touche jamais, à raison : y mélanger le compte
+    DON!! aurait attribué ces cartes à un commit punk-records qui ne les a jamais
+    produites. Plutôt que de trafiquer cette table de provenance, un second champ
+    ajouté à `/health` : `cards_total`, un vrai `COUNT(*) FROM cards GROUP BY
+    language` en direct — même principe que `hashed_cards`, déjà calculé ainsi
+    juste à côté.
+  - **Bug utilisateur trouvé au passage, pas juste un souci de diagnostic** :
+    Classeur et Compte calculaient tous les deux le « % du catalogue possédé »
+    à partir de `health.catalogue` — donc sous-comptaient déjà silencieusement
+    le dénominateur de 187 cartes partout où le catalogue a des DON!!, y compris
+    en dev depuis le 6 septembre. Basculés sur `cards_total`. Nouveau test
+    (`Account.test.tsx`) : 50 possédées sur 200 réelles doit afficher 25,0 %,
+    pas 50,0 % (ce que donnerait un dénominateur de 100 venant de `catalogue`) —
+    cassé-restauré pour confirmer qu'il aurait vraiment attrapé la régression.
+
 - **`index.html` sans cache propre en prod**, découvert le 2026-09-12 en vérifiant
   pourquoi le filtre DON!! restait invisible juste après le déploiement du commit
   qui l'ajoutait.

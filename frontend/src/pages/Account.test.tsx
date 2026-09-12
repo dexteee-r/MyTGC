@@ -5,7 +5,7 @@ import { AuthProvider } from '../lib/auth'
 import { CollectionProvider } from '../lib/collection'
 import { LanguageProvider } from '../lib/language'
 import { ToastProvider } from '../lib/toast'
-import type { DeviceSession, Invite, RegistrationPolicy } from '../lib/types'
+import type { DeviceSession, Health, Invite, RegistrationPolicy } from '../lib/types'
 import { Account } from './Account'
 
 /* Appareils connectés: refresh_tokens.user_agent has been in the schema since
@@ -15,7 +15,12 @@ import { Account } from './Account'
 
 function mount(
   sessions: DeviceSession[],
-  options: { invites?: Invite[]; policy?: RegistrationPolicy } = {},
+  options: {
+    invites?: Invite[]
+    policy?: RegistrationPolicy
+    health?: Partial<Health>
+    distinctCards?: number
+  } = {},
 ) {
   const calls: { url: string; method: string }[] = []
   vi.stubGlobal(
@@ -66,8 +71,9 @@ function mount(
         return {
           ok: true, status: 200, text: async () => '',
           json: async () => ({
-            distinct_cards: 0, total_quantity: 0, by_language: {}, by_rarity: {},
-            acquisition_total: 0, market_total: 0, market_priced: 0, market_currency: 'EUR',
+            distinct_cards: options.distinctCards ?? 0, total_quantity: 0, by_language: {},
+            by_rarity: {}, acquisition_total: 0, market_total: 0, market_priced: 0,
+            market_currency: 'EUR',
           }),
         } as Response
       }
@@ -80,7 +86,10 @@ function mount(
       if (url.includes('/health')) {
         return {
           ok: true, status: 200, text: async () => '',
-          json: async () => ({ status: 'ok', catalogue: {}, hashed_cards: 0, scan_enabled: false }),
+          json: async () => ({
+            status: 'ok', catalogue: {}, cards_total: {}, hashed_cards: 0, scan_enabled: false,
+            ...options.health,
+          }),
         } as Response
       }
       // /auth/refresh on AuthProvider mount, and anything else unanticipated.
@@ -246,5 +255,24 @@ describe('inviter quelqu’un', () => {
 
     await waitFor(() => expect(screen.queryByText('Pour Zoro')).toBeNull())
     expect(calls.some((c) => c.url.includes('/auth/invites/7') && c.method === 'DELETE')).toBe(true)
+  })
+})
+
+/* « % du catalogue » has to use the real card count, not punk-records' own
+   provenance figure -- a card from any other importer (DON!! cards, e.g.) is real
+   and ownable even though catalogue_meta never heard of it. */
+describe('pourcentage du catalogue possédé', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('se base sur cards_total, pas sur catalogue (provenance punk-records seule)', async () => {
+    // 50 possédées sur 200 réelles -- si le calcul retombait sur `catalogue`
+    // (100 déclarées), il afficherait 50,0 % au lieu du vrai 25,0 %.
+    mount([], {
+      health: { catalogue: { en: 100 }, cards_total: { en: 200 } },
+      distinctCards: 50,
+    })
+
+    expect(await screen.findByText('25,0 %')).toBeTruthy()
+    expect(screen.queryByText('50,0 %')).toBeNull()
   })
 })

@@ -70,9 +70,12 @@ export function Home() {
   const recent = entries.slice(0, 8)
 
   /* The size of the whole catalogue, both editions. /health already publishes it —
-     asking again would be a second source of the same number. */
+     asking again would be a second source of the same number. cards_total, not
+     catalogue: the latter is punk-records provenance only and silently excludes
+     any card from a different importer (DON!! cards, e.g.) even though a real
+     collector can own one. */
   const catalogue = useMemo(
-     () => Object.values(health?.catalogue ?? {}).reduce((sum, n) => sum + n, 0),
+     () => Object.values(health?.cards_total ?? {}).reduce((sum, n) => sum + n, 0),
      [health],
   )
   const distinct = stats?.distinct_cards ?? 0

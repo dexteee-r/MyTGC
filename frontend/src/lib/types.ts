@@ -117,7 +117,12 @@ export interface Health {
   // The commit's own date, not "now" -- a stalled auto-deploy still shows the true,
   // ageing date rather than quietly updating on every process restart.
   commit_at: string | null
+  // Punk-records provenance only (source/commit/date) -- a card added by a
+  // different importer (import_don_cards.py, say) is real but invisible here.
+  // cards_total is the true per-language row count; use that for anything
+  // user-facing, this only for "which punk-records snapshot is this."
   catalogue: Record<string, number>
+  cards_total: Record<string, number>
   hashed_cards: number
   scan_enabled: boolean
   scan_threshold?: number

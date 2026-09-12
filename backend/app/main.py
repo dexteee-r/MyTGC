@@ -1345,12 +1345,24 @@ def _entry(conn: sqlite3.Connection, entry_id: int) -> CollectionEntry:
 
 @app.get("/health")
 def health(conn: Conn):
+    # `catalogue` is provenance for the punk-records import specifically (which
+    # snapshot, which commit, imported when) -- it does not, and should not, count
+    # cards import_don_cards.py (or any future non-punk-records source) adds,
+    # because that would misattribute them to a commit that never produced them.
+    # `cards_total` is the actual row count instead, live, the same way
+    # `hashed_cards` already is below -- the two can legitimately disagree, and a
+    # gap between them means a non-punk-records source hasn't been (re)imported
+    # here yet, not that either number is wrong. Added 2026-09-12 after exactly
+    # that gap (187 DON!! cards) read as "the deploy didn't work" because nothing
+    # but a real `COUNT(*)` could tell the two apart.
     meta = {r["language"]: r["card_count"] for r in
             conn.execute("SELECT language, card_count FROM catalogue_meta")}
+    totals = {r["language"]: r["n"] for r in
+              conn.execute("SELECT language, COUNT(*) AS n FROM cards GROUP BY language")}
     hashed = conn.execute(
         "SELECT COUNT(*) FROM cards WHERE r_phash IS NOT NULL").fetchone()[0]
     return {"status": "ok", "commit": app.state.commit, "commit_at": app.state.commit_at,
-            "catalogue": meta, "hashed_cards": hashed,
+            "catalogue": meta, "cards_total": totals, "hashed_cards": hashed,
             "registration": auth.REGISTRATION_MODE,
             # Published so the live scanner paces itself from the real limit rather
             # than a constant of its own that can quietly drift out of step. The
