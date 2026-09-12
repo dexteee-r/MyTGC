@@ -185,10 +185,23 @@ happen here, same as "Catalogue updates" below and prices further up.
 
 ```bash
 sudo -u mytcg bash -c '
+export MYTCG_DATA_DIR=/var/lib/mytcg
 cd /opt/mytcg/app
 .venv/bin/python backend/scripts/import_artists.py --from-toon
 '
 ```
+
+**`MYTCG_DATA_DIR` set by hand, not `source /etc/mytcg/mytcg.env`** — same reasoning
+as "Catalogue updates" below: this script only needs the one variable to find the
+real `mytcg.db`, and sourcing the whole env file in a plain shell does not strip its
+CRLF line endings the way systemd's own parser does. First version of this section
+skipped the variable entirely, which is worse than the CRLF trap, not safer than
+it: with nothing set, `app.config.DB_PATH` falls back to a fresh, empty
+`backend/data/mytcg.db` *inside the checkout* — a directory that does not even
+exist on this host outside of that fallback — and the script reports the exact same
+success message while writing to a database nobody ever queries. Caught 2026-09-12
+before it shipped a second silent no-op of the same shape as the 2026-08-15 EN
+price incident.
 
 Expect a line like `277 numéros lus depuis artists.toon` followed by `NNN lignes
 mises à jour en base (0 numéros absents de ce catalogue)` — a non-zero "absents"
@@ -197,12 +210,13 @@ drifted, worth a second look rather than ignoring. **No API restart needed**: li
 `market_price`, `artist` is read straight from the database on every `/cards`
 request, never cached in `app.state` the way the `/scan` catalogue is.
 
-Symptom if this step is skipped after a deploy that ships the filter: the UI is
-correct (chips render, the endpoint accepts `?artist=`) but every result is empty
-or the "Illustrateur" group on Collection is always blank — the column exists and
-is simply NULL on every row. Re-run the command above whenever `artists.toon`
-changes in the repository (a name added or removed, a fresh scrape) — it is safe to
-re-run any time, it only ever `UPDATE`s by card number.
+Symptom if this step is skipped, or run without `MYTCG_DATA_DIR`, after a deploy
+that ships the filter: the UI is correct (chips render, the endpoint accepts
+`?artist=`) but every result is empty, or the "Illustrateur" group on Collection is
+always blank — the column exists and is simply NULL on every row of the database
+the API actually reads. Re-run the command above whenever `artists.toon` changes in
+the repository (a name added or removed, a fresh scrape) — it is safe to re-run any
+time, it only ever `UPDATE`s by card number.
 
 ## Catalogue updates
 
