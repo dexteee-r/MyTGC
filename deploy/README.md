@@ -173,6 +173,37 @@ by guesswork. No API restart needed: `market_price` is a live per-request subque
 Same "nothing breaks if it does not run" as the English side — JP prices simply stay
 frozen at whatever the last snapshot found.
 
+## Illustrator credits
+
+`backend/scripts/import_artists.py` credits illustrators onto the catalogue from
+`backend/scripts/artists.toon`, a checked-in snapshot (277 card numbers as of
+2026-09-12) — nothing here scrapes on the host itself, and nothing runs on a timer.
+Deploying the code (the `artist` column, the `/cards?artist=` filter, the
+"Illustrateur" chips) does **not** load this data: `deploy.sh` only runs schema
+migrations, which add the empty column but credit no card. The one-off load has to
+happen here, same as "Catalogue updates" below and prices further up.
+
+```bash
+sudo -u mytcg bash -c '
+cd /opt/mytcg/app
+.venv/bin/python backend/scripts/import_artists.py --from-toon
+'
+```
+
+Expect a line like `277 numéros lus depuis artists.toon` followed by `NNN lignes
+mises à jour en base (0 numéros absents de ce catalogue)` — a non-zero "absents"
+count on a healthy catalogue would mean `artists.toon` and the host's card list have
+drifted, worth a second look rather than ignoring. **No API restart needed**: like
+`market_price`, `artist` is read straight from the database on every `/cards`
+request, never cached in `app.state` the way the `/scan` catalogue is.
+
+Symptom if this step is skipped after a deploy that ships the filter: the UI is
+correct (chips render, the endpoint accepts `?artist=`) but every result is empty
+or the "Illustrateur" group on Collection is always blank — the column exists and
+is simply NULL on every row. Re-run the command above whenever `artists.toon`
+changes in the repository (a name added or removed, a fresh scrape) — it is safe to
+re-run any time, it only ever `UPDATE`s by card number.
+
 ## Catalogue updates
 
 A new set (e.g. a new booster) needs three scripts re-run on the host — nothing here
